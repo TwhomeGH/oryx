@@ -1621,10 +1621,10 @@ func (v *TranscriptTask) DriveLiveQueue(ctx context.Context) error {
 	}
 
 	// Get total segments in overlay HLS.
-	maxOverlaySegments, _ := strconv.ParseInt(envTranscriptOverlayQueueLimit(), 10, 64)
+	maxOverlaySegments, _ := strconv.Atoi(envTranscriptOverlayQueueLimit())
 
 	// Wait if ASR queue is full.
-	if v.AsrQueue.count() >= int(maxOverlaySegments)+1 {
+	if v.AsrQueue.count() >= maxOverlaySegments+1 {
 		return nil
 	}
 
@@ -1699,10 +1699,10 @@ func (v *TranscriptTask) DriveAsrQueue(ctx context.Context) error {
 	}
 
 	// Get total segments in overlay HLS.
-	maxOverlaySegments, _ := strconv.ParseInt(envTranscriptOverlayQueueLimit(), 10, 64)
+	maxOverlaySegments, _ := strconv.Atoi(envTranscriptOverlayQueueLimit())
 
 	// Wait if Fix queue is full.
-	if v.FixQueue.count() >= int(maxOverlaySegments)+1 {
+	if v.FixQueue.count() >= maxOverlaySegments+1 {
 		return nil
 	}
 
@@ -1831,10 +1831,10 @@ func (v *TranscriptTask) DriveFixQueue(ctx context.Context) error {
 	}
 
 	// Get total segments in manually fix queue.
-	maxFixQueueLimit, _ := strconv.ParseInt(envTranscriptFixQueueLimit(), 10, 64)
+	maxFixQueueLimit, _ := strconv.Atoi(envTranscriptFixQueueLimit())
 
 	// Ignore if not enough segments.
-	if v.FixQueue.count() <= int(maxFixQueueLimit) {
+	if v.FixQueue.count() <= maxFixQueueLimit {
 		return nil
 	}
 
@@ -1854,10 +1854,10 @@ func (v *TranscriptTask) DriveFixQueue(ctx context.Context) error {
 	}
 
 	// Get total segments in overlay HLS.
-	maxOverlaySegments, _ := strconv.ParseInt(envTranscriptOverlayQueueLimit(), 10, 64)
+	maxOverlaySegments, _ := strconv.Atoi(envTranscriptOverlayQueueLimit())
 
 	// Wait if Overlay queue is full.
-	if v.OverlayQueue.count() >= int(maxOverlaySegments)+1 {
+	if v.OverlayQueue.count() >= maxOverlaySegments+1 {
 		return nil
 	}
 
@@ -1963,10 +1963,10 @@ func (v *TranscriptTask) DriveOverlayQueue(ctx context.Context) error {
 	}
 
 	// Get total segments in overlay HLS.
-	maxOverlaySegments, _ := strconv.ParseInt(envTranscriptOverlayQueueLimit(), 10, 64)
+	maxOverlaySegments, _ := strconv.Atoi(envTranscriptOverlayQueueLimit())
 
 	// Ignore if not enough segments.
-	if v.OverlayQueue.count() <= int(maxOverlaySegments) {
+	if v.OverlayQueue.count() <= maxOverlaySegments {
 		select {
 		case <-ctx.Done():
 		case <-time.After(1 * time.Second):
