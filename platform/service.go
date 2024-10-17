@@ -354,22 +354,22 @@ func handleHTTPService(ctx context.Context, handler *http.ServeMux) error {
 	handleMgmtStreamsKickoff(ctx, handler)
 	handleMgmtUI(ctx, handler)
 
-	proxy2023, err := httpCreateProxy("http://127.0.0.1:2023")
+	proxy2023, err := httpCreateProxy("http://" + os.Getenv("SRS_HOST") + ":2023")
 	if err != nil {
 		return err
 	}
 
-	proxy1985, err := httpCreateProxy("http://127.0.0.1:1985")
+	proxy1985, err := httpCreateProxy("http://" + os.Getenv("SRS_HOST") + ":1985")
 	if err != nil {
 		return err
 	}
 
-	proxyWhxp, err := httpCreateProxy("http://127.0.0.1:1985")
+	proxyWhxp, err := httpCreateProxy("http://" + os.Getenv("SRS_HOST") + ":1985")
 	if err != nil {
 		return err
 	}
 
-	proxy8080, err := httpCreateProxy("http://127.0.0.1:8080")
+	proxy8080, err := httpCreateProxy("http://" + os.Getenv("SRS_HOST") + ":8080")
 	if err != nil {
 		return err
 	}
@@ -1556,7 +1556,7 @@ func handleMgmtStreamsKickoff(ctx context.Context, handler *http.ServeMux) {
 
 			// Whether client exists in SRS server.
 			var code int
-			clientURL := fmt.Sprintf("http://127.0.0.1:1985/api/v1/clients/%v", streamObject.Client)
+			clientURL := fmt.Sprintf("http://%v:1985/api/v1/clients/%v", os.Getenv("SRS_HOST"), streamObject.Client)
 			if r0, body, err := requestClient(ctx, clientURL, http.MethodGet); err != nil {
 				return errors.Wrapf(err, "http query client %v", clientURL)
 			} else if r0 != 0 && r0 != ErrorRtmpClientNotFound {
