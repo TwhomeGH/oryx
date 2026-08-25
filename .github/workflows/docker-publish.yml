@@ -47,12 +47,20 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=tag
 
+      # Prebuild zh/en UI on the runner, same as official release.yml,
+      # then root Dockerfile packs them via MAKEARGS=build-no-ui.
+      - name: Build UI (cn + en)
+        run: |
+          cd ui && make build-cn -j && make build-en -j
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./releases/Dockerfile
+          file: ./Dockerfile
           platforms: linux/amd64
+          build-args: |
+            MAKEARGS=build-no-ui
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
