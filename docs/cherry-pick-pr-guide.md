@@ -3,6 +3,19 @@
 本文件說明如何把 [ossrs/oryx](https://github.com/ossrs/oryx) 上游尚未被合併的 PR，逐步套用到我們自己的 fork 上。
 整個流程的核心是 **fetch 上游的 PR ref → 挑出 commit → cherry-pick 到自己的分支**。
 
+> **懶人首選**：專案內建了互動式腳本 `scripts/pick-pr.ps1`，自動查詢 PR 的精確 commit 清單、
+> 逐一預覽、確認後套用、詢問推送，衝突時給中文指引：
+>
+> ```powershell
+> # 只看不改（先評估這個 PR 改什麼）
+> powershell -ExecutionPolicy Bypass -File scripts\pick-pr.ps1 247 -DryRun
+>
+> # 實際套用（會逐步跟你確認）
+> powershell -ExecutionPolicy Bypass -File scripts\pick-pr.ps1 247
+> ```
+>
+> 手動流程仍然值得讀懂——腳本只是幫你把下面每一步串起來，出狀況時你才知道發生什麼事。
+
 ---
 
 ## 0. 名詞解釋
@@ -169,3 +182,68 @@ git push origin main                    # 6. 推送
 | merge PR 分支 | `git merge FETCH_HEAD` | 想保留 PR 完整歷史；但會把該分支所有祖先 commit 關聯進來，獨立 fork 不建議 |
 
 日常維護以 **cherry-pick 為主**，其他做法當備援。
+
+---
+
+## 9. 實戰記錄
+
+### 案例 A：多個 commit 的 PR（#248）
+
+PR 頁面顯示 **2 commits**，一個改 runner、一個升級 actions 版本：
+
+```bash
+git fetch upstream pull/248/head
+git log --oneline FETCH_HEAD~2..FETCH_HEAD
+# 066ace6 upgrade actions from v3 to v4        ← 新
+# 583e2c4 replace action runner ...            ← 舊
+git cherry-pick 583e2c4 066ace6                # 由舊到新依序列出
+```
+
+### 案例 B：單一 commit 的 PR（#247）
+
+只改一行設定檔（SRS HTTP API 移除 127.0.0.1 綁定），一個 commit：
+
+```bash
+git fetch upstream pull/247/head
+git log --oneline -3 FETCH_HEAD     # 尖端是 b608793，只有這一個是 PR 自己的 commit
+git show b608793                    # 預覽：確認就那一行
+git cherry-pick b608793             # 撿上來
+```
+
+### 判斷「哪些 commit 屬於這個 PR」
+
+最可靠的方式：**PR 頁面寫了幾個 commits，就從 `FETCH_HEAD` 往回數幾個**：
+
+```bash
+git log --oneline FETCH_HEAD -<commit數>
+```
+
+再往下看到的（如 `Update README.md`）就是上游 main 的歷史，**不屬於**這個 PR。
+
+### 千萬不要拿兩個分支尾端直接 diff
+
+```bash
+# ✗ 錯誤示範：會混入大量不相干內容
+git diff HEAD..FETCH_HEAD
+
+# ✓ 正確：看單一 commit 的實際改動
+git show <SHA>
+```
+
+原因：PR 分支是從上游較舊的位置切出去的，兩邊尾端比較時，
+我們自己的所有修改都會被算成「差異」，看起來嚇人但完全不是 PR 的內容。
+
+---
+
+## 10. 常見錯誤對照表
+
+| 錯誤訊息 / 現象 | 原因 | 正確做法 |
+|---|---|---|
+| `fatal: invalid refspec 'https://...'` | 把 PR 網址直接貼給 fetch | fetch 要用 refspec 格式：`git fetch upstream pull/<編號>/head` |
+| `git log FETCH_HEAD~N..FETCH_HEAD` 沒輸出 | 語法或範圍問題 | 改用 `git log --oneline FETCH_HEAD -N` 直接列尖端 |
+| diff 出現一大堆莫名檔案 | 拿分支尾端互相比較 | 用 `git show <SHA>` 看 commit 本身 |
+| `error: could not apply ...` | cherry-pick 衝突 | 解衝突 → `git add` → `--continue`；反悔就 `--abort` |
+| cherry-pick 完忘記驗證 | — | 一定要搜尋確認舊內容清乾淨、跑相關測試 |
+
+> 小抄：整個流程背不起來沒關係，只要記住一句話——
+> 「fetch 抓 PR、log 找 SHA、show 看內容、pick 撿上來」。
