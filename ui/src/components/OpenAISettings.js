@@ -5,7 +5,7 @@ import {Button, Form, Spinner} from "react-bootstrap";
 import {useTranslation} from "react-i18next";
 import {useErrorHandler} from "react-error-boundary";
 
-export function OpenAISecretSettings({baseURL, setBaseURL, secretKey, setSecretKey, organization, setOrganization, model, setModel}) {
+export function OpenAISecretSettings({baseURL, setBaseURL, secretKey, setSecretKey, organization, setOrganization, model, setModel, chatModel, setChatModel}) {
   const {t} = useTranslation();
   const handleError = useErrorHandler();
 
@@ -21,14 +21,14 @@ export function OpenAISecretSettings({baseURL, setBaseURL, secretKey, setSecretK
     setChecking(true);
 
     axios.post('/terraform/v1/ai/transcript/check', {
-      secretKey, baseURL, model,
+      secretKey, baseURL, model, chatModel,
     }, {
       headers: Token.loadBearerHeader(),
     }).then(res => {
       alert(`${t('helper.testOk')}: ${t('transcript.testOk')}`);
       console.log(`OpenAI: Test service ok.`);
     }).catch(handleError).finally(setChecking);
-  }, [t, handleError, secretKey, baseURL, model, setChecking]);
+  }, [t, handleError, secretKey, baseURL, model, chatModel, setChecking]);
 
   return (
     <React.Fragment>
@@ -47,6 +47,13 @@ export function OpenAISecretSettings({baseURL, setBaseURL, secretKey, setSecretK
           <Form.Label>{t('transcript.model')}</Form.Label>
           <Form.Text> * {t('transcript.model2')} <code>whisper-1</code>. {t('transcript.model3')} <code>Ollama</code>, <code>faster-whisper</code></Form.Text>
           <Form.Control as="input" defaultValue={model} onChange={(e) => setModel(e.target.value)} />
+        </Form.Group>
+      )}
+      {setChatModel && (
+        <Form.Group className="mb-3">
+          <Form.Label>{t('transcript.chatModel')}</Form.Label>
+          <Form.Text> * {t('transcript.chatModel2')} <code>gpt-3.5-turbo</code></Form.Text>
+          <Form.Control as="input" defaultValue={chatModel} onChange={(e) => setChatModel(e.target.value)} />
         </Form.Group>
       )}
       <div>

@@ -117,7 +117,6 @@ function ScenarioTranscriptImpl({activeKey, defaultEnabled, defaultConf, default
     axios.post('/terraform/v1/ai/transcript/apply', {
       uuid, all: !!enabled, secretKey, organization, baseURL, lang: targetLanguage,
       model, chatModel,
-      model, chatModel,
       overlayEnabled: !!overlayEnabled, forceStyle, videoCodecParams,
       webvttEnabled: !!webvttEnabled,
       webvttCueStyle, webvttCueSetting
@@ -347,7 +346,7 @@ function ScenarioTranscriptImpl({activeKey, defaultEnabled, defaultConf, default
                 <OpenAISecretSettings {...{
                   baseURL, setBaseURL, secretKey, setSecretKey,
                   organization, setOrganization,
-                  model, setModel,
+                  model, setModel, chatModel, setChatModel,
                 }} />
               </Card.Body>}
               {configItem === 'asr' && <Card.Body>
