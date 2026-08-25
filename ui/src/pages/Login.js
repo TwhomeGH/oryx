@@ -22,7 +22,7 @@ export default function Login({onLogin}) {
 }
 
 function LoginImpl({onLogin}) {
-  const [plaintext, setPlaintext] = React.useState(true);
+  const [plaintext, setPlaintext] = React.useState(false);
   const [password, setPassword] = React.useState();
   const [operating, setOperating] = React.useState(false);
   const navigate = useNavigate();

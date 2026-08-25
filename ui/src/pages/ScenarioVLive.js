@@ -11,6 +11,7 @@ import moment from "moment";
 import {useErrorHandler} from "react-error-boundary";
 import {useSrsLanguage} from "../components/LanguageSwitch";
 import {useTranslation} from "react-i18next";
+import {SecretInput} from "../components/SecretInput";
 import {SrsErrorBoundary} from "../components/SrsErrorBoundary";
 import ChooseVideoSource, {VLiveFileFormatInfo} from "../components/VideoSourceSelector";
 import {SrsEnvContext} from "../components/SrsEnvContext";
@@ -254,7 +255,7 @@ function ScenarioVLiveImpl({defaultActiveKey, defaultSecrets}) {
                 <Form.Group className="mb-3">
                   <Form.Label>{t('plat.com.key')}</Form.Label>
                   {!conf.custom && <Form.Text> * {t('plat.com.server3')} <a href={conf?.locale?.link} target='_blank' rel='noreferrer'>{conf?.locale?.link2}</a>, {t('plat.com.key2')}</Form.Text>}
-                  <Form.Control as="input" defaultValue={conf.secret} onChange={(e) => updateConfigObject({...conf, secret: e.target.value})}/>
+                  <SecretInput value={conf.secret} onChange={(v) => updateConfigObject({...conf, secret: v})}/>
                 </Form.Group>
                 {conf?.allowCustom && (
                   <Row>
