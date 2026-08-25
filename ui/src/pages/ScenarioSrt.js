@@ -105,8 +105,8 @@ function ScenarioSrtCn({copyToClipboard, urls}) {
               配置vMix推流，可以参考<a href='https://github.com/ossrs/srs/issues/1147#lagging-encoder'>链接</a>：
               <ol>
                 <li>
-                  点右上角 <code>Settings(设置)</code> => <code>Outputs/NDI/SRT(输出/SRT)</code> / 点<code>Output(1)</code>的设置 <br/>
-                  或者点下方的 <code>External(外部)</code> => <code>Outputs/NDI/SRT Settings</code> / 点<code>Output(1)</code>的设置
+                  点右上角 <code>Settings(设置)</code> =&gt; <code>Outputs/NDI/SRT(输出/SRT)</code> / 点<code>Output(1)</code>的设置 <br/>
+                  或者点下方的 <code>External(外部)</code> =&gt; <code>Outputs/NDI/SRT Settings</code> / 点<code>Output(1)</code>的设置
                 </li>
                 <li>勾选上：<code>Enable SRT</code></li>
                 <li>Type：<code>Caller</code></li>
@@ -147,7 +147,7 @@ function ScenarioSrtCn({copyToClipboard, urls}) {
             <li>
               配置vMix拉流：
               <ol>
-                <li>点下方的 <code>Add Input(添加输入)</code> => <code>Stream/SRT(流/SRT)</code></li>
+                <li>点下方的 <code>Add Input(添加输入)</code> =&gt; <code>Stream/SRT(流/SRT)</code></li>
                 <li>Stream Type(码流类型)：<code>SRT Caller</code></li>
                 <li>
                   Hostname：<code>{hostname}</code> &nbsp;
@@ -479,8 +479,8 @@ function ScenarioSrtEn({updateStreamName, copyToClipboard, urls}) {
               Config vMix as bellow
               <ol>
                 <li>
-                  Click <code>Settings</code> => <code>Outputs/NDI/SRT</code> / Click <code>Output(1)</code> <br/>
-                  Or click <code>External</code> => <code>Outputs/NDI/SRT Settings</code> / Click <code>Output(1)</code>
+                  Click <code>Settings</code> =&gt; <code>Outputs/NDI/SRT</code> / Click <code>Output(1)</code> <br/>
+                  Or click <code>External</code> =&gt; <code>Outputs/NDI/SRT Settings</code> / Click <code>Output(1)</code>
                 </li>
                 <li>Check <code>Enable SRT</code></li>
                 <li>Type: <code>Caller</code></li>
@@ -521,7 +521,7 @@ function ScenarioSrtEn({updateStreamName, copyToClipboard, urls}) {
             <li>
               Config vMix as bellow
               <ol>
-                <li>Click <code>Add Input</code> => <code>Stream/SRT</code></li>
+                <li>Click <code>Add Input</code> =&gt; <code>Stream/SRT</code></li>
                 <li>Stream Type: <code>SRT Caller</code></li>
                 <li>
                   Hostname：<code>{hostname}</code> &nbsp;

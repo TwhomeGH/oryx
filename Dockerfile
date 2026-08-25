@@ -1,6 +1,6 @@
 ARG ARCH
 
-FROM ${ARCH}ossrs/node:18 AS node
+FROM ${ARCH}node:22 AS node
 FROM ${ARCH}ossrs/srs:7 AS srs
 
 RUN mv /usr/local/srs/objs/ffmpeg/bin/ffmpeg /usr/local/bin/ffmpeg && \

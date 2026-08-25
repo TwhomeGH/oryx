@@ -8,7 +8,7 @@ import React from "react";
 import {Token} from "../utils";
 import axios from "axios";
 import {Row, Col, Card, Badge, Button} from "react-bootstrap";
-import * as moment from 'moment';
+import moment from "moment";
 import {SrsErrorBoundary} from "../components/SrsErrorBoundary";
 import {useTranslation} from "react-i18next";
 import {SrsEnvContext} from "../components/SrsEnvContext";

@@ -5,6 +5,10 @@
 //
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
+import { vi } from "vitest";
+
+// Compatibility shim: tests were written against CRA/jest globals.
+globalThis.jest = vi;
 
 // the translations
 // (tip move them in a JSON file and import them,
