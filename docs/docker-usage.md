@@ -13,6 +13,8 @@
 | 版本標籤 | `v5.15.20` 這類版本號，對應 `platform/version.go` 的 `const version` |
 | 浮動標籤 | `latest` 永遠指向 main 分支最新的成功建置 |
 | 自動建置 | push 到 `main` 或打 `v*` 標籤時，由 `.github/workflows/docker-publish.yml` 自動建置推送 |
+| 標籤策略 | `:版本號` 與 `:latest` 會被同版推送覆蓋；`:sha-xxxxxxx` 綁定 commit 不可變，供回退 |
+| 套件清理 | `.github/workflows/package-cleanup.yml` 每日刪除無標籤殘留；`sha-*` 建置滾動保留最近 20 個（`:latest`/`:v版號` 受保護永不刪） |
 | 支援架構 | 目前僅 `linux/amd64` |
 
 > 注意：官方的 `ossrs/oryx` 與本 fork 的映像互不相干。本 fork 的 release workflow 已停用，
@@ -118,6 +120,8 @@ docker compose pull && docker compose up -d
 > 建議 compose 固定明確版號而不是 latest，升級時間可控、出問題好回退。
 
 ### 回退版本
+
+> 完整的回退操作手冊（含 `sha-*` 標籤回退、緊急 tar 還原）見 [映像回退指南](rollback.md)。
 
 把 compose 的 tag 改回舊版號再 `up -d` 即可，舊版映像還留在本機：
 

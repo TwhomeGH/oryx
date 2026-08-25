@@ -46,6 +46,8 @@ jobs:
             type=raw,value=${{ steps.version.outputs.SRS_TAG }}
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=tag
+            # Immutable tag per build, e.g. sha-a1b2c3d — always available for rollback.
+            type=sha,prefix=sha-
 
       # Prebuild zh/en UI on the runner, same as official release.yml,
       # then root Dockerfile packs them via MAKEARGS=build-no-ui.

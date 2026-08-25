@@ -1,0 +1,37 @@
+name: Cleanup GHCR Package
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  # Remove dangling manifests left behind by overwriting :latest / :vX.Y.Z tags.
+  purge-untagged:
+    runs-on: ubuntu-22.04
+    permissions:
+      packages: write
+    steps:
+      - name: Delete untagged versions
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: 'oryx'
+          package-type: 'container'
+          delete-only-untagged-versions: 'true'
+
+  # Protect :latest / :vX.* release tags via ignore-versions; among everything
+  # else (sha-* builds), always keep the newest 20 and delete up to 100
+  # oldest ones per run.
+  prune-old-builds:
+    runs-on: ubuntu-22.04
+    permissions:
+      packages: write
+    steps:
+      - name: Prune old sha-* builds
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: 'oryx'
+          package-type: 'container'
+          ignore-versions: '^(latest|v[0-9])'
+          min-versions-to-keep: '20'
+          num-old-versions-to-delete: '100'
