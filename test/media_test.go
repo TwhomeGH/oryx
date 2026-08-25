@@ -15,6 +15,7 @@ import (
 )
 
 func TestMedia_WithStream_PublishRtmpPlayFlv_SecretQuery(t *testing.T) {
+	tc(t, "RTMP 推流後，用密鑰查詢介面取得播放位址並驗證 HTTP-FLV 播放")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -93,6 +94,7 @@ func TestMedia_WithStream_PublishRtmpPlayFlv_SecretQuery(t *testing.T) {
 }
 
 func TestMedia_WithStream_PublishRtmpPlayFlv_SecretStream(t *testing.T) {
+	tc(t, "帶密鑰的 RTMP 推流＋HTTP-FLV 播放全鏈路")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -171,6 +173,7 @@ func TestMedia_WithStream_PublishRtmpPlayFlv_SecretStream(t *testing.T) {
 }
 
 func TestMedia_WithStream_PublishRtmpPlayHls_SecretQuery(t *testing.T) {
+	tc(t, "RTMP 推流後 HLS 切片與 m3u8 播放清單可正常取得")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -248,6 +251,7 @@ func TestMedia_WithStream_PublishRtmpPlayHls_SecretQuery(t *testing.T) {
 }
 
 func TestMedia_WithStream_PublishSrtPlayFlv_SecretQuery(t *testing.T) {
+	tc(t, "SRT 推流轉 FLV 播放的跨協定鏈路")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -336,6 +340,7 @@ func TestMedia_WithStream_PublishSrtPlayFlv_SecretQuery(t *testing.T) {
 }
 
 func TestMedia_WithStream_PublishRtmpPlayHls_NoHlsCtx(t *testing.T) {
+	tc(t, "高效能 HLS 關閉 hls_ctx 時的推拉流驗證")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -486,6 +491,7 @@ func TestMedia_WithStream_PublishRtmpPlayHls_NoHlsCtx(t *testing.T) {
 }
 
 func TestMedia_WithStream_PublishRtmpPlayHls_WithHlsCtx(t *testing.T) {
+	tc(t, "高效能 HLS 開啟 hls_ctx 時的推拉流驗證")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 

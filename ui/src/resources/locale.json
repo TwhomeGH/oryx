@@ -153,6 +153,9 @@
       "coms": {
         "srs4": "SRS(稳定版)",
         "srs5": "SRS(开发版)",
+        "srsTitle": "SRS 核心能力",
+        "srsVersion": "核心版本",
+        "refresh": "重新檢測",
         "hooks": "Hooks(回调)",
         "ffmpeg": "FFmpeg(流处理)",
         "tencent": "Tencent(腾讯云)",
@@ -1277,6 +1280,9 @@
       "coms": {
         "srs4": "SRS(Stable)",
         "srs5": "SRS(Develop)",
+        "srsTitle": "SRS Core Capabilities",
+        "srsVersion": "Core version",
+        "refresh": "Re-check",
         "hooks": "Hooks(Callback)",
         "ffmpeg": "FFmpeg(StreamCovert)",
         "tencent": "Tencent(Cloud)",

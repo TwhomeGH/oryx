@@ -22,6 +22,7 @@ import (
 )
 
 func TestApi_SetupWebsiteFooter(t *testing.T) {
+	tc(t, "驗證可設定管理介面的網站頁尾文字")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -56,6 +57,7 @@ func TestApi_SetupWebsiteFooter(t *testing.T) {
 }
 
 func TestApi_SetupWebsiteTitle(t *testing.T) {
+	tc(t, "驗證可設定管理介面的網站標題")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -114,6 +116,7 @@ func TestApi_SetupWebsiteTitle(t *testing.T) {
 // Never run this in parallel, because it changes the publish
 // secret which might cause other cases to fail.
 func TestApi_UpdatePublishSecret(t *testing.T) {
+	tc(t, "驗證更新 RTMP 推流密鑰後，新密鑰可推流、舊密鑰失效")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -171,6 +174,7 @@ func TestApi_UpdatePublishSecret(t *testing.T) {
 }
 
 func TestApi_TutorialsQueryBilibili(t *testing.T) {
+	tc(t, "驗證查詢 B 站轉推的教學設定資訊")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -209,6 +213,7 @@ func TestApi_TutorialsQueryBilibili(t *testing.T) {
 }
 
 func TestApi_SslUpdateCert(t *testing.T) {
+	tc(t, "驗證上傳與更新 HTTPS 自訂證書")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -298,6 +303,7 @@ func TestApi_SslUpdateCert(t *testing.T) {
 }
 
 func TestApi_LetsEncryptUpdateCert(t *testing.T) {
+	tc(t, "驗證設定 Let's Encrypt 自動策發證書")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -336,6 +342,7 @@ func TestApi_LetsEncryptUpdateCert(t *testing.T) {
 }
 
 func TestApi_SetupHpHLSNoHlsCtx(t *testing.T) {
+	tc(t, "驗證高效能 HLS 模式（關閉 hls_ctx）的設定儲存與生效")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -381,6 +388,7 @@ func TestApi_SetupHpHLSNoHlsCtx(t *testing.T) {
 }
 
 func TestApi_SetupHpHLSWithHlsCtx(t *testing.T) {
+	tc(t, "驗證高效能 HLS 模式（開啟 hls_ctx）的設定儲存與生效")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -426,6 +434,7 @@ func TestApi_SetupHpHLSWithHlsCtx(t *testing.T) {
 }
 
 func TestApi_SetupHlsLowLatencyEnable(t *testing.T) {
+	tc(t, "驗證開啟 HLS 低延遲模式（切片 2 秒/窗口 16 秒）")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -471,6 +480,7 @@ func TestApi_SetupHlsLowLatencyEnable(t *testing.T) {
 }
 
 func TestApi_SetupHlsLowLatencyDisable(t *testing.T) {
+	tc(t, "驗證關閉 HLS 低延遲模式（恢復切片 10 秒/窗口 60 秒）")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -516,6 +526,7 @@ func TestApi_SetupHlsLowLatencyDisable(t *testing.T) {
 }
 
 func TestApi_SrsApiNoAuth(t *testing.T) {
+	tc(t, "驗證未帶認證呼叫 SRS API 代理會被拒絕")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -560,6 +571,7 @@ func TestApi_SrsApiNoAuth(t *testing.T) {
 }
 
 func TestApi_SrsApiWithAuth(t *testing.T) {
+	tc(t, "驗證帶認證可透過代理查詢 SRS 版本等資訊（含核心大版本相容檢查，支援 SRS 5/6/7）")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -590,7 +602,8 @@ func TestApi_SrsApiWithAuth(t *testing.T) {
 	}{}
 	if err := NewApi().WithAuth(ctx, "/api/v1/versions", nil, &ver); err != nil {
 		r0 = errors.Wrapf(err, "request failed")
-	} else if ver.Major != 5 {
+	} else if ver.Major < 5 {
+		// Fork ships SRS 5/6/7 (default 7 now), so only reject ancient cores.
 		r0 = errors.Errorf("invalid response %v", ver)
 	}
 
@@ -621,6 +634,7 @@ func TestApi_SrsApiWithAuth(t *testing.T) {
 }
 
 func TestApi_SrsApiCorsNoOrigin(t *testing.T) {
+	tc(t, "驗證 SRS API 的 CORS：無 Origin 請求頭時的回應")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -685,6 +699,7 @@ func TestApi_SrsApiCorsNoOrigin(t *testing.T) {
 }
 
 func TestApi_SrsApiCorsWithOrigin(t *testing.T) {
+	tc(t, "驗證 SRS API 的 CORS：帶 Origin 請求頭時允許跨域")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 

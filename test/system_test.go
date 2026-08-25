@@ -16,11 +16,13 @@ import (
 )
 
 func TestSystem_Empty(t *testing.T) {
+	tc(t, "全新系統的初始狀態（首次安裝引導流程）")
 	ctx := logger.WithContext(context.Background())
 	logger.Tf(ctx, "test done")
 }
 
 func TestSystem_Ready(t *testing.T) {
+	tc(t, "服務就緒狀態檢查端點")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -32,6 +34,7 @@ func TestSystem_Ready(t *testing.T) {
 }
 
 func TestSystem_QueryPublishSecret(t *testing.T) {
+	tc(t, "查詢 RTMP 推流密鑰")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -57,6 +60,7 @@ func TestSystem_QueryPublishSecret(t *testing.T) {
 }
 
 func TestSystem_LoginByPassword(t *testing.T) {
+	tc(t, "以帳號密碼登入取得 token")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -86,6 +90,7 @@ func TestSystem_LoginByPassword(t *testing.T) {
 }
 
 func TestSystem_BootstrapQueryEnvs(t *testing.T) {
+	tc(t, "bootstrap API 查詢系統環境資訊")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -109,6 +114,7 @@ func TestSystem_BootstrapQueryEnvs(t *testing.T) {
 }
 
 func TestSystem_BootstrapQueryInit(t *testing.T) {
+	tc(t, "bootstrap API 查詢初始化狀態")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -132,6 +138,7 @@ func TestSystem_BootstrapQueryInit(t *testing.T) {
 }
 
 func TestSystem_BootstrapQueryCheck(t *testing.T) {
+	tc(t, "bootstrap API 健康檢查")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -155,6 +162,7 @@ func TestSystem_BootstrapQueryCheck(t *testing.T) {
 }
 
 func TestSystem_BootstrapQueryVersions(t *testing.T) {
+	tc(t, "bootstrap API 查詢版本資訊")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -178,6 +186,7 @@ func TestSystem_BootstrapQueryVersions(t *testing.T) {
 }
 
 func TestSystem_CandidateByEip(t *testing.T) {
+	tc(t, "WebRTC candidate：從雲端彈性 IP（EIP）偵測")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -217,6 +226,7 @@ func TestSystem_CandidateByEip(t *testing.T) {
 }
 
 func TestSystem_CandidateByHostIp(t *testing.T) {
+	tc(t, "WebRTC candidate：從主機網卡 IP 偵測")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -260,6 +270,7 @@ func TestSystem_CandidateByHostIp(t *testing.T) {
 }
 
 func TestSystem_WithStream_PublishRtmpKickoff(t *testing.T) {
+	tc(t, "推流後透過 API 強制斷開（kickoff）串流連線")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsLongTimeout)*time.Millisecond)
 	defer cancel()
 

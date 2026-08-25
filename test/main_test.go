@@ -265,6 +265,12 @@ func prepareTest(ctx context.Context) (err error) {
 	return nil
 }
 
+// tc prints the purpose of the current test case in Chinese, so that CI logs
+// are self-explanatory without reading the test source code.
+func tc(t *testing.T, zh string) {
+	t.Logf("測試案例 [%v]：%v", t.Name(), zh)
+}
+
 func TestMain(m *testing.M) {
 	ctx := logger.WithContext(context.Background())
 

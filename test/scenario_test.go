@@ -18,6 +18,7 @@ import (
 )
 
 func TestScenario_WithStream_PublishVliveStreamUrl(t *testing.T) {
+	tc(t, "虛擬直播：以 URL 為來源開播的全流程")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -219,6 +220,7 @@ func TestScenario_WithStream_PublishVliveStreamUrl(t *testing.T) {
 }
 
 func TestScenario_WithStream_PublishVLiveServerFile(t *testing.T) {
+	tc(t, "虛擬直播：以上傳到伺服器的檔案為來源開播")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -418,6 +420,7 @@ func TestScenario_WithStream_PublishVLiveServerFile(t *testing.T) {
 }
 
 func TestScenario_WithStream_PublishRtmpRecordMp4(t *testing.T) {
+	tc(t, "錄製：推流觸發錄製，停止後驗證 MP4 檔案內容與規格")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsLongTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -566,6 +569,7 @@ func TestScenario_WithStream_PublishRtmpRecordMp4(t *testing.T) {
 }
 
 func TestScenario_WithStream_PostProcessCpFile_RecordMp4(t *testing.T) {
+	tc(t, "錄製後置處理：複製 MP4 檔案的流程")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsLongTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -759,6 +763,7 @@ func TestScenario_WithStream_PostProcessCpFile_RecordMp4(t *testing.T) {
 }
 
 func TestScenario_WithStream_Publishing_EndRecordMp4(t *testing.T) {
+	tc(t, "錄製：推流中途中斷錄製，驗證已產生 MP4 的完整性")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsLongTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -964,6 +969,7 @@ func TestScenario_WithStream_Publishing_EndRecordMp4(t *testing.T) {
 }
 
 func TestScenario_WithStream_Unpublished_EndRecordMp4(t *testing.T) {
+	tc(t, "錄製邊界：未推流就結束錄製的處理")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsLongTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -1171,6 +1177,7 @@ func TestScenario_WithStream_Unpublished_EndRecordMp4(t *testing.T) {
 }
 
 func TestScenario_WithStream_RecordWithGlobFiltersAllowed(t *testing.T) {
+	tc(t, "錄製過濾：符合 glob 白名單的串流會被錄製")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsLongTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -1335,6 +1342,7 @@ func TestScenario_WithStream_RecordWithGlobFiltersAllowed(t *testing.T) {
 }
 
 func TestScenario_WithStream_RecordWithGlobFiltersDenied(t *testing.T) {
+	tc(t, "錄製過濾：不符合 glob 規則的串流被拒絕錄製")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsLongTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -1494,6 +1502,7 @@ func TestScenario_WithStream_RecordWithGlobFiltersDenied(t *testing.T) {
 }
 
 func TestScenario_WithStream_PublishRtmpForwardPlatform(t *testing.T) {
+	tc(t, "轉推：推流後 forward 到目標平台並驗證輸出可播放")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -1635,6 +1644,7 @@ func TestScenario_WithStream_PublishRtmpForwardPlatform(t *testing.T) {
 }
 
 func TestScenario_WithStream_PublishRtmpTranscodeDefault(t *testing.T) {
+	tc(t, "轉碼：預設參數（profile/preset）輸出驗證")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -1800,6 +1810,7 @@ func TestScenario_WithStream_PublishRtmpTranscodeDefault(t *testing.T) {
 }
 
 func TestScenario_WithStream_PublishRtmpTranscodeFollow(t *testing.T) {
+	tc(t, "轉碼：follow 模式（跟隨來源解析度）輸出驗證")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -1940,6 +1951,7 @@ func TestScenario_WithStream_PublishRtmpTranscodeFollow(t *testing.T) {
 }
 
 func TestScenario_WithStream_PublishRtmpTranscodeMono(t *testing.T) {
+	tc(t, "轉碼：單聲道音訊輸出驗證")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -2080,6 +2092,7 @@ func TestScenario_WithStream_PublishRtmpTranscodeMono(t *testing.T) {
 }
 
 func TestScenario_WithStream_PublishRtmpTranscodeStereo(t *testing.T) {
+	tc(t, "轉碼：立體聲音訊輸出驗證")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -2220,6 +2233,7 @@ func TestScenario_WithStream_PublishRtmpTranscodeStereo(t *testing.T) {
 }
 
 func TestScenario_WithStream_CallbackOnPublishSuccess(t *testing.T) {
+	tc(t, "回呼：on_publish 允許推流的場景")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -2328,6 +2342,7 @@ func TestScenario_WithStream_CallbackOnPublishSuccess(t *testing.T) {
 }
 
 func TestScenario_WithStream_CallbackOnPublishFailed(t *testing.T) {
+	tc(t, "回呼：on_publish 拒絕推流的場景")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -2430,6 +2445,7 @@ func TestScenario_WithStream_CallbackOnPublishFailed(t *testing.T) {
 }
 
 func TestScenario_WithStream_CallbackOnRecordMp4(t *testing.T) {
+	tc(t, "回呼：透過 on_hls/on_record 回呼觸發 MP4 錄製")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsLongTimeout)*time.Millisecond)
 	defer cancel()
 

@@ -15,6 +15,7 @@ import (
 )
 
 func TestMedia_WithStream_LiveRoomCreateQueryRemove(t *testing.T) {
+	tc(t, "直播間：建立、查詢、刪除的完整流程")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -88,6 +89,7 @@ func TestMedia_WithStream_LiveRoomCreateQueryRemove(t *testing.T) {
 }
 
 func TestMedia_WithStream_LiveRoomPublishStream(t *testing.T) {
+	tc(t, "直播間：帶正確 room token 推流可正常播放")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -187,6 +189,7 @@ func TestMedia_WithStream_LiveRoomPublishStream(t *testing.T) {
 }
 
 func TestMedia_WithStream_LiveRoomPublishInvalidStream(t *testing.T) {
+	tc(t, "直播間：對無效串流的拒絕處理")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -281,6 +284,7 @@ func TestMedia_WithStream_LiveRoomPublishInvalidStream(t *testing.T) {
 }
 
 func TestMedia_WithStream_LiveRoomPublishInvalidSecret(t *testing.T) {
+	tc(t, "直播間：對錯誤金鑰推流的拒絕處理")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 

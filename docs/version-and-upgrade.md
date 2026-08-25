@@ -104,7 +104,8 @@ Dockerfile 的基底映像標籤；但換完怎麼確認「Oryx 依賴的功能�
 3. 啟動後呼叫 capabilities API，確認全部 `"ok": true` 再正式部署
 4. 有缺項 → 換回官方標籤或補齊編譯選項
 
-> 實作位置：`platform/srs-capability.go`。UI 視覺化面板為後續待辦。
+> 實作位置：`platform/srs-capability.go`。UI 已在「組件」頁（Components.js）新增
+> 「SRS 核心能力」卡片：顯示核心版本＋各功能綠/紅徽章，失敗項附錯誤詳情，附手動重新檢測按鈕。
 
 ---
 

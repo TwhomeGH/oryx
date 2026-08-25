@@ -14,6 +14,7 @@ import (
 )
 
 func TestScenario_WithStream_PublishCameraStreamUrl(t *testing.T) {
+	tc(t, "IP 攝影機：以 URL 為來源建立攝影機任務並轉推，ffprobe 驗證輸出串流規格")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -215,6 +216,7 @@ func TestScenario_WithStream_PublishCameraStreamUrl(t *testing.T) {
 }
 
 func TestScenario_WithStream_PublishCameraVideoOnly(t *testing.T) {
+	tc(t, "IP 攝影機：純視訊來源自動補上靜音音軌")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -415,6 +417,7 @@ func TestScenario_WithStream_PublishCameraVideoOnly(t *testing.T) {
 }
 
 func TestScenario_WithStream_PublishCameraDuration(t *testing.T) {
+	tc(t, "IP 攝影機：任務依設定的時長自動停止")
 	// Note that we must use long timeout, because we will interrupt FFmpeg and cause the HLS discontinuity.
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()

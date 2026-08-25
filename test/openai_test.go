@@ -14,6 +14,7 @@ import (
 )
 
 func TestOpenAI_TranscriptCheckConnection(t *testing.T) {
+	tc(t, "OpenAI 服務連線檢查（金鑰有效性）")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -43,6 +44,7 @@ func TestOpenAI_TranscriptCheckConnection(t *testing.T) {
 }
 
 func TestOpenAI_TranscriptApplyQuery(t *testing.T) {
+	tc(t, "轉錄（字幕）任務的套用與查詢")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -127,6 +129,7 @@ func TestOpenAI_TranscriptApplyQuery(t *testing.T) {
 }
 
 func TestOpenAI_WithStream_TranscriptASR(t *testing.T) {
+	tc(t, "推流同時驗證語音辨識（ASR）即時產生字幕")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsLongTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -284,6 +287,7 @@ func TestOpenAI_WithStream_TranscriptASR(t *testing.T) {
 }
 
 func TestOpenAI_WithStream_Transcript_ClearSubtitle(t *testing.T) {
+	tc(t, "清除字幕任務的流程驗證")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsLongTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -501,6 +505,7 @@ func TestOpenAI_WithStream_Transcript_ClearSubtitle(t *testing.T) {
 }
 
 func TestOpenAI_LiveRoomTextAssistant_RoomToken(t *testing.T) {
+	tc(t, "直播間文字助理：以 room token 驗證權限")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
@@ -832,6 +837,7 @@ func TestOpenAI_LiveRoomTextAssistant_RoomToken(t *testing.T) {
 }
 
 func TestOpenAI_LiveRoomTextAssistant_BearerToken(t *testing.T) {
+	tc(t, "直播間文字助理：以 bearer token 驗證權限")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
 	defer cancel()
 
