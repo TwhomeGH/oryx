@@ -1,5 +1,12 @@
 # ORYX
 
+> 注意：本仓库是 [ossrs/oryx](https://github.com/ossrs/oryx) 的社区维护分支。由于原项目疑似已停止维护，
+> 本项目会持续套用上游未处理的 PR，并继续进行维护。
+
+> Note: This is a community-maintained fork of [ossrs/oryx](https://github.com/ossrs/oryx). 
+> As the upstream project appears to be inactive, this fork will continue to apply outstanding
+> unmerged PRs and keep the project maintained.
+
 [![](https://img.shields.io/twitter/follow/srs_server?style=social)](https://twitter.com/srs_server)
 [![](https://badgen.net/discord/members/bQUPDRqy79)](https://discord.gg/bQUPDRqy79)
 [![](https://ossrs.net/wiki/images/wechat-badge4.svg)](https://ossrs.net/lts/zh-cn/contact#discussion)
