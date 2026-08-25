@@ -69,13 +69,13 @@ function ComponentsImpl() {
 
   return (
     <>
-      <Container fluid>
-        <Row>
-          <Col xs lg={3}>
-            <Card style={{ width: '18rem', marginTop: '16px' }}>
+      <Container fluid className="pt-3">
+        <Row className="g-3">
+          <Col xs={12} md={6} xl={3}>
+            <Card className="h-100">
               <Card.Header>{t('coms.host')}</Card.Header>
               <Card.Body>
-                <Card.Text as={Col}>
+                <Card.Text as="div">
                   {t('coms.version')}: {status?.version} <br/>
                   {t('coms.stable')}: {status?.version}<br/>
                   {t('coms.latest')}: <a href={t('coms.versionLink')} target='_blank' rel='noreferrer'>{status?.version}</a>
@@ -83,25 +83,25 @@ function ComponentsImpl() {
               </Card.Body>
             </Card>
           </Col>
-          <Col xs lg={3}>
-            <Card style={{ width: '18rem', marginTop: '16px' }}>
+          <Col xs={12} md={6} xl={3}>
+            <Card className="h-100">
               <Card.Header>{t('coms.srsTitle')}</Card.Header>
-              <Card.Body>
-                <Card.Text as={Col}>
-                  {t('coms.srsVersion')}: {caps?.version || caps?.versionError || '-'} <br/>
-                  {(caps?.features || []).map(f => (
-                    <React.Fragment key={f.name}>
-                      <Badge bg={f.ok ? 'success' : 'danger'} style={{marginRight: '4px'}}>{f.name}</Badge>
-                    </React.Fragment>
-                  ))}
-                  {!caps && <>-</>}
+              <Card.Body className="d-flex flex-column">
+                <Card.Text as="div" className="mb-2">
+                  {t('coms.srsVersion')}: {caps?.version || caps?.versionError || '-'}
+                  <div className="d-flex flex-wrap gap-1 mt-1">
+                    {(caps?.features || []).map(f => (
+                      <Badge key={f.name} bg={f.ok ? 'success' : 'danger'}>{f.name}</Badge>
+                    ))}
+                    {!caps && <>-</>}
+                  </div>
                   {!!caps?.features?.some(f => !f.ok) && (
-                    <div style={{fontSize: '0.8em', marginTop: '4px'}}>
+                    <div style={{fontSize: '0.8em', marginTop: '4px', wordBreak: 'break-all'}}>
                       {caps.features.filter(f => !f.ok).map(f => `${f.name}: ${f.detail}`).join('; ')}
                     </div>
                   )}
                 </Card.Text>
-                <Button size="sm" variant="outline-primary" onClick={refreshCapabilities}>{t('coms.refresh')}</Button>
+                <Button className="mt-auto align-self-start" size="sm" variant="outline-primary" onClick={refreshCapabilities}>{t('coms.refresh')}</Button>
               </Card.Body>
             </Card>
           </Col>
