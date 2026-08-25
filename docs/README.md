@@ -5,3 +5,4 @@
 ## 索引
 
 - [教學：如何撿起（Cherry-Pick）上游的 PR 並合併](cherry-pick-pr-guide.md) — 從上游 ossrs/oryx 挑選未合併的 PR，逐步套用到本 fork 的完整流程與衝突處理。
+- [Docker 使用說明](docker-usage.md) — 本 fork 自有映像（GHCR）的部署、埠對照、版本發布與更新回退流程。
