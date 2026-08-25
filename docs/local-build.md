@@ -1,0 +1,87 @@
+# 本地打包 Docker 映像
+
+> 目的：改完程式碼想馬上驗證，不用等 GitHub Actions 排隊 + 建置（20~40 分鐘）。
+
+## 前置需求
+
+- Docker Desktop（建議 WSL2 後端，記憶體配額 ≥ 8GB，UI 的 npm build 吃記憶體）
+- 磁碟空間約 10GB（基底映像 + 建置快取）
+- **不需要**在本機安裝 Node.js 或 Go——所有編譯都在容器內完成
+
+## 一條指令打包
+
+在 repo 根目錄執行：
+
+```bash
+docker build -t oryx:local .
+```
+
+這會在容器內依序完成：npm 安裝與 lint → 建置中文/英文 UI → 編譯 Go 平台 →
+UPX 壓縮 → 打包最終映像。
+
+| 情境 | 預計耗時 |
+|---|---|
+| 第一次（無快取） | 30~60 分鐘（下載基底映像 + 全量編譯） |
+| 之後再打包（有快取，程式有改動） | 15~30 分鐘（基底層走快取，但 make 階段會重跑） |
+| 完全沒改程式再打包 | < 1 分鐘（全部命中快取） |
+
+> 注意：所有原始碼是在**同一個 RUN 層**裡編譯的，所以任何 Go/UI 檔案變動
+> 都會重新觸發整個 make（含 UI）。Docker 快取主要省下的是基底映像、apt、
+> UPX、youtube-dl 那些前置層。
+
+## 把本地映像套到 compose
+
+### 方法 A：改名頂替（推薦，compose 不用動）
+
+```bash
+# 打包完成後，把本地映像掛上 compose 正在用的 tag
+docker tag oryx:local ghcr.io/twhomegh/oryx:v5.15.20
+
+# 重啟服務（不會觸發 pull，直接用本地那份）
+docker compose up -d --no-pull
+```
+
+### 方法 B：compose 直接指到本地 tag
+
+```yaml
+services:
+  oryx:
+    image: oryx:local
+```
+
+```bash
+docker compose up -d
+```
+
+## 進階：比照官方流程建置
+
+官方 release 是「先在主機上建好 UI，再用 `build-no-ui` 打包」，適合要多架構
+或想跟 CI 產物一致時：
+
+```bash
+# 需要本機有 Node.js 18+
+cd ui && make build-cn -j && make build-en -j && cd ..
+
+docker build --build-arg MAKEARGS=build-no-ui -t oryx:local .
+```
+
+日常驗證用第一種就好，不必這麼麻煩。
+
+## 匯出給其他機器
+
+本地建好的映像可以用檔案方式搬移：
+
+```bash
+docker save -o oryx-local.tar ghcr.io/twhomegh/oryx:v5.15.20
+# 複製 tar 到目標機器後
+docker load -i oryx-local.tar
+```
+
+## 本地 vs CI 的分工
+
+| 用途 | 用哪個 |
+|---|---|
+| 改碼後快速驗證、自用部署 | 本地打包（即建即用） |
+| 正式發布版號、給其他機器匿名拉取 | push 觸發 CI（產 GHCR 版號映像 + latest） |
+
+兩者不衝突：本地先驗證沒問題，再 push 讓 CI 出正式版。
