@@ -41,8 +41,8 @@ UPX 壓縮 → 打包最終映像。
 # 打包完成後，把本地映像掛上 compose 正在用的 tag
 docker tag oryx:local ghcr.io/twhomegh/oryx:v5.15.20
 
-# 重啟服務（不會觸發 pull，直接用本地那份）
-docker compose up -d --no-pull
+# 重啟服務；--pull never 表示只用本地映像，不觸發遠端拉取
+docker compose up -d --pull never
 ```
 
 ### 方法 B：compose 直接指到本地 tag

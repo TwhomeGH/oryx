@@ -68,7 +68,7 @@ docker save -o oryx-v5.15.20.tar ghcr.io/twhomegh/oryx:v5.15.20
 
 # 緊急回退
 docker load -i oryx-v5.15.20.tar
-docker compose up -d --no-pull     # --no-pull 避免又去遠端拉新的
+docker compose up -d --pull never   # --pull never 避免又去遠端拉新的
 ```
 
 建議每次升級前，把舊版 tar 留一份在工作目錄，成本幾百 MB 換一條後路。

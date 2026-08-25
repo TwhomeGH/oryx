@@ -1,0 +1,25 @@
+# Normalize line endings: this repo is built inside Linux containers,
+# so shell scripts must keep LF even on Windows checkouts.
+* text=auto eol=lf
+
+# Windows-only files keep CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary assets (never touch)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.flv binary
+*.mp4 binary
+*.aac binary
+*.m3u8 -text
+*.tar binary
+*.gz binary
+*.zip binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
