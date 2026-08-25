@@ -59,6 +59,8 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
 
   const [configs, setConfigs] = React.useState([]);
   const [forwards, setForwards] = React.useState();
+  // Active streams on SRS, for source suggestions and auto-selection hints.
+  const [activeStreams, setActiveStreams] = React.useState();
   const [submiting, setSubmiting] = React.useState();
 
   // Convert default config from kv to objects in array.
@@ -140,6 +142,23 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
     const timer = setInterval(() => refreshStreams(), 10 * 1000);
     return () => clearInterval(timer);
   }, [t, handleError, setForwards]);
+
+  // Fetch active streams periodically, to suggest source candidates.
+  React.useEffect(() => {
+    const refreshActive = () => {
+      axios.post('/terraform/v1/mgmt/streams/query', {}, {
+        headers: Token.loadBearerHeader(),
+      }).then(res => {
+        setActiveStreams(res.data.data?.streams || []);
+      }).catch(e => {
+        console.log('ignore error during streams query', e);
+      });
+    };
+
+    refreshActive();
+    const timer = setInterval(refreshActive, 10 * 1000);
+    return () => clearInterval(timer);
+  }, [setActiveStreams]);
 
   // Update config object in array.
   const updateConfigObject = React.useCallback((conf) => {
@@ -258,7 +277,21 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
                 <Form.Group className="mb-3">
                   <Form.Label>{t('plat.com.source')}</Form.Label>
                   {!conf.custom && <Form.Text> * {t('plat.com.source')} check System-{'>'}Streams tab</Form.Text>}
-                  <Form.Control as="input" defaultValue={conf.stream} onChange={(e) => updateConfigObject({ ...conf, stream: e.target.value })} />
+                  <Form.Control as="input" list={`sourceOptions-${conf.platform}`} defaultValue={conf.stream} onChange={(e) => updateConfigObject({ ...conf, stream: e.target.value })} />
+                  <datalist id={`sourceOptions-${conf.platform}`}>
+                    {(activeStreams || []).map((s, i) => (
+                      <option key={`${s.app}/${s.stream}-${i}`} value={s.stream} />
+                    ))}
+                  </datalist>
+                  {!conf.stream && (
+                    <Form.Text>
+                      * {t('forward.autoSource')}
+                      {(() => {
+                        const cur = (forwards || []).find(f => f.platform === conf.platform);
+                        return cur?.stream ? `（${cur.stream}）` : '';
+                      })()}
+                    </Form.Text>
+                  )}
                 </Form.Group>
                 <Form.Group className="mb-3">
                   <Form.Label>{conf.custom ? t('plat.com.server') : t('plat.com.server2')}</Form.Label>

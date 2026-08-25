@@ -641,6 +641,7 @@
       },
       "forward": {
         "tip": "若有多个流，随机选择一个",
+        "autoSource": "来源串流留空时，自动选择当前最新的活跃串流",
         "s3": "没有流。请开启转播并推流后，等待大约30秒左右，转播列表会自动更新",
         "add": "新增转播目标",
         "remove": "删除",
@@ -770,6 +771,7 @@
       "forward": {
         "s3": "No stream. Please turn on the broadcast and push the stream, then wait for about 30 seconds, and the broadcast list will automatically update.",
         "tip": "If there are multiple streams, randomly select one.",
+        "autoSource": "When left empty, the latest active stream is selected automatically",
         "add": "Add forwarding target",
         "remove": "Remove",
         "removeConfirm": "Remove this forwarding config? This cannot be undone.",

@@ -95,11 +95,9 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 					return errors.Errorf("invalid platform=%v", userConf.Platform)
 				}
 
-				if userConf.Server == "" {
+				// Only update requires the target server; delete works by platform only.
+				if action == "update" && userConf.Server == "" {
 					return errors.New("no server")
-				}
-				if userConf.Server == "" && userConf.Secret == "" {
-					return errors.New("no secret")
 				}
 			}
 

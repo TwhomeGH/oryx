@@ -8,6 +8,10 @@
 - 磁碟空間約 10GB（基底映像 + 建置快取）
 - **不需要**在本機安裝 Node.js 或 Go——所有編譯都在容器內完成
 
+> 工具鏈備註（2026-08）：UI 已從 CRA 遷移到 **Vite**（Node 22）。
+> `ui/vite.config.js` 內含 `%PUBLIC_URL%` / `%REACT_APP_LOCALE%` 佔位符替換、
+> `.js` 檔的 JSX loader 設定與 dev proxy，屬於遷移關鍵配置，請勿刪除。
+
 ## 一條指令打包
 
 在 repo 根目錄執行：
