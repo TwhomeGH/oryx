@@ -5,7 +5,7 @@ import {Button, Form, Spinner} from "react-bootstrap";
 import {useTranslation} from "react-i18next";
 import {useErrorHandler} from "react-error-boundary";
 
-export function OpenAISecretSettings({baseURL, setBaseURL, secretKey, setSecretKey, organization, setOrganization}) {
+export function OpenAISecretSettings({baseURL, setBaseURL, secretKey, setSecretKey, organization, setOrganization, model, setModel}) {
   const {t} = useTranslation();
   const handleError = useErrorHandler();
 
@@ -21,14 +21,14 @@ export function OpenAISecretSettings({baseURL, setBaseURL, secretKey, setSecretK
     setChecking(true);
 
     axios.post('/terraform/v1/ai/transcript/check', {
-      secretKey, baseURL,
+      secretKey, baseURL, model,
     }, {
       headers: Token.loadBearerHeader(),
     }).then(res => {
       alert(`${t('helper.testOk')}: ${t('transcript.testOk')}`);
       console.log(`OpenAI: Test service ok.`);
     }).catch(handleError).finally(setChecking);
-  }, [t, handleError, secretKey, baseURL, setChecking]);
+  }, [t, handleError, secretKey, baseURL, model, setChecking]);
 
   return (
     <React.Fragment>
@@ -42,6 +42,13 @@ export function OpenAISecretSettings({baseURL, setBaseURL, secretKey, setSecretK
         <Form.Text> * {t('transcript.base2')}. {t('helper.eg')} <code>https://api.openai.com/v1</code></Form.Text>
         <Form.Control as="input" defaultValue={baseURL} onChange={(e) => setBaseURL(e.target.value)} />
       </Form.Group>
+      {setModel && (
+        <Form.Group className="mb-3">
+          <Form.Label>{t('transcript.model')}</Form.Label>
+          <Form.Text> * {t('transcript.model2')} <code>whisper-1</code>. {t('transcript.model3')} <code>Ollama</code>, <code>faster-whisper</code></Form.Text>
+          <Form.Control as="input" defaultValue={model} onChange={(e) => setModel(e.target.value)} />
+        </Form.Group>
+      )}
       <div>
         <Button ariant="primary" type="submit" disabled={checking} onClick={(e) => {
           e.preventDefault();

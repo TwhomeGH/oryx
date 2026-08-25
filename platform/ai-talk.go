@@ -39,6 +39,8 @@ type ASRResult struct {
 
 type openaiASRService struct {
 	conf openai.ClientConfig
+	// The ASR model, empty means openai.Whisper1.
+	model string
 	// The callback before start ASR request.
 	onBeforeRequest func()
 }
@@ -75,10 +77,14 @@ func (v *openaiASRService) RequestASR(ctx context.Context, inputFile, language, 
 
 	// Request ASR.
 	client := openai.NewClientWithConfig(v.conf)
+	model := v.model
+	if model == "" {
+		model = openai.Whisper1
+	}
 	resp, err := client.CreateTranscription(
 		ctx,
 		openai.AudioRequest{
-			Model:    openai.Whisper1,
+			Model:    model,
 			FilePath: outputFile,
 			// Note that must use verbose JSON, to get the duration of file.
 			Format:   openai.AudioResponseFormatVerboseJSON,
@@ -613,11 +619,12 @@ func (v *StageRequest) FastDispose() error {
 	return nil
 }
 
-func (v *StageRequest) asrAudioToText(ctx context.Context, aiConfig openai.ClientConfig, asrLanguage, previousAsrText string) error {
+func (v *StageRequest) asrAudioToText(ctx context.Context, aiConfig openai.ClientConfig, asrModel, asrLanguage, previousAsrText string) error {
 	var asrText string
 	var asrDuration time.Duration
 
-	asrService := NewOpenAIASRService(aiConfig, func(*openaiASRService) {
+	asrService := NewOpenAIASRService(aiConfig, func(s *openaiASRService) {
+		s.model = asrModel
 		v.lastExtractAudio = time.Now()
 	})
 
@@ -1038,6 +1045,8 @@ type Stage struct {
 	asrLanguage string
 	// The AI asr prompt type. user or user-ai.
 	asrPrompt string
+	// The AI asr model, empty means whisper-1. Useful for OpenAI-compatible servers.
+	asrModel string
 
 	// Whether enabled AI services.
 	aiASREnabled  bool
@@ -1124,6 +1133,7 @@ func (v *Stage) UpdateFromRoom(room *SrsLiveRoom) {
 	v.prompt = room.AIChatPrompt
 	v.asrLanguage = room.AIASRLanguage
 	v.asrPrompt = room.AIASRPrompt
+	v.asrModel = room.AIASRModel
 	v.replyLimit = room.AIChatMaxWords
 	v.chatModel = room.AIChatModel
 	v.chatWindow = room.AIChatMaxWindow
@@ -1790,7 +1800,7 @@ func handleAITalkService(ctx context.Context, handler *http.ServeMux) error {
 
 				// Do ASR, convert to text.
 				asrLanguage := ChooseNotEmpty(user.Language, stage.asrLanguage)
-				if err := sreq.asrAudioToText(ctx, stage.aiConfig, asrLanguage, user.previousAsrText); err != nil {
+				if err := sreq.asrAudioToText(ctx, stage.aiConfig, stage.asrModel, asrLanguage, user.previousAsrText); err != nil {
 					return errors.Wrapf(err, "asr lang=%v, previous=%v", asrLanguage, user.previousAsrText)
 				}
 				logger.Tf(ctx, "ASR ok, sid=%v, rid=%v, user=%v, lang=%v, prompt=<%v>, resp is <%v>",

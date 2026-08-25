@@ -141,7 +141,8 @@ func (v *OCRWorker) Handle(ctx context.Context, handler *http.ServeMux) error {
 				return errors.Wrapf(err, "parse body")
 			}
 
-			// Query whisper-1 model detail.
+			// Query model detail. Note that some OpenAI-compatible servers do not
+			// implement the models API, so we only warn on failure.
 			var config openai.ClientConfig
 			config = openai.DefaultConfig(ocrConfig.AISecretKey)
 			config.BaseURL = ocrConfig.AIBaseURL
@@ -150,9 +151,12 @@ func (v *OCRWorker) Handle(ctx context.Context, handler *http.ServeMux) error {
 			defer cancel()
 
 			client := openai.NewClientWithConfig(config)
-			model, err := client.GetModel(ctx, "whisper-1")
-			if err != nil {
-				return errors.Wrapf(err, "query model whisper-1")
+			modelName := ocrConfig.AIChatModel
+			if modelName == "" {
+				modelName = "whisper-1"
+			}
+			if _, err := client.GetModel(ctx, modelName); err != nil {
+				logger.Wf(ctx, "ocr check ignore get-model %v err %+v", modelName, err)
 			}
 
 			// Start a chat, to check whether the billing is expired.
@@ -174,7 +178,7 @@ func (v *OCRWorker) Handle(ctx context.Context, handler *http.ServeMux) error {
 
 			ohttp.WriteData(ctx, w, r, nil)
 			logger.Tf(ctx, "ocr check ok, config=<%v>, model=<%v>, msg=<%v>",
-				ocrConfig, model.ID, resp.Choices[0].Message.Content)
+				ocrConfig, modelName, resp.Choices[0].Message.Content)
 			return nil
 		}(); err != nil {
 			ohttp.WriteError(ctx, w, r, err)

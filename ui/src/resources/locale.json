@@ -186,9 +186,10 @@
         "upgradeManually": "若需要升级，请手动重装，或者更新镜像版本"
       },
       "openapi": {
-        "title": "使用场景",
+        "title": "平台 API 密钥（OpenAPI）",
         "summary": "向开发者提供 OpenAPI, 方便开发者对接",
         "usage1": "ApiSecret是OpenAPI接口调用凭据（Bearer Token）, 调用各接口时都需要使用ApiSecret",
+        "usage3": "也可以先用管理密码调用 /terraform/v1/mgmt/login 换取 session token，放在请求体 token 字段中使用",
         "usage2": "所有网页中的操作，都可以通过调用OpenAPI实现，可以打开Chrome控制台查看具体API",
         "secret": "拷贝ApiSecret",
         "secretTip": "使用ApiSecret作为Bearer Token，用于访问OpenAPI",
@@ -405,6 +406,9 @@
         "key2": "请输入访问AI服务的密钥",
         "base": "OpenAI 服务接入地址",
         "base2": "请输入访问AI服务的地址，可以设置为OpenAI的地址或者代理地址",
+        "model": "ASR 模型名稱（可選）",
+        "model2": "留空則使用 whisper-1。相容 OpenAI 格式的本地/第三方服務可填自訂模型，例如",
+        "model3": "適用於",
         "org": "组织ID",
         "org2": "（可选）请输入AI的组织信息，用于区分用户和账单",
         "start": "开启AI字幕",
@@ -999,6 +1003,9 @@
         "org": "Organization ID",
         "org2": "(Optional) Please input the organization information of AI, used to distinguish users and bills",
         "base2": "Please input the service base URL or proxy URL for AI service provider",
+        "model": "ASR Model (optional)",
+        "model2": "Leave empty to use whisper-1. For OpenAI-compatible local/third-party servers, put your custom model, e.g.",
+        "model3": "Works with",
         "base": "OpenAI Service Base URL",
         "key2": "Please input the secret key for AI service provider",
         "key": "OpenAI Secret Key",
@@ -1313,9 +1320,10 @@
         "upgradeManually": "Please upgrade manually by reinstall or docker pull"
       },
       "openapi": {
-        "title": "Introduction",
+        "title": "Platform API Secret (OpenAPI)",
         "summary": "For developer to call OpenAPI of Oryx",
         "usage1": "ApiSecret is used for authentication of OpenAPI via Bearer Token, should be used in each API",
+        "usage3": "Alternatively, call /terraform/v1/mgmt/login with the admin password to get a session token, then put it in the request body 'token' field",
         "usage2": "All operations on web pages can be archived by invoking the OpenAPI, please use Chrome console to finger out the detail API",
         "secret": "Copy ApiSecret",
         "secretTip": "Use ApiSecret to as Bearer Token",

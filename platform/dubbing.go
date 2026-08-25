@@ -1735,10 +1735,14 @@ func (v *SrsDubbingTask) Start(ctx context.Context) error {
 
 				// Do ASR, convert to text.
 				client := openai.NewClientWithConfig(aiConfig)
+				asrModel := v.project.ASR.AIASRModel
+				if asrModel == "" {
+					asrModel = openai.Whisper1
+				}
 				resp, err := client.CreateTranscription(
 					ctx,
 					openai.AudioRequest{
-						Model:    openai.Whisper1,
+						Model:    asrModel,
 						FilePath: tmpAsrInputAudio,
 						Format:   openai.AudioResponseFormatVerboseJSON,
 						Language: v.project.ASR.AIASRLanguage,

@@ -233,6 +233,7 @@ $.ajax({
           <ul>
             <li> {t('openapi.usage1')} </li>
             <li> {t('openapi.usage2')} </li>
+            <li> {t('openapi.usage3')} </li>
           </ul>
         </Accordion.Body>
       </Accordion.Item>

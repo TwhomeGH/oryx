@@ -51,6 +51,8 @@ function ScenarioTranscriptImpl({activeKey, defaultEnabled, defaultConf, default
   const [secretKey, setSecretKey] = React.useState(defaultConf.secretKey);
   const [organization, setOrganization] = React.useState(defaultConf.organization);
   const [baseURL, setBaseURL] = React.useState(defaultConf.baseURL || (language === 'zh' ? '' : 'https://api.openai.com/v1'));
+  const [model, setModel] = React.useState(defaultConf.model);
+  const [chatModel, setChatModel] = React.useState(defaultConf.chatModel);
   const [targetLanguage, setTargetLanguage] = React.useState(defaultConf.lang || language);
   const [forceStyle, setForceStyle] = React.useState(defaultConf.forceStyle || 'Alignment=2,MarginV=20');
   const [videoCodecParams, setVideoCodecParams] = React.useState(defaultConf.videoCodecParams || '-c:v libx264 -profile:v main -preset:v medium -tune zerolatency -bf 0');
@@ -112,6 +114,8 @@ function ScenarioTranscriptImpl({activeKey, defaultEnabled, defaultConf, default
 
     axios.post('/terraform/v1/ai/transcript/apply', {
       uuid, all: !!enabled, secretKey, organization, baseURL, lang: targetLanguage,
+      model, chatModel,
+      model, chatModel,
       overlayEnabled: !!overlayEnabled, forceStyle, videoCodecParams,
       webvttEnabled: !!webvttEnabled,
     }, {
@@ -121,7 +125,7 @@ function ScenarioTranscriptImpl({activeKey, defaultEnabled, defaultConf, default
       console.log(`Transcript: Apply config ok, uuid=${uuid}.`);
       success && success();
     }).catch(handleError);
-  }, [t, handleError, secretKey, baseURL, targetLanguage, overlayEnabled, forceStyle, videoCodecParams, webvttEnabled, uuid, organization]);
+  }, [t, handleError, secretKey, baseURL, model, chatModel, targetLanguage, overlayEnabled, forceStyle, videoCodecParams, webvttEnabled, uuid, organization]);
 
   const resetTask = React.useCallback(() => {
     setOperating(true);
@@ -340,6 +344,7 @@ function ScenarioTranscriptImpl({activeKey, defaultEnabled, defaultConf, default
                 <OpenAISecretSettings {...{
                   baseURL, setBaseURL, secretKey, setSecretKey,
                   organization, setOrganization,
+                  model, setModel,
                 }} />
               </Card.Body>}
               {configItem === 'asr' && <Card.Body>

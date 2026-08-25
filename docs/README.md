@@ -11,3 +11,5 @@
 - [映像回退指南](rollback.md) — 新版出問題時，用 sha 標籤/舊版號/tar 快速退回正常狀態的操作手冊。
 - [Forward 轉推功能架構](forward-architecture.md) — 轉推線的代碼地圖、FFmpeg 命令剖析、Redis 資料流與後續設計候選方向。
 - [版本體系與升級指南](version-and-upgrade.md) — 產品版本 vs SRS 核心兩套版本號、SRS 主伺服器升級步驟、bump-version 一鍵工具。
+- [串流查詢 API：單流精確查詢](streams-query-api.md) — streams/query 支援 vhost/app/stream 參數，精確查詢單路串流狀態。
+- [AI 服務擴展性指南](ai-model-config.md) — 接上本地 LLM（Ollama/LM Studio）或第三方 OpenAI 相容服務，自訂 ASR/聊天模型。

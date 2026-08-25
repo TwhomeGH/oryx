@@ -140,7 +140,9 @@ func (v *TranscriptWorker) Handle(ctx context.Context, handler *http.ServeMux) e
 				return errors.Wrapf(err, "parse body")
 			}
 
-			// Query whisper-1 model detail.
+			// Query the ASR model detail. Note that some OpenAI-compatible servers
+			// (e.g., Ollama, one-api) do not implement the models API, so we only
+			// warn on failure instead of blocking the feature.
 			var config openai.ClientConfig
 			config = openai.DefaultConfig(transcriptConfig.SecretKey)
 			config.BaseURL = transcriptConfig.BaseURL
@@ -149,15 +151,23 @@ func (v *TranscriptWorker) Handle(ctx context.Context, handler *http.ServeMux) e
 			defer cancel()
 
 			client := openai.NewClientWithConfig(config)
-			model, err := client.GetModel(ctx, "whisper-1")
-			if err != nil {
-				return errors.Wrapf(err, "query model whisper-1")
+
+			asrModel := transcriptConfig.Model
+			if asrModel == "" {
+				asrModel = openai.Whisper1
+			}
+			if _, err := client.GetModel(ctx, asrModel); err != nil {
+				logger.Wf(ctx, "transcript check ignore get-model %v err %+v", asrModel, err)
 			}
 
-			// Start a chat, to check whether the billing is expired.
+			// Start a chat, to check whether the service is available and billing is ok.
+			chatModel := transcriptConfig.ChatModel
+			if chatModel == "" {
+				chatModel = openai.GPT3Dot5Turbo
+			}
 			resp, err := client.CreateChatCompletion(
 				ctx, openai.ChatCompletionRequest{
-					Model: openai.GPT3Dot5Turbo,
+					Model: chatModel,
 					Messages: []openai.ChatCompletionMessage{
 						{
 							Role:    openai.ChatMessageRoleUser,
@@ -172,8 +182,8 @@ func (v *TranscriptWorker) Handle(ctx context.Context, handler *http.ServeMux) e
 			}
 
 			ohttp.WriteData(ctx, w, r, nil)
-			logger.Tf(ctx, "transcript check ok, config=<%v>, model=<%v>, msg=<%v>",
-				transcriptConfig, model.ID, resp.Choices[0].Message.Content)
+			logger.Tf(ctx, "transcript check ok, config=<%v>, asrModel=<%v>, chatModel=<%v>, msg=<%v>",
+				transcriptConfig, asrModel, chatModel, resp.Choices[0].Message.Content)
 			return nil
 		}(); err != nil {
 			ohttp.WriteError(ctx, w, r, err)
@@ -1072,6 +1082,11 @@ type TranscriptConfig struct {
 	SecretKey string `json:"secretKey"`
 	// The base URL for AI service.
 	BaseURL string `json:"baseURL"`
+	// The ASR model for transcription, e.g., whisper-1, or a custom model from an
+	// OpenAI-compatible server such as Ollama. Empty means whisper-1.
+	Model string `json:"model,omitempty"`
+	// The chat model for connectivity check, empty means gpt-3.5-turbo.
+	ChatModel string `json:"chatModel,omitempty"`
 	// The AI organization.
 	Organization string `json:"organization"`
 	// The language of the stream.
@@ -1684,10 +1699,14 @@ func (v *TranscriptTask) DriveAsrQueue(ctx context.Context) error {
 	// TODO: FIXME: Use smaller timeout.
 	client := openai.NewClientWithConfig(config)
 	prompt := v.PreviousAsrText
+	asrModel := v.config.Model
+	if asrModel == "" {
+		asrModel = openai.Whisper1
+	}
 	resp, err := client.CreateTranscription(
 		ctx,
 		openai.AudioRequest{
-			Model:    openai.Whisper1,
+			Model:    asrModel,
 			FilePath: segment.AudioFile.File,
 			Format:   openai.AudioResponseFormatVerboseJSON,
 			Language: v.config.Language,

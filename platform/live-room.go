@@ -281,11 +281,14 @@ type SrsAssistantASR struct {
 	AIASRLanguage string `json:"aiAsrLanguage"`
 	// The AI asr prompt type. user or user-ai.
 	AIASRPrompt string `json:"aiAsrPrompt"`
+	// The AI asr model, e.g., whisper-1, or a custom model from an OpenAI-compatible
+	// server such as Ollama. Empty means whisper-1.
+	AIASRModel string `json:"aiAsrModel"`
 }
 
 func (v *SrsAssistantASR) String() string {
-	return fmt.Sprintf("enabled=%v,language=%v,prompt=%v",
-		v.AIASREnabled, v.AIASRLanguage, v.AIASRPrompt)
+	return fmt.Sprintf("enabled=%v,language=%v,prompt=%v,model=%v",
+		v.AIASREnabled, v.AIASRLanguage, v.AIASRPrompt, v.AIASRModel)
 }
 
 type SrsAssistantChat struct {
