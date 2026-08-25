@@ -1532,6 +1532,46 @@ func RebuildStreamURL(rawURL string) (*url.URL, error) {
 	return url.Parse(rawURL)
 }
 
+// ProbeTCPServer does a fast TCP dial to the server in rawURL, to fail fast with a clear
+// reason before starting a costly process such as FFmpeg. Supported schemes and their
+// default ports follow FFmpeg: rtmp 1935, rtmps 443, srt 9710. If the URL is not one of
+// them or fails to parse, skip the probe with nil, because it should not block forwarding.
+func ProbeTCPServer(ctx context.Context, rawURL string, timeout time.Duration) error {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return nil
+	}
+
+	var defaultPort string
+	switch u.Scheme {
+	case "rtmp":
+		defaultPort = "1935"
+	case "rtmps":
+		defaultPort = "443"
+	case "srt":
+		defaultPort = "9710"
+	default:
+		return nil
+	}
+
+	port := u.Port()
+	if port == "" {
+		port = defaultPort
+	}
+	addr := net.JoinHostPort(u.Hostname(), port)
+
+	d := &net.Dialer{Timeout: timeout}
+	conn, err := d.DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return errors.Wrapf(err, "probe %v tcp connect %v", rawURL, addr)
+	}
+	if err = conn.Close(); err != nil {
+		return errors.Wrapf(err, "probe %v close %v", rawURL, addr)
+	}
+
+	return nil
+}
+
 // httpAllowCORS allow CORS for HTTP request.
 // Note that we always enable CROS because we enable HTTP cache.
 func httpAllowCORS(w http.ResponseWriter, r *http.Request) {

@@ -597,6 +597,12 @@ func (v *ForwardTask) doForward(ctx context.Context, input *SrsStream) error {
 	}
 	outputURL := fmt.Sprintf("%v%v", outputServer, v.config.Secret)
 
+	// B3: Probe the output server before starting FFmpeg, to fail fast with a clear reason,
+	// instead of a cryptic FFmpeg dial error after several seconds.
+	if err := ProbeTCPServer(ctx, outputURL, 2*time.Second); err != nil {
+		return errors.Wrapf(err, "output precheck")
+	}
+
 	// Create a heartbeat to poll and manage the status of FFmpeg process.
 	heartbeat := NewFFmpegHeartbeat(cancel)
 	v.starttime, v.firstReadyTime = &heartbeat.starttime, nil

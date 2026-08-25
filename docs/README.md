@@ -9,3 +9,4 @@
 - [SRS 分離部署配置說明](srs-host-separation.md) — SRS_HOST / SRS_HTTP_STREAM_PORT 環境變數，把 SRS 拆出單獨機器跑的配置方法。
 - [本地打包 Docker 映像](local-build.md) — 不等 CI，本機一條指令建置映像並套用到 compose 的流程。
 - [映像回退指南](rollback.md) — 新版出問題時，用 sha 標籤/舊版號/tar 快速退回正常狀態的操作手冊。
+- [Forward 轉推功能架構](forward-architecture.md) — 轉推線的代碼地圖、FFmpeg 命令剖析、Redis 資料流與後續設計候選方向。
