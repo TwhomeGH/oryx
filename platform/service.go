@@ -328,6 +328,7 @@ func handleHTTPService(ctx context.Context, handler *http.ServeMux) error {
 
 	handleHostVersions(ctx, handler)
 	handleMgmtVersions(ctx, handler)
+	handleSrsCapabilities(ctx, handler)
 	handleFFmpegVersions(ctx, handler)
 	handleMgmtInit(ctx, handler)
 	handleMgmtCheck(ctx, handler)

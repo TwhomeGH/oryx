@@ -100,26 +100,18 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
       e?.locale?.generate && e.locale.generate(e);
     });
 
-    // Generate more forwarding configures.
-    while (confs.length < env.forwardLimit) {
-      const rindex = index++;
-      const rid = Math.random().toString(16).slice(-6);
-
-      // Load the configured forwarding from defaults.
-      const existsConf = Object.values(defaultSecrets).find(e => e.platform.indexOf(`forwarding-${rindex}-`) === 0);
-      if (existsConf) {
-        confs.push({ ...existsConf, index: String(rindex) });
-      } else {
-        confs.push({
-          platform: `forwarding-${rindex}-${rid}`, enabled: false, index: String(rindex), allowCustom: false,
-          server: null, secret: null, custom: true, label: `Forwarding #${rindex}`,
-        });
-      }
-    }
+    // Load existing custom forwarding configures from defaults.
+    // No empty slots are pre-created; user adds them on demand with the Add button.
+    const customs = Object.values(defaultSecrets)
+      .filter(e => e.platform.indexOf('forwarding-') === 0)
+      .sort((a, b) => a.platform.localeCompare(b.platform));
+    customs.forEach((e) => {
+      confs.push({ ...e, index: String(index++), allowCustom: false });
+    });
 
     setConfigs(confs);
     console.log(`Forward: Init configs ${JSON.stringify(confs)}`);
-  }, [defaultSecrets, setConfigs, env, language, t]);
+  }, [defaultSecrets, setConfigs, language, t]);
 
   // Fetch the forwarding streams from server.
   React.useEffect(() => {
@@ -183,6 +175,34 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
     }
   }, [t, handleError, setSubmiting]);
 
+  // Append a new empty custom forwarding config, persisted when user starts it.
+  const addForwarding = React.useCallback(() => {
+    const customs = configs.filter(e => e.platform.indexOf('forwarding-') === 0);
+    if (customs.length >= (env?.forwardLimit || 10)) return alert(t('forward.limit'));
+
+    const rid = Math.random().toString(16).slice(-6);
+    const rindex = configs.length ? Math.max(...configs.map(e => Number(e.index) || 0)) + 1 : 1;
+    setConfigs([...configs, {
+      platform: `forwarding-${Date.now().toString(36)}-${rid}`, enabled: false, index: String(rindex), allowCustom: false,
+      server: null, secret: null, custom: true, label: `${t('forward.defaultLabel')} ${rindex}`,
+    }]);
+  }, [configs, env, t]);
+
+  // Delete the custom forwarding config from server, then remove it from UI.
+  const removeForwarding = React.useCallback((e, conf) => {
+    e.preventDefault();
+    if (!window.confirm(t('forward.removeConfirm'))) return;
+
+    axios.post('/terraform/v1/ffmpeg/forward/secret', {
+      action: 'delete', platform: conf.platform,
+    }, {
+      headers: Token.loadBearerHeader(),
+    }).then(res => {
+      setConfigs(configs.filter(x => x.platform !== conf.platform));
+      alert(t('forward.deleted'));
+    }).catch(handleError);
+  }, [configs, t, handleError]);
+
   return (
     <Accordion defaultActiveKey={[defaultActiveKey]}>
       <React.Fragment>
@@ -227,7 +247,7 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
       {configs.map((conf) => {
         return (
           <Accordion.Item eventKey={conf.index} key={conf.platform}>
-            <Accordion.Header>{conf?.locale?.label} {conf.label}</Accordion.Header>
+            <Accordion.Header>{conf?.locale?.label} {conf.label || (conf.custom && conf.platform.indexOf('forwarding-') === 0 ? `${t('plat.com.custom')} #${conf.index}` : '')}</Accordion.Header>
             <Accordion.Body>
               <Form>
                 <Form.Group className="mb-3">
@@ -271,12 +291,20 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
                 >
                   {conf.enabled ? t('plat.com.stop') : t('plat.com.start')}
                 </Button> &nbsp;
+                {conf.platform.indexOf('forwarding-') === 0 && (
+                  <Button variant="danger" disabled={submiting} onClick={(e) => removeForwarding(e, conf)}>
+                    {t('forward.remove')}
+                  </Button>
+                )} &nbsp;
                 <Form.Text> * {t('forward.tip')}</Form.Text>
               </Form>
             </Accordion.Body>
           </Accordion.Item>
         );
       })}
+      <div className="text-end my-2 me-2">
+        <Button variant="outline-primary" onClick={addForwarding}>{t('forward.add')}</Button>
+      </div>
       <Accordion.Item eventKey="99">
         <Accordion.Header>{t('plat.com.status')}</Accordion.Header>
         <Accordion.Body>

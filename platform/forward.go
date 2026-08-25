@@ -46,6 +46,23 @@ func (v *ForwardWorker) GetTask(platform string) *ForwardTask {
 	return nil
 }
 
+// RemoveTask stops the running FFmpeg process of the task if exists, then removes it
+// from the worker, so that it is never reported by streams API again. Note that the
+// Run loop goroutine keeps running till worker closed, but stays idle because its
+// config is disabled.
+func (v *ForwardWorker) RemoveTask(platform string) {
+	if task := v.GetTask(platform); task != nil {
+		task.lock.Lock()
+		task.config.Enabled = false
+		if task.cancel != nil {
+			task.cancel()
+		}
+		task.lock.Unlock()
+	}
+
+	v.tasks.Delete(platform)
+}
+
 func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) error {
 	ep := "/terraform/v1/ffmpeg/forward/secret"
 	logger.Tf(ctx, "Handle %v", ep)
@@ -62,7 +79,7 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 				return errors.Wrapf(err, "parse body")
 			}
 
-			allowedActions := []string{"update"}
+			allowedActions := []string{"update", "delete"}
 			allowedPlatforms := []string{"wx", "bilibili", "kuaishou"}
 			if action != "" {
 				if !slicesContains(allowedActions, action) {
@@ -114,6 +131,20 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 
 				ohttp.WriteData(ctx, w, r, nil)
 				logger.Tf(ctx, "Forward update secret ok")
+				return nil
+			} else if action == "delete" {
+				// Only custom forwarding configs are removable, built-in platforms are protected.
+				if !strings.Contains(userConf.Platform, "forwarding-") {
+					return errors.Errorf("invalid platform=%v", userConf.Platform)
+				}
+
+				if err := rdb.HDel(ctx, SRS_FORWARD_CONFIG, userConf.Platform).Err(); err != nil && err != redis.Nil {
+					return errors.Wrapf(err, "hdel %v %v", SRS_FORWARD_CONFIG, userConf.Platform)
+				}
+				v.RemoveTask(userConf.Platform)
+
+				ohttp.WriteData(ctx, w, r, nil)
+				logger.Tf(ctx, "forward delete config ok, platform=%v", userConf.Platform)
 				return nil
 			} else {
 				confObjs := make(map[string]*ForwardConfigure)

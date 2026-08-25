@@ -626,7 +626,13 @@
       },
       "forward": {
         "tip": "若有多个流，随机选择一个",
-        "s3": "没有流。请开启转播并推流后，等待大约30秒左右，转播列表会自动更新"
+        "s3": "没有流。请开启转播并推流后，等待大约30秒左右，转播列表会自动更新",
+        "add": "新增转播目标",
+        "remove": "删除",
+        "removeConfirm": "确认删除该转播配置？删除后不可恢复。",
+        "defaultLabel": "自定义转播",
+        "limit": "已达到转播目标数量上限",
+        "deleted": "删除成功"
       },
       "vle": {
         "tip": "将文件转直播流",
@@ -748,7 +754,13 @@
       },
       "forward": {
         "s3": "No stream. Please turn on the broadcast and push the stream, then wait for about 30 seconds, and the broadcast list will automatically update.",
-        "tip": "If there are multiple streams, randomly select one."
+        "tip": "If there are multiple streams, randomly select one.",
+        "add": "Add forwarding target",
+        "remove": "Remove",
+        "removeConfirm": "Remove this forwarding config? This cannot be undone.",
+        "defaultLabel": "Custom forwarding",
+        "limit": "Reached the limit of forwarding targets",
+        "deleted": "Removed successfully"
       },
       "camera": {
         "s3": "There is no stream. Please start the live event and wait for about 30 seconds, the list will update automatically.",

@@ -45,7 +45,7 @@ Label    string
 
 | 端點 | 方法語義 | 說明 |
 |---|---|---|
-| `/terraform/v1/ffmpeg/forward/secret` | action=`update` / 查詢 | 寫入並合併配置到 Redis `SRS_FORWARD_CONFIG`（hash，key=platform）；若任務存活則觸發 `Restart()`；不帶 action 時回傳全部配置 |
+| `/terraform/v1/ffmpeg/forward/secret` | action=`update` / `delete` / 查詢 | update：寫入並合併配置到 Redis `SRS_FORWARD_CONFIG`（hash，key=platform），若任務存活則觸發 `Restart()`；delete：僅允許 `forwarding-*` 自訂配置，HDel 配置＋`RemoveTask()` 停止並移除任務；不帶 action 時回傳全部配置 |
 | `/terraform/v1/ffmpeg/forward/streams` | 查詢 | 列出所有配置＋各任務運行狀態（pid/stream/frame log/ready 時間） |
 
 平台白名單校驗：必須是 `wx|bilibili|kuaishou` 或以 `forwarding-` 開頭（自訂平台）。
@@ -105,7 +105,7 @@ ffmpeg
 ### 已知行為限制（設計改造的切入點）
 
 1. **無轉碼能力**：來源 H.265/VP9 推到只收 H.264 的平台會直接失敗（copy 不轉換）
-2. **一個平台一條任務**：同配置只能綁一個來源串流的選擇規則，不能一條流同時精確推多目標（其實可以建多個 platform 配置達成，但 UI/模型上以平台為中心）
+2. **自訂目標按需增減**：UI 改為「新增轉播目標」按鈕動態加入空槽（受 env.forwardLimit 上限），每個自訂槽有刪除按鈕（action=delete）；內建三平台不可刪。歷史遺留的英文標籤槽位可手動改名或直接刪除
 3. **選流規則簡單**：空 Stream 名時「挑最新」可能選錯來源
 4. **與 SRS 原生 forward 的取捨**：SRS 本身有協定層 forward（不經 ffmpeg、更省資源），目前未使用
 
