@@ -853,35 +853,31 @@ func handleMgmtContactQuery(ctx context.Context, handler *http.ServeMux) {
 	logger.Tf(ctx, "Handle %v", ep)
 	handler.Handle(ep, middlewareAuthTokenInBody(ctx, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := func() error {
-			var req struct {
-				Locale string `json:"locale"`
+			// Return both locales; the frontend merges them so that the english
+			// file can be a partial translation overlaying the main file.
+			type contactFile struct {
+				Exists  bool   `json:"exists"`
+				Content string `json:"content"`
 			}
-			if err := ParseBody(ctx, r.Body, &req); err != nil {
-				return errors.Wrapf(err, "parse body")
-			}
-
-			// The editable contact page, persisted in the data volume so that
-			// maintainers can update it without rebuilding the image.
-			file := "contact.md"
-			if req.Locale == "en" {
-				file = "contact.en.md"
-			}
-			fileName := path.Join(conf.Pwd, "containers/data", file)
-
-			b, err := os.ReadFile(fileName)
-			exists := err == nil
-			if err != nil && !os.IsNotExist(err) {
-				return errors.Wrapf(err, "read %v", fileName)
+			readContact := func(name string) contactFile {
+				var cf contactFile
+				b, err := os.ReadFile(path.Join(conf.Pwd, "containers/data", name))
+				cf.Exists = err == nil
+				if err != nil && !os.IsNotExist(err) {
+					logger.Wf(ctx, "contact ignore read %v err %+v", name, err)
+				}
+				cf.Content = string(b)
+				return cf
 			}
 
 			ohttp.WriteData(ctx, w, r, &struct {
-				Exists  bool   `json:"exists"`
-				Content string `json:"content"`
+				Zh contactFile `json:"zh"`
+				En contactFile `json:"en"`
 			}{
-				Exists:  exists,
-				Content: string(b),
+				Zh: readContact("contact.md"),
+				En: readContact("contact.en.md"),
 			})
-			logger.Tf(ctx, "contact query ok, file=%v, exists=%v, bytes=%v", file, exists, len(b))
+			logger.Tf(ctx, "contact query ok")
 			return nil
 		}(); err != nil {
 			ohttp.WriteError(ctx, w, r, err)
