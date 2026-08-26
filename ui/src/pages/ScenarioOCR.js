@@ -87,7 +87,6 @@ function ScenarioOCRImpl({activeKey, defaultEnabled, defaultConf, defaultUuid}) 
   }, [handleError, aiSecretKey, setAiSecretKey, setAiBaseURL, setAiOrganization]);
 
   const updateOcrService = React.useCallback((enabled, success) => {
-    if (!aiSecretKey) return alert(`Invalid secret key ${aiSecretKey}`);
     if (!aiBaseURL) return alert(`Invalid base url ${aiBaseURL}`);
 
     axios.post('/terraform/v1/ai/ocr/apply', {

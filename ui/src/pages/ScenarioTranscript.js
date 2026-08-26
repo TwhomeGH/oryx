@@ -111,7 +111,6 @@ function ScenarioTranscriptImpl({activeKey, defaultEnabled, defaultConf, default
   }, [uuid, setOverlayHlsUrl, setOverlayHlsPreview, setWebvttHlsUrl, setWebvttHlsPreview, setOriginalHlsUrl, setOriginalHlsPreview]);
 
   const updateAiService = React.useCallback((enabled, success) => {
-    if (!secretKey) return alert(`Invalid secret key ${secretKey}`);
     if (!baseURL) return alert(`Invalid base url ${baseURL}`);
 
     axios.post('/terraform/v1/ai/transcript/apply', {

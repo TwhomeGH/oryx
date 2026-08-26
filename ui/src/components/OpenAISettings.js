@@ -12,7 +12,6 @@ export function OpenAISecretSettings({baseURL, setBaseURL, secretKey, setSecretK
   const [checking, setChecking] = React.useState(false);
 
   const testConnection = React.useCallback(() => {
-    if (!secretKey) return alert(`Invalid secret key ${secretKey}`);
     if (!baseURL) return alert(`Invalid base url ${baseURL}`);
 
     const urlPattern = new RegExp('^(http|https)://.+(/v1)$');
