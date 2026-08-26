@@ -1031,7 +1031,7 @@ func (v *VodM3u8Stream) finishM3u8(ctx context.Context, cosClient *cos.Client, c
 			return errors.Wrapf(err, "unmarshal %v", remux)
 		}
 
-		definition, err = strconv.Atoi(transcode.Definition)
+		definition, err = strconv.ParseInt(transcode.Definition, 10, 64)
 		if err != nil {
 			return errors.Wrapf(err, "invalid remux %v", transcode.String())
 		}

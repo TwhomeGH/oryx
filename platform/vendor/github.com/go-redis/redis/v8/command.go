@@ -262,7 +262,7 @@ func toInt64(val interface{}) (int64, error) {
 	case int64:
 		return val, nil
 	case string:
-		return strconv.Atoi(val)
+		return strconv.ParseInt(val, 10, 64)
 	default:
 		err := fmt.Errorf("redis: unexpected type=%T for Int64", val)
 		return 0, err
@@ -908,7 +908,7 @@ func (cmd *StringCmd) Int64() (int64, error) {
 	if cmd.err != nil {
 		return 0, cmd.err
 	}
-	return strconv.Atoi(cmd.Val())
+	return strconv.ParseInt(cmd.Val(), 10, 64)
 }
 
 func (cmd *StringCmd) Uint64() (uint64, error) {
@@ -1933,12 +1933,12 @@ func readXConsumerInfo(rd *proto.Reader) (XInfoConsumer, error) {
 		case "name":
 			consumer.Name = val
 		case "pending":
-			consumer.Pending, err = strconv.Atoi(val)
+			consumer.Pending, err = strconv.ParseInt(val, 10, 64)
 			if err != nil {
 				return consumer, err
 			}
 		case "idle":
-			consumer.Idle, err = strconv.Atoi(val)
+			consumer.Idle, err = strconv.ParseInt(val, 10, 64)
 			if err != nil {
 				return consumer, err
 			}
@@ -2035,12 +2035,12 @@ func readXGroupInfo(rd *proto.Reader) (XInfoGroup, error) {
 		case "name":
 			group.Name = val
 		case "consumers":
-			group.Consumers, err = strconv.Atoi(val)
+			group.Consumers, err = strconv.ParseInt(val, 10, 64)
 			if err != nil {
 				return group, err
 			}
 		case "pending":
-			group.Pending, err = strconv.Atoi(val)
+			group.Pending, err = strconv.ParseInt(val, 10, 64)
 			if err != nil {
 				return group, err
 			}

@@ -357,7 +357,7 @@ func (v *CameraWorker) Handle(ctx context.Context, handler *http.ServeMux) error
 							limits = SrsSysLimitsCamera // in Kbps.
 						}
 
-						if bitrate, err := strconv.Atoi(format.Format.Bitrate); err != nil {
+						if bitrate, err := strconv.ParseInt(format.Format.Bitrate, 10, 64); err != nil {
 							return errors.Wrapf(err, "parse bitrate %v", format.Format.Bitrate)
 						} else if bitrate > limits*1000 {
 							return errors.Errorf("bitrate %vKbps is too large, exceed %vKbps", bitrate/1000, limits)
