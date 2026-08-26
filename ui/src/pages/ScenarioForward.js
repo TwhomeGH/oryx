@@ -161,7 +161,20 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
     return () => clearInterval(timer);
   }, [setActiveStreams]);
 
-  // Update config object in array.
+  // Hint for empty source stream: show which stream it would forward,
+  // mimicking the backend selectActiveStream logic (latest update wins).
+  const autoSourceHint = (conf) => {
+    const running = (forwards || []).find(f => f.platform === conf.platform);
+    if (running?.input) {
+      return `${t('forward.currentSource')}: ${running.input}`;
+    }
+    const actives = [...(activeStreams || [])].filter(s => s.update)
+      .sort((a, b) => new Date(b.update) - new Date(a.update));
+    if (actives.length > 0) {
+      return `${t('forward.autoSource')}, ${t('forward.currentSource')}: ${actives[0].stream}`;
+    }
+    return t('forward.autoSource');
+  };
   const updateConfigObject = React.useCallback((conf) => {
     const confs = configs.map((e) => {
       if (e.platform === conf.platform) {
@@ -285,12 +298,8 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
                     ))}
                   </datalist>
                   {!conf.stream && (
-                    <Form.Text>
-                      * {t('forward.autoSource')}
-                      {(() => {
-                        const cur = (forwards || []).find(f => f.platform === conf.platform);
-                        return cur?.stream ? `（${cur.stream}）` : '';
-                      })()}
+                    <Form.Text style={{wordBreak: 'break-all'}}>
+                      * {autoSourceHint(conf)}
                     </Form.Text>
                   )}
                 </Form.Group>
