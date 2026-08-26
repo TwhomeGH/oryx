@@ -39,7 +39,7 @@ else
 	cp -f platform/bootstrap.origin.cluster $(__REAL_INSTALL)/platform/bootstrap.origin.cluster
 	cp -rf platform/auto $(__REAL_INSTALL)/platform/auto
 	cp -rf platform/containers $(__REAL_INSTALL)/platform/containers
-	(cd platform && cp -P dvr objs record upload vlive vod transcript dub $(__REAL_INSTALL)/platform)
+	(cd platform && cp -a dvr objs record upload vlive vod transcript dub $(__REAL_INSTALL)/platform)
 	rm -rf $(__REAL_INSTALL)/platform/containers/objs/*
 	rm -rf $(__REAL_INSTALL)/platform/containers/data/*
 	cp -rf usr $(__REAL_INSTALL)/usr
