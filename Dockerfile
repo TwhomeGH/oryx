@@ -99,8 +99,8 @@ COPY --from=ytdl /usr/local/bin/youtube-dl /usr/local/bin/
 # fallback binary so it can be restored by swapping filenames if ever needed.
 RUN mv /usr/local/bin/ffmpeg /usr/local/bin/ffmpeg-fit && \
     mv /usr/local/bin/ffprobe /usr/local/bin/ffprobe-fit || true
-COPY --from=ffmpeg-full /ffmpeg /usr/local/bin/ffmpeg
-COPY --from=ffmpeg-full /ffprobe /usr/local/bin/ffprobe
+    COPY --from=ffmpeg-full /usr/local/bin/ffmpeg /usr/local/bin/ffmpeg
+    COPY --from=ffmpeg-full /usr/local/bin/ffprobe /usr/local/bin/ffprobe
 # Runtime libraries for VAAPI (AMD/Intel iGPU) hardware encoding:
 # libva/libdrm are the client libs; mesa/intel provide the userspace drivers.
 ENV DEBIAN_FRONTEND=noninteractive
