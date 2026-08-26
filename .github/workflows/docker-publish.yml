@@ -71,5 +71,9 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # Disable provenance/sbom attestations: they are pushed as extra
+          # UNTAGGED child manifests, which our cleanup workflow would delete,
+          # breaking every tag pointing to the image index.
+          provenance: false
           cache-from: type=gha
           cache-to: type=gha,mode=max

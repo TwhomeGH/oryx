@@ -42,8 +42,13 @@ jobs:
             echo "delete ${id} (${reason}): HTTP ${code}"
           }
 
-          # 1) Untagged manifests are pure garbage left by tag overwrites.
-          jq -r 'select((.metadata.container.tags // []) | length == 0) | .id' \
+          # 1) Untagged manifests are garbage left by tag overwrites.
+          #    Safety: only delete ones older than 24h, so anything that was
+          #    just pushed (e.g. multi-manifest structures we did not expect)
+          #    gets a grace period before removal.
+          jq -r 'select((.metadata.container.tags // []) | length == 0)
+            | select((now - (.created_at | fromdateiso8601)) > 86400)
+            | .id' \
             /tmp/versions.jsonl | while read -r id; do
             delete_version "$id" untagged
           done
