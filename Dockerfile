@@ -83,4 +83,11 @@ RUN mkdir -p /data && \
     cd /usr/local/oryx/platform/containers && \
     rm -rf data && ln -sf /data .
 
+# Ensure platform/objs exists for SRS pid file. The repo ships it as a Git
+# symlink to containers/objs, which is lost when building on Windows (the
+# checkout becomes a plain file and BuildKit drops junctions from context).
+RUN cd /usr/local/oryx/platform && \
+    mkdir -p containers/objs && \
+    { [ -e objs ] || ln -s containers/objs objs; }
+
 CMD ["./bootstrap"]
