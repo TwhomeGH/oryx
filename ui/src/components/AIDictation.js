@@ -284,8 +284,6 @@ export function AITalkDictationPanel({roomUUID, roomToken, username, userLanguag
         }, {
           headers: Token.loadBearerHeader(),
         }).then(res => {
-          if (res.data?.data?.finished) {
-          }
           resolve(res.data.data);
         }).catch(error => reject(error));
       });
