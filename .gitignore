@@ -141,3 +141,4 @@ __pycache__
 /*.txt
 .tmp
 __debug_bin*
+test/oryx.test.exe

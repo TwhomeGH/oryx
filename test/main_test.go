@@ -241,11 +241,9 @@ func prepareTest(ctx context.Context) (err error) {
 			return nFilename, nil
 		}
 
-		// Try to find file by which if it's a command like ffmpeg.
-		cmd := exec.Command("which", filename)
-		cmd.Env = []string{"PATH=/opt/homebrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"}
-		if v, err := cmd.Output(); err == nil {
-			return strings.TrimSpace(string(v)), nil
+		// Try to find file by PATH lookup, works cross-platform (Linux, macOS, Windows).
+		if v, err := exec.LookPath(filename); err == nil {
+			return v, nil
 		}
 
 		return filename, errors.Errorf("file %v not found", filename)
@@ -279,14 +277,6 @@ func TestMain(m *testing.M) {
 		os.Exit(-1)
 	}
 
-	// Disable the logger during all tests.
-	if *srsLog == false {
-		olw := logger.Switch(ioutil.Discard)
-		defer func() {
-			logger.Switch(olw)
-		}()
-	}
-
 	// Init rand seed.
 	rand.Seed(time.Now().UnixNano())
 
@@ -296,6 +286,25 @@ func TestMain(m *testing.M) {
 			os.Exit(-1)
 		}
 		logger.Tf(ctx, "Wait for service ready ok")
+	}
+
+	// Auto-init if platform not initialized (e.g. running single test without -init-password).
+	// Use /terraform/v1/mgmt/init with empty body to check init status (no auth needed).
+	if *checkApiSecret && !*initPassword {
+		var probeResult struct {
+			Init *bool `json:"init"`
+		}
+		if err := NewApi().NoAuth(ctx, "/terraform/v1/mgmt/init", nil, &probeResult); err != nil {
+			logger.Tf(ctx, "Platform not initialized (err=%v), auto-init", err)
+			*initPassword = true
+			*initSelfSignedCert = true
+		} else if probeResult.Init != nil && !*probeResult.Init {
+			logger.Tf(ctx, "Platform not initialized (init=false), auto-init")
+			*initPassword = true
+			*initSelfSignedCert = true
+		} else {
+			logger.Tf(ctx, "Platform already initialized")
+		}
 	}
 
 	if *initPassword {
@@ -312,6 +321,14 @@ func TestMain(m *testing.M) {
 			os.Exit(-1)
 		}
 		logger.Tf(ctx, "Init self-signed cert ok")
+	}
+
+	// Disable the logger during all tests.
+	if *srsLog == false {
+		olw := logger.Switch(ioutil.Discard)
+		defer func() {
+			logger.Switch(olw)
+		}()
 	}
 
 	os.Exit(m.Run())
@@ -351,26 +368,32 @@ func initSystemPassword(ctx context.Context) error {
 		*systemPassword = password
 	}
 
-	// Initialize the system by password.
-	var token string
-	if err := NewApi().WithAuth(ctx, "/terraform/v1/mgmt/init", &struct {
+	// Initialize the system by password. No auth required for first-time init.
+	var bearer string
+	if err := NewApi().NoAuth(ctx, "/terraform/v1/mgmt/init", &struct {
 		Password string `json:"password"`
 	}{
 		Password: password,
 	}, &struct {
-		Token *string `json:"token"`
+		Token   *string `json:"token"`
+		Bearer  *string `json:"bearer"`
 	}{
-		Token: &token,
+		Token:  new(string),
+		Bearer: &bearer,
 	}); err != nil {
 		return errors.Wrapf(err, "init system")
 	}
-	if token == "" {
-		return errors.Errorf("invalid token")
+	if bearer == "" {
+		return errors.Errorf("invalid bearer")
 	}
 
-	// Login the system by password.
+	// Update the api secret with the one returned by init, so subsequent calls auth correctly.
+	*apiSecret = bearer
+	logger.Tf(ctx, "Init system ok, api secret updated (%vB)", len(bearer))
+
+	// Login the system by password. No auth required for login.
 	var token2 string
-	if err := NewApi().WithAuth(ctx, "/terraform/v1/mgmt/login", &struct {
+	if err := NewApi().NoAuth(ctx, "/terraform/v1/mgmt/login", &struct {
 		Password string `json:"password"`
 	}{
 		Password: password,

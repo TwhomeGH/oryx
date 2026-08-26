@@ -218,6 +218,15 @@ func (v *httpService) Run(ctx context.Context) error {
 	return nil
 }
 
+// httpError wraps an error with a custom HTTP status code.
+type httpError struct {
+	err    error
+	status int
+}
+
+func (e *httpError) Error() string { return e.err.Error() }
+func (e *httpError) Status() int   { return e.status }
+
 func middlewareAuthTokenInURL(ctx context.Context, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := func() error {
@@ -237,7 +246,8 @@ func middlewareAuthTokenInURL(ctx context.Context, next http.Handler) http.Handl
 
 			return nil
 		}(); err != nil {
-			ohttp.WriteError(ctx, w, r, err)
+			ohttp.WriteError(ctx, w, r, &httpError{err: err, status: http.StatusUnauthorized})
+			return
 		}
 
 		next.ServeHTTP(w, r)
@@ -270,7 +280,8 @@ func middlewareAuthTokenInBody(ctx context.Context, next http.Handler) http.Hand
 			}
 			return nil
 		}(); err != nil {
-			ohttp.WriteError(ctx, w, r, err)
+			ohttp.WriteError(ctx, w, r, &httpError{err: err, status: http.StatusUnauthorized})
+			return
 		}
 
 		next.ServeHTTP(w, r)
