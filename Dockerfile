@@ -101,11 +101,12 @@ RUN mv /usr/local/bin/ffmpeg /usr/local/bin/ffmpeg-fit && \
     mv /usr/local/bin/ffprobe /usr/local/bin/ffprobe-fit || true
     COPY --from=ffmpeg-full /usr/local/bin/ffmpeg /usr/local/bin/ffmpeg
     COPY --from=ffmpeg-full /usr/local/bin/ffprobe /usr/local/bin/ffprobe
-# Runtime libraries for VAAPI (AMD/Intel iGPU) hardware encoding:
-# libva/libdrm are the client libs; mesa/intel provide the userspace drivers.
+# Runtime libraries for VAAPI/QSV (Intel/AMD iGPU) hardware encoding:
+# libva/libdrm are the client libs; libva-drm is the DRM backend; mesa/intel provide the userspace drivers.
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -y && apt-get install -y --no-install-recommends \
-    libva2 libdrm2 mesa-va-drivers intel-media-va-driver && rm -rf /var/lib/apt/lists/*
+    libva2 libva-drm2 libdrm2 libx11-6 \
+    mesa-va-drivers intel-media-va-driver && rm -rf /var/lib/apt/lists/*
 
 # Prepare data directory.
 RUN mkdir -p /data && \
