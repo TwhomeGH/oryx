@@ -14,6 +14,9 @@
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
     <title>Oryx</title>
     <script type="text/javascript">
+      // Apply saved theme before first paint to avoid flashing.
+      document.documentElement.setAttribute('data-bs-theme',
+        localStorage.getItem('oryx-theme') || 'light');
       window.PUBLIC_URL = "%PUBLIC_URL%";
       window.REACT_APP_LOCALE = "%REACT_APP_LOCALE%";
     </script>

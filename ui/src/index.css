@@ -1,0 +1,5 @@
+
+/* Dark mode: let native form controls and scrollbars follow the theme. */
+[data-bs-theme='dark'] {
+  color-scheme: dark;
+}

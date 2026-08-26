@@ -9,6 +9,7 @@ import {Navbar, Nav} from 'react-bootstrap';
 import {Link, useLocation} from "react-router-dom";
 import logo from '../resources/logo.svg';
 import LanguageSwitch from "../components/LanguageSwitch";
+import ThemeSwitch from "../components/ThemeSwitch";
 import {useTranslation} from "react-i18next";
 
 export default function Navigator({initialized, token, localChanged}) {
@@ -68,6 +69,7 @@ export default function Navigator({initialized, token, localChanged}) {
           })}
         </Nav>
         <Navbar.Collapse className="justify-content-end">
+          <ThemeSwitch />
           <LanguageSwitch localChanged={localChanged} />
         </Navbar.Collapse>
       </Container>

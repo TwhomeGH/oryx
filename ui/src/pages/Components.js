@@ -64,8 +64,24 @@ function ComponentsImpl() {
   }, []);
 
   React.useEffect(() => {
-    refreshCapabilities();
-  }, [refreshCapabilities]);
+  refreshCapabilities();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+
+// Probe ffmpeg encoders; the server caches the result, so this is cheap.
+const [ffCaps, setFfCaps] = React.useState();
+const refreshFfCaps = React.useCallback((force) => {
+  axios.post('/terraform/v1/mgmt/ffmpeg/capabilities', {refresh: !!force}, {
+    headers: Token.loadBearerHeader(),
+  }).then(res => {
+    setFfCaps(res.data.data);
+  }).catch(e => {
+    console.log('ignore error during ffmpeg capabilities', e);
+  });
+}, []);
+React.useEffect(() => {
+  refreshFfCaps(false);
+}, [refreshFfCaps]);
 
   return (
     <>
@@ -102,6 +118,30 @@ function ComponentsImpl() {
                   )}
                 </Card.Text>
                 <Button className="mt-auto align-self-start" size="sm" variant="outline-primary" onClick={refreshCapabilities}>{t('coms.refresh')}</Button>
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col xs={12} md={6} xl={3}>
+            <Card className="h-100">
+              <Card.Header>{t('coms.ffTitle')}</Card.Header>
+              <Card.Body className="d-flex flex-column">
+                <Card.Text as="div" className="mb-2">
+                  {t('coms.ffVersion')}: <span style={{wordBreak: 'break-all'}}>{ffCaps?.version || '-'}</span>
+                  {ffCaps?.probing && <div style={{fontSize: '0.8em', marginTop: '4px'}}>{t('coms.ffProbing')}</div>}
+                  <div className="d-flex flex-wrap gap-1 mt-1">
+                    {(ffCaps?.encoders || []).map(c => (
+                      <Badge key={c.name} bg={c.ok ? 'success' : 'danger'}>{c.name}</Badge>
+                    ))}
+                    {!ffCaps && <>-</>}
+                  </div>
+                  {!!ffCaps?.encoders?.some(c => !c.ok) && (
+                    <div style={{fontSize: '0.8em', marginTop: '4px', wordBreak: 'break-all'}}>
+                      {ffCaps.encoders.filter(c => !c.ok).map(c => `${c.name}: ${c.detail}`).join('; ')}
+                    </div>
+                  )}
+                </Card.Text>
+                <Button className="mt-auto align-self-start" size="sm" variant="outline-primary"
+                  onClick={() => refreshFfCaps(true)}>{t('coms.refresh')}</Button>
               </Card.Body>
             </Card>
           </Col>

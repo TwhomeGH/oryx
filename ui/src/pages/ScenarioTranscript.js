@@ -56,6 +56,33 @@ function ScenarioTranscriptImpl({activeKey, defaultEnabled, defaultConf, default
   const [targetLanguage, setTargetLanguage] = React.useState(defaultConf.lang || language);
   const [forceStyle, setForceStyle] = React.useState(defaultConf.forceStyle || 'Alignment=2,MarginV=20');
   const [videoCodecParams, setVideoCodecParams] = React.useState(defaultConf.videoCodecParams || '-c:v libx264 -profile:v main -preset:v medium -tune zerolatency -bf 0');
+
+  // Encoding presets; hardware options are enabled only when the server-side
+  // capability probe confirms the encoder actually works on this machine.
+  const CODEC_PRESETS = [
+    {key: 'balanced', need: 'libx264',    value: '-c:v libx264 -profile:v main -preset:v medium -tune zerolatency -bf 0'},
+    {key: 'fast',     need: 'libx264',    value: '-c:v libx264 -profile:v main -preset:v ultrafast -tune zerolatency -bf 0'},
+    {key: 'quality',  need: 'libx264',    value: '-c:v libx264 -profile:v high -preset:v slow -bf 2'},
+    {key: 'baseline', need: 'libx264',    value: '-c:v libx264 -profile:v baseline -preset:v veryfast -tune zerolatency'},
+    {key: 'nvenc',    need: 'h264_nvenc', value: '-c:v h264_nvenc -preset:p p4 -tune ll -b:v 2M -maxrate 4M -bufsize 4M'},
+    {key: 'qsv',      need: 'h264_qsv',   value: '-c:v h264_qsv -preset veryfast -b:v 2M -maxrate 4M -bufsize 4M'},
+  ];
+  const [codecPreset, setCodecPreset] = React.useState(() => {
+    const hit = CODEC_PRESETS.find(p => p.value === (defaultConf.videoCodecParams || ''));
+    return hit ? hit.key : 'custom';
+  });
+
+  // FFmpeg encoder capabilities, to enable/disable hardware presets.
+  const [ffCaps, setFfCaps] = React.useState();
+  React.useEffect(() => {
+    axios.post('/terraform/v1/mgmt/ffmpeg/capabilities', {}, {
+      headers: Token.loadBearerHeader(),
+    }).then(res => {
+      setFfCaps(res.data.data);
+    }).catch(e => {
+      console.log('ignore error during ffmpeg capabilities', e);
+    });
+  }, []);
   const [overlayEnabled, setOverlayEnabled] = React.useState(defaultConf.overlayEnabled);
   const [webvttEnabled, setWebvttEnabled] = React.useState(defaultConf.webvttEnabled);
   const [webvttCueSetting, setWebvttCueSetting] = React.useState(defaultConf.webvttCueSetting || 'line:80% align:start');
@@ -376,7 +403,27 @@ function ScenarioTranscriptImpl({activeKey, defaultEnabled, defaultConf, default
                   <Form.Text> * {t('transcript.trans1')}. &nbsp;
                     {t('helper.see')} <a href={t('transcript.trans2')} target='_blank' rel='noreferrer'>FFmpeg: video codec</a>.
                   </Form.Text>
-                  <Form.Control as="input" defaultValue={videoCodecParams} onChange={(e) => setVideoCodecParams(e.target.value)} />
+                  <Form.Select value={codecPreset} onChange={(e) => {
+                    const key = e.target.value;
+                    setCodecPreset(key);
+                    const preset = CODEC_PRESETS.find(p => p.key === key);
+                    if (preset) setVideoCodecParams(preset.value);
+                  }}>
+                    {CODEC_PRESETS.map(p => {
+                      const enc = (ffCaps?.encoders || []).find(c => c.name === p.need);
+                      const ok = !ffCaps || !enc || enc.ok;
+                      return (
+                        <option key={p.key} value={p.key} disabled={!ok}>
+                          {t(`transcript.codec.${p.key}`)}{!ok ? ` (${t('transcript.codecNeedGpu')})` : ''}
+                        </option>
+                      );
+                    })}
+                    <option value="custom">{t('transcript.codecCustom')}</option>
+                  </Form.Select>
+                  {codecPreset === 'custom' && (
+                    <Form.Control className="mt-2" as="input" defaultValue={videoCodecParams}
+                      onChange={(e) => setVideoCodecParams(e.target.value)} />
+                  )}
                 </Form.Group>
               </Card.Body>}
               {configItem === 'webvtt' && <Card.Body>

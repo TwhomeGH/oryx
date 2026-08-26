@@ -338,6 +338,8 @@ func handleHTTPService(ctx context.Context, handler *http.ServeMux) error {
 	handleMgmtStatus(ctx, handler)
 	handleMgmtBilibili(ctx, handler)
 	handleMgmtContactQuery(ctx, handler)
+	handleMgmtFFmpegCapabilities(ctx, handler)
+	handleMgmtContactQuery(ctx, handler)
 	handleMgmtLimitsQuery(ctx, handler)
 	handleMgmtLimitsUpdate(ctx, handler)
 	handleMgmtOpenAIQuery(ctx, handler)

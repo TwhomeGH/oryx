@@ -56,6 +56,11 @@ RUN echo "Before UPX for $TARGETARCH" && \
 # For youtube-dl, see https://github.com/ytdl-org/ytdl-nightly
 FROM ${ARCH}python:3.9-slim-bullseye AS ytdl
 
+# Full-featured static ffmpeg+ffprobe, adds hardware encoders (nvenc/vaapi)
+# and many more codecs/filters over the srs fit-build.
+# https://github.com/mwader/static-ffmpeg
+FROM ${ARCH}mwader/static-ffmpeg:6.1 AS ffmpeg-full
+
 RUN apt-get update -y && apt-get install -y binutils curl unzip && \
     pip install pyinstaller
 
@@ -77,6 +82,17 @@ EXPOSE 2022 2443 1935 8080 5060 9000 8000/udp 10080/udp
 COPY --from=build /usr/local/oryx /usr/local/oryx
 COPY --from=build /usr/local/srs /usr/local/srs
 COPY --from=ytdl /usr/local/bin/youtube-dl /usr/local/bin/
+
+# Swap in full-featured ffmpeg/ffprobe; keep the previous fit-build as a
+# fallback binary so it can be restored by swapping filenames if ever needed.
+RUN mv /usr/local/bin/ffmpeg /usr/local/bin/ffmpeg-fit && \
+    mv /usr/local/bin/ffprobe /usr/local/bin/ffprobe-fit || true
+COPY --from=ffmpeg-full /ffmpeg /usr/local/bin/ffmpeg
+COPY --from=ffmpeg-full /ffprobe /usr/local/bin/ffprobe
+# Runtime libraries for VAAPI (AMD/Intel iGPU) hardware encoding.
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update -y && apt-get install -y --no-install-recommends \
+    libva2 libdrm2 && rm -rf /var/lib/apt/lists/*
 
 # Prepare data directory.
 RUN mkdir -p /data && \
