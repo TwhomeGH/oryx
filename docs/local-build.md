@@ -89,3 +89,20 @@ docker load -i oryx-local.tar
 | 正式發布版號、給其他機器匿名拉取 | push 觸發 CI（產 GHCR 版號映像 + latest） |
 
 兩者不衝突：本地先驗證沒問題，再 push 讓 CI 出正式版。
+
+## Windows 已知坑：符號連結
+
+repo 內有 Git 符號連結（如 platform/objs -> containers/objs）。
+Windows 未開啟開發者模式時，checkout 會把它變成「內容為目標路徑的普通檔案」，
+被複製進映像後 SRS 啟動會報 \open pid file=./objs/srs.pid: Not a directory\。
+
+修復（一次性，本機已做過）：
+
+```powershell
+Remove-Item platform\objs -Force
+New-Item -ItemType Junction -Path platform\objs -Target platform\containers\objs
+git update-index --skip-worktree platform/objs
+```
+
+永久方案：Windows 設定開啟「開發人員模式」+ git config --global core.symlinks true，
+之後重新 checkout 即為真符號連結。
