@@ -1,37 +1,62 @@
 name: Cleanup GHCR Package
 
+# Follow every image publish instead of a fixed schedule, so the package
+# list stays tidy right after each build. Also runnable manually.
 on:
-  schedule:
-    - cron: '17 3 * * *'
+  workflow_run:
+    workflows: ["Publish Docker Image (GHCR)"]
+    types: [completed]
   workflow_dispatch:
 
-jobs:
-  # Remove dangling manifests left behind by overwriting :latest / :vX.Y.Z tags.
-  purge-untagged:
-    runs-on: ubuntu-22.04
-    permissions:
-      packages: write
-    steps:
-      - name: Delete untagged versions
-        uses: actions/delete-package-versions@v5
-        with:
-          package-name: 'oryx'
-          package-type: 'container'
-          delete-only-untagged-versions: 'true'
+permissions:
+  packages: write
+  contents: read
 
-  # Protect :latest / :vX.* release tags via ignore-versions; among everything
-  # else (sha-* builds), always keep the newest 20 and delete up to 100
-  # oldest ones per run.
-  prune-old-builds:
-    runs-on: ubuntu-22.04
-    permissions:
-      packages: write
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
     steps:
-      - name: Prune old sha-* builds
-        uses: actions/delete-package-versions@v5
-        with:
-          package-name: 'oryx'
-          package-type: 'container'
-          ignore-versions: '^(latest|v[0-9])'
-          min-versions-to-keep: '20'
-          num-old-versions-to-delete: '100'
+      - name: Prune old sha-* builds and untagged manifests
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: twhomegh
+          PKG: oryx
+          KEEP: '20'
+        run: |
+          set -euo pipefail
+          API="https://api.github.com/users/${OWNER}/packages/container/${PKG}/versions"
+
+          # Fetch all versions (up to 5 pages = 500 entries).
+          : > /tmp/versions.jsonl
+          for p in 1 2 3 4 5; do
+            curl -sf -H "Authorization: Bearer ${GH_TOKEN}" "${API}?per_page=100&page=${p}" \
+              | jq -c '.[]' >> /tmp/versions.jsonl || true
+            [ "$(wc -l < /tmp/versions.jsonl)" -lt $((p * 100)) ] && break
+          done
+          echo "Total versions: $(wc -l < /tmp/versions.jsonl)"
+
+          delete_version() {
+            local id="$1" reason="$2"
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE \
+              -H "Authorization: Bearer ${GH_TOKEN}" "${API}/${id}")
+            echo "delete ${id} (${reason}): HTTP ${code}"
+          }
+
+          # 1) Untagged manifests are pure garbage left by tag overwrites.
+          jq -r 'select((.metadata.container.tags // []) | length == 0) | .id' \
+            /tmp/versions.jsonl | while read -r id; do
+            delete_version "$id" untagged
+          done
+
+          # 2) sha-* rollback builds: keep the newest N, delete older ones.
+          #    Release tags (:latest / :vX.Y.Z) are never touched.
+          #    (-s slurps the whole jsonl into one array before slicing.)
+          jq -s -r --argjson keep "${KEEP}" '
+            [.[] | select((.metadata.container.tags // [])
+              | any(test("^sha-[0-9a-f]")))]
+            | sort_by(.created_at) | reverse | .[$keep:][] | .id' \
+            /tmp/versions.jsonl | while read -r id; do
+            delete_version "$id" "old-sha-beyond-keep-${KEEP}"
+          done
+
+          echo "Cleanup done."
