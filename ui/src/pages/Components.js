@@ -128,6 +128,13 @@ React.useEffect(() => {
                 <Card.Text as="div" className="mb-2">
                   {t('coms.ffVersion')}: <span style={{wordBreak: 'break-all'}}>{ffCaps?.version || '-'}</span>
                   {ffCaps?.probing && <div style={{fontSize: '0.8em', marginTop: '4px'}}>{t('coms.ffProbing')}</div>}
+                  {!!ffCaps?.devices?.length && (
+                    <div className="d-flex flex-wrap gap-1 mt-1">
+                      {ffCaps.devices.map(d => (
+                        <Badge key={d.path} bg="info">{d.name}:{d.path}</Badge>
+                      ))}
+                    </div>
+                  )}
                   <div className="d-flex flex-wrap gap-1 mt-1">
                     {(ffCaps?.encoders || []).map(c => (
                       <Badge key={c.name} bg={c.ok ? 'success' : 'danger'}>{c.name}</Badge>

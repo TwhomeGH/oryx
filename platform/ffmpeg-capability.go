@@ -8,7 +8,9 @@ package main
 import (
 	"context"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -29,11 +31,20 @@ type FFmpegEncoderCapability struct {
 	Detail string `json:"detail,omitempty"`
 }
 
+// Hardware devices relevant for hardware encoding, probed from the
+// filesystem so the UI can explain WHY an encoder fails.
+type FFmpegDeviceCapability struct {
+	Name string `json:"name"` // e.g. "NVIDIA", "DRM/VAAPI"
+	Path string `json:"path"`
+	OK   bool   `json:"ok"`
+}
+
 type FFmpegCapabilities struct {
 	Update   time.Time                   `json:"update"`
 	Probing  bool                        `json:"probing"`
 	Version  string                      `json:"version,omitempty"`
 	Encoders []FFmpegEncoderCapability   `json:"encoders"`
+	Devices  []FFmpegDeviceCapability    `json:"devices,omitempty"`
 }
 
 var (
@@ -92,6 +103,24 @@ func probeFFmpegEncoder(ctx context.Context, name string) (bool, string) {
 	return err == nil, detail
 }
 
+func probeFFmpegDevices(ctx context.Context) []FFmpegDeviceCapability {
+	var devices []FFmpegDeviceCapability
+
+	add := func(name, pattern string) {
+		paths, _ := filepath.Glob(pattern)
+		for _, p := range paths {
+			devices = append(devices, FFmpegDeviceCapability{Name: name, Path: p, OK: true})
+		}
+	}
+	add("NVIDIA", "/dev/nvidia*")
+	add("DRM/VAAPI", "/dev/dri/renderD*")
+
+	if _, err := os.Stat("/proc/driver/nvidia/version"); err == nil {
+		devices = append(devices, FFmpegDeviceCapability{Name: "NVIDIA-driver", Path: "/proc/driver/nvidia/version", OK: true})
+	}
+	return devices
+}
+
 func refreshFFmpegCapabilities(ctx context.Context) *FFmpegCapabilities {
 	ffmpegCapabilitiesLock.Lock()
 	defer ffmpegCapabilitiesLock.Unlock()
@@ -143,6 +172,7 @@ func refreshFFmpegCapabilities(ctx context.Context) *FFmpegCapabilities {
 	}
 
 	caps.Probing = false
+	caps.Devices = probeFFmpegDevices(ctx)
 	ffmpegCapabilities = caps
 
 	for _, c := range caps.Encoders {

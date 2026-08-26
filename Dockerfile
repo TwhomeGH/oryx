@@ -66,11 +66,22 @@ RUN curl -O -L https://github.com/ytdl-org/youtube-dl/archive/refs/heads/master.
     cp dist/youtube-dl /usr/local/bin/ && \
     ldd /usr/local/bin/youtube-dl
 
-# Full-featured static ffmpeg+ffprobe, adds hardware encoders (nvenc/vaapi)
-# and many more codecs/filters over the srs fit-build.
-# NOTE: standalone stage with no RUN, the image contains only two binaries.
-# https://github.com/mwader/static-ffmpeg
-FROM ${ARCH}mwader/static-ffmpeg:6.1 AS ffmpeg-full
+# Full-featured ffmpeg+ffprobe from BtbN GPL builds, with hardware
+# encoders (nvenc/qsv/vaapi/amf) compiled in. Arch selected by TARGETARCH.
+# https://github.com/BtbN/FFmpeg-Builds/releases
+FROM debian:bookworm-slim AS ffmpeg-full
+ARG TARGETARCH
+RUN apt-get update -y && apt-get install -y --no-install-recommends curl xz-utils ca-certificates && \
+    case "${TARGETARCH}" in \
+      amd64) FFB=ffmpeg-master-latest-linux64-gpl.tar.xz ;; \
+      arm64) FFB=ffmpeg-master-latest-linuxarm64-gpl.tar.xz ;; \
+      *) echo "unsupported arch ${TARGETARCH}" && exit 1 ;; \
+    esac && \
+    curl -fsSL "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/${FFB}" \
+      | tar -xJ --strip-components=2 -C /usr/local/bin \
+        "$(echo ${FFB} | sed 's/[.]tar[.]xz//')/bin/ffmpeg" \
+        "$(echo ${FFB} | sed 's/[.]tar[.]xz//')/bin/ffprobe" && \
+    chmod +x /usr/local/bin/ffmpeg /usr/local/bin/ffprobe
 
 # http://releases.ubuntu.com/focal/
 #FROM ${ARCH}ubuntu:focal AS dist
@@ -90,10 +101,11 @@ RUN mv /usr/local/bin/ffmpeg /usr/local/bin/ffmpeg-fit && \
     mv /usr/local/bin/ffprobe /usr/local/bin/ffprobe-fit || true
 COPY --from=ffmpeg-full /ffmpeg /usr/local/bin/ffmpeg
 COPY --from=ffmpeg-full /ffprobe /usr/local/bin/ffprobe
-# Runtime libraries for VAAPI (AMD/Intel iGPU) hardware encoding.
+# Runtime libraries for VAAPI (AMD/Intel iGPU) hardware encoding:
+# libva/libdrm are the client libs; mesa/intel provide the userspace drivers.
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -y && apt-get install -y --no-install-recommends \
-    libva2 libdrm2 && rm -rf /var/lib/apt/lists/*
+    libva2 libdrm2 mesa-va-drivers intel-media-va-driver && rm -rf /var/lib/apt/lists/*
 
 # Prepare data directory.
 RUN mkdir -p /data && \
