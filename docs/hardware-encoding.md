@@ -11,9 +11,9 @@
 | 部署形態 | N 卡 (NVENC) | A 卡 (VAAPI) | Intel 核顯 (QSV/VAAPI) |
 |---|---|---|---|
 | 原生 Linux + Docker | ✅ | ✅ | ✅ |
-| Windows Docker Desktop (WSL2) | ✅* | ❌ WSL2 不暴露 /dev/dri | ❌ |
+| Windows Docker Desktop (WSL2) | ✅ | ❌ WSL2 不暴露 /dev/dri | ❌ |
 
-\* WSL2 需要 Windows 顯示驅動（Game Ready 即可）＋ Docker Desktop 內建的 WSL2 GPU 支援。
+\* WSL2 NVENC 需要：(1) Windows 安裝 NVIDIA Game Ready 驅動 (2) Docker Desktop 內建 WSL2 GPU 支援 (3) 映像內建 `libnvidia-encode`（已在 Dockerfile 中安裝）。
 
 ## 2. 一次性配置：docker-compose.yml
 
@@ -88,7 +88,8 @@ docker exec oryx ffmpeg -hide_banner -encoders 2>/dev/null | grep -E "nvenc|qsv|
 
 | 症狀 | 原因與解法 |
 |---|---|
-| nvenc 紅燈，報 `Cannot load libnvidia-encode.so` | 宿主機沒裝 N 卡驅動或 toolkit；Linux 裝 toolkit 後 `systemctl restart docker` |
+| nvenc 紅燈，報 `Cannot load libnvidia-encode.so` | 映像缺少 encode 函式庫；重建映像即可（Dockerfile 已內建） |
+| nvenc 紅燈，報 `Operation not permitted` | WSL2 驅動問題；確認 Windows 已裝最新 NVIDIA Game Ready 驅動，重啟 Docker Desktop |
 | vaapi 紅燈，報 `/dev/dri/renderD128` 相關 | compose 沒掛 devices，或你在 WSL2（無解，改用 NVENC） |
 | qsv 紅燈 | Intel 核顯需 11 代以上較穩；或缺 `/dev/dri` 透通 |
 | 全部紅燈但以前是綠的 | 映像更新後重啟容器即可；或驅動被動過 |
