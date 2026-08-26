@@ -133,7 +133,7 @@ class oryx_main:
 
     # If not set site_created.
     def createSrsSite(self, args):
-        if 'domain' not in args or args.domain == '':
+        if 'domain' not in args or args.domain is '':
             self.__trace(f"Error: Empty Oryx domain.")
             return public.returnMsg(False, 'invalid domain')
 
@@ -168,10 +168,10 @@ class oryx_main:
         ))
 
         # We must rewrite the message if ok, for json not support chinese.
-        if 'status' in r0 and r0['status'] == True:
+        if 'status' in r0 and r0['status'] is True:
             r0['msg'] = json.dumps({'path': confPath, 'conf': confData})
 
-        if r0['status'] == False:
+        if r0['status'] is False:
             self.__trace(f"Error: Failed to setup site, {r0['msg']}")
         return r0
 
@@ -196,7 +196,7 @@ class oryx_main:
     def __discover_path(self, general_path):
         real_path = None
         ok = public.ExecShell('ls {} >/dev/null 2>&1 && echo -n ok'.format(general_path))[0]
-        if ok == 'ok':
+        if ok is 'ok':
             real_path = public.ExecShell('ls {}'.format(general_path))[0]
         if real_path is not None:
             real_path = real_path.strip()

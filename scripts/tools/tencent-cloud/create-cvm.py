@@ -10,13 +10,13 @@ if os.path.exists(f'{os.getenv("HOME")}/.lighthouse/.env'):
     dotenv.load_dotenv(dotenv.find_dotenv(filename=f'{os.getenv("HOME")}/.lighthouse/.env'))
 else:
     dotenv.load_dotenv(dotenv.find_dotenv())
-if os.getenv("SECRET_ID") == None:
+if os.getenv("SECRET_ID") is None:
     print("Please set SECRET_ID in .env or ~/.lighthouse/.env file")
     exit(1)
-if os.getenv("SECRET_KEY") == None:
+if os.getenv("SECRET_KEY") is None:
     print("Please set SECRET_KEY in .env or ~/.lighthouse/.env file")
     exit(1)
-if os.getenv("VM_TOKEN") == None:
+if os.getenv("VM_TOKEN") is None:
     print("Please set VM_TOKEN in .env or ~/.lighthouse/.env file")
     exit(1)
 
@@ -30,20 +30,20 @@ for v in images:
         continue
     image = v
     break
-if image == None:
+if image is None:
     raise Exception("No image found")
 image_id = image['ImageId']
 print(f"Select image: {image['ImageName']}, {image_id}, {image['Architecture']}")
 
 instance_quotas = tools.get_zone_instance(region)['InstanceTypeQuotaSet']
-if len(instance_quotas) == 0:
+if len(instance_quotas) is 0:
     raise Exception("No instance type found")
 instance_candidates = []
 for v in instance_quotas:
     if v['Cpu'] != 2 or v['Fpga'] != 0 or v['Gpu'] != 0 or v['Memory'] != 2 or v['Status'] != 'SELL':
         continue
     instance_candidates.append(v)
-if len(instance_candidates) == 0:
+if len(instance_candidates) is 0:
     raise Exception("No instance type found")
 zone = instance_candidates[0]['Zone']
 instance_type = instance_candidates[0]['InstanceType']
@@ -65,7 +65,7 @@ while True:
     if len(instance_states) != 1:
         raise Exception(f"Instance {instance_id} status not found")
     instance_state = instance_states[0]
-    if instance_state['InstanceState'] == 'RUNNING':
+    if instance_state['InstanceState'] is 'RUNNING':
         print(f"Instance {instance_id} is running")
         break
     print(f"Instance {instance_id} is {instance_state['InstanceState']}, wait 3 seconds")

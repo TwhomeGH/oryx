@@ -24,7 +24,7 @@ result = res.read().decode('utf-8')
 print(f"request_time={now_time}, request_token={request_token}, result={result})")
 
 jr = json.loads(result)
-if len(jr) == 0:
+if len(jr) is 0:
     print(f"No site, result={result})")
     exit(0)
 

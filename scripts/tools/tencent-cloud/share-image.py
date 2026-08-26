@@ -13,19 +13,19 @@ else:
 
 if os.getenv("VM_IMAGE") is not None and args.image is None:
     args.image = os.getenv("VM_IMAGE")
-if args.image == None:
+if args.image is None:
     raise Exception("Please set --image")
 
-if os.getenv("SECRET_ID") == None:
+if os.getenv("SECRET_ID") is None:
     print("Please set SECRET_ID in .env or ~/.lighthouse/.env file")
     exit(1)
-if os.getenv("SECRET_KEY") == None:
+if os.getenv("SECRET_KEY") is None:
     print("Please set SECRET_KEY in .env or ~/.lighthouse/.env file")
     exit(1)
-if os.getenv("LH_ACCOUNT") == None:
+if os.getenv("LH_ACCOUNT") is None:
     print("Please set LH_ACCOUNT in .env or ~/.lighthouse/.env file")
     exit(1)
-if os.getenv("LH_PROD") == None:
+if os.getenv("LH_PROD") is None:
     print("Please set LH_PROD in .env or ~/.lighthouse/.env file")
     exit(1)
 

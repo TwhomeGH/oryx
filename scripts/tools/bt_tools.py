@@ -6,7 +6,7 @@ def version():
 
 def setup_site(confData):
     # Include the nginx.http.conf for http(global) level.
-    if os.path.exists('/data/config/nginx.http.conf') and confData.find('#SRS-HTTP-START') == -1:
+    if os.path.exists('/data/config/nginx.http.conf') and confData.find('#SRS-HTTP-START') is -1:
         srsConf = [
             '#SRS-HTTP-START\n',
             'include /data/config/nginx.http.conf;\n',
@@ -15,7 +15,7 @@ def setup_site(confData):
         confData = f"{''.join(srsConf)}\n{confData}"
 
     # Include the nginx.server.conf for server(vhost) level.
-    if os.path.exists('/data/config/nginx.server.conf') and confData.find('#SRS-SERVER-START') == -1:
+    if os.path.exists('/data/config/nginx.server.conf') and confData.find('#SRS-SERVER-START') is -1:
         srsConf = [
             '#SRS-SERVER-START\n',
             'include /data/config/nginx.server.conf;\n',
@@ -24,7 +24,7 @@ def setup_site(confData):
         confData = confData.replace('#SSL-START', f"{'    '.join(srsConf)}\n    #SSL-START")
 
     # Proxy all to Oryx.
-    if confData.find('#SRS-PROXY-START') == -1:
+    if confData.find('#SRS-PROXY-START') is -1:
         srsConf = [
             '#SRS-PROXY-START\n',
             'location / {\n',
@@ -36,12 +36,12 @@ def setup_site(confData):
         confData = confData.replace('#SSL-START', f"{'    '.join(srsConf)}\n    #SSL-START")
 
     # Disable the location section of nginx, we will handle it.
-    if confData.find('location ~ /disabled.by.srs/.*\.(js|css)?$\n') == -1:
+    if confData.find('location ~ /disabled.by.srs/.*\.(js|css)?$\n') is -1:
         confData = confData.replace(
             'location ~ .*\.(js|css)?$\n',
             'location ~ /disabled.by.srs/.*\.(js|css)?$\n',
         )
-    if confData.find('#location ~ /disabled.by.srs/.*\.(gif|jpg|jpeg|png|bmp|swf)$\n') == -1:
+    if confData.find('#location ~ /disabled.by.srs/.*\.(gif|jpg|jpeg|png|bmp|swf)$\n') is -1:
         confData = confData.replace(
             'location ~ .*\.(gif|jpg|jpeg|png|bmp|swf)$\n',
             'location ~ /disabled.by.srs/.*\.(gif|jpg|jpeg|png|bmp|swf)$\n',

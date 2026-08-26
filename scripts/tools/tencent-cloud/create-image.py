@@ -14,13 +14,13 @@ else:
 
 if os.getenv("VM_INSTANCE") is not None and args.instance is None:
     args.instance = os.getenv("VM_INSTANCE")
-if args.instance == None:
+if args.instance is None:
     raise Exception("Please set --instance")
 
-if os.getenv("SECRET_ID") == None:
+if os.getenv("SECRET_ID") is None:
     print("Please set SECRET_ID in .env or ~/.lighthouse/.env file")
     exit(1)
-if os.getenv("SECRET_KEY") == None:
+if os.getenv("SECRET_KEY") is None:
     print("Please set SECRET_KEY in .env or ~/.lighthouse/.env file")
     exit(1)
 
@@ -39,7 +39,7 @@ while True:
     if len(info) != 1:
         raise Exception(f"Image {image_id} not found")
 
-    if info[0]['ImageState'] == 'NORMAL':
+    if info[0]['ImageState'] is 'NORMAL':
         break
 
     print(f"Image {image_id} state is {info[0]['ImageState']}, wait 5 seconds")
