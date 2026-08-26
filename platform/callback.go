@@ -269,7 +269,7 @@ func (v *CallbackWorker) OnStreamMessage(ctx context.Context, action SrsAction, 
 	}
 
 	pfn3 := func(b, b2 []byte) error {
-		if code, err := strconv.ParseInt(string(b2), 10, 64); err == nil {
+		if code, err := strconv.Atoi(string(b2)); err == nil {
 			return pfn4(b, b2, int(code))
 		}
 
@@ -415,7 +415,7 @@ func (v *CallbackWorker) OnRecordMessage(ctx context.Context, action SrsAction, 
 	}
 
 	pfn3 := func(b, b2 []byte) error {
-		if code, err := strconv.ParseInt(string(b2), 10, 64); err == nil {
+		if code, err := strconv.Atoi(string(b2)); err == nil {
 			return pfn4(b, b2, int(code))
 		}
 
@@ -555,11 +555,12 @@ func (v *CallbackWorker) OnOCR(ctx context.Context, action SrsAction, taskUUID s
 	}
 
 	pfn3 := func(b, b2 []byte) error {
-		if code, err := strconv.ParseInt(string(b2), 10, 64); err == nil {
+		if code, err := strconv.Atoi(string(b2)); err == nil {
 			return pfn4(b, b2, int(code))
 		}
 
 		var code int
+
 		if err := json.Unmarshal(b2, &struct {
 			Code *int `json:"code"`
 		}{

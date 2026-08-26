@@ -313,7 +313,7 @@ func parsePath(s string) ([]*key, error) {
 			return nil, fmt.Errorf("no right bracket on key index: %s", keys[i])
 		}
 		// convert p[0] to a int value
-		pos, nerr := strconv.ParseInt(p[0], 10, 32)
+		pos, nerr := strconv.Atoi(p[0])
 		if nerr != nil {
 			return nil, fmt.Errorf("cannot convert index to int value: %s", p[0])
 		}

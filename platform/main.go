@@ -140,11 +140,11 @@ func doMain(ctx context.Context) error {
 
 	// For transcript queue limit.
 	setEnvDefault("SRS_TRANSCRIPT_FIX_QUEUE_LIMIT", "2")
-	if _, err := strconv.ParseInt(envTranscriptFixQueueLimit(), 10, 64); err != nil {
+	if _, err := strconv.Atoi(envTranscriptFixQueueLimit()); err != nil {
 		return errors.Wrapf(err, "parse env transcript fix queue limit %v", envTranscriptFixQueueLimit())
 	}
 	setEnvDefault("SRS_TRANSCRIPT_OVERLAY_QUEUE_LIMIT", "9")
-	if _, err := strconv.ParseInt(envTranscriptOverlayQueueLimit(), 10, 64); err != nil {
+	if _, err := strconv.Atoi(envTranscriptOverlayQueueLimit()); err != nil {
 		return errors.Wrapf(err, "parse env transcript overlay queue limit %v", envTranscriptOverlayQueueLimit())
 	}
 

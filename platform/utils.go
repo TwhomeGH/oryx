@@ -2099,7 +2099,7 @@ func (v *MediaFormat) FromFFprobeFormat(format *FFprobeFormat) error {
 		v.Duration = fv
 	}
 
-	if iv, err := strconv.ParseInt(format.Bitrate, 10, 64); err != nil {
+	if iv, err := strconv.Atoi(format.Bitrate); err != nil {
 		return errors.Wrapf(err, "parse bitrate %v of %v", format.Bitrate, format)
 	} else {
 		v.Bitrate = iv

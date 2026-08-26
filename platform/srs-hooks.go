@@ -507,7 +507,7 @@ func handleHooksService(ctx context.Context, handler *http.ServeMux) error {
 			}
 			sb.WriteString(fmt.Sprintf(", vodAppID=%v", vodAppID))
 
-			vodAppIDParsed, err := strconv.ParseInt(vodAppID, 10, 64)
+			vodAppIDParsed, err := strconv.Atoi(vodAppID)
 			if err != nil {
 				return errors.Wrapf(err, "parse %v", vodAppID)
 			}

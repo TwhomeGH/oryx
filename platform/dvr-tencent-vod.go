@@ -513,7 +513,7 @@ func (v *VodWorker) updateCredential(ctx context.Context) error {
 	}
 
 	if service, err := rdb.HGet(ctx, SRS_TENCENT_VOD, "service").Result(); err == nil && service != "ok" {
-		if tv, err := strconv.ParseInt(service, 10, 64); err != nil {
+		if tv, err := strconv.Atoi(service); err != nil {
 			return errors.Wrapf(err, "parse vod appid %v", service)
 		} else {
 			v.vodAppID = uint64(tv)
@@ -1031,7 +1031,7 @@ func (v *VodM3u8Stream) finishM3u8(ctx context.Context, cosClient *cos.Client, c
 			return errors.Wrapf(err, "unmarshal %v", remux)
 		}
 
-		definition, err = strconv.ParseInt(transcode.Definition, 10, 64)
+		definition, err = strconv.Atoi(transcode.Definition)
 		if err != nil {
 			return errors.Wrapf(err, "invalid remux %v", transcode.String())
 		}

@@ -689,7 +689,7 @@ func (v *VLiveWorker) Handle(ctx context.Context, handler *http.ServeMux) error 
 							limits = SrsSysLimitsVLive // in Kbps.
 						}
 
-						if bitrate, err := strconv.ParseInt(format.Format.Bitrate, 10, 64); err != nil {
+						if bitrate, err := strconv.Atoi(format.Format.Bitrate); err != nil {
 							return errors.Wrapf(err, "parse bitrate %v", format.Format.Bitrate)
 						} else if bitrate > limits*1000 {
 							return errors.Errorf("bitrate %vKbps is too large, exceed %vKbps", bitrate/1000, limits)
