@@ -4,7 +4,8 @@
 整個流程的核心是 **fetch 上游的 PR ref → 挑出 commit → cherry-pick 到自己的分支**。
 
 > **懶人首選**：專案內建了互動式腳本 `scripts/pick-pr.ps1`，自動查詢 PR 的精確 commit 清單、
-> 逐一預覽、確認後套用、詢問推送，衝突時給中文指引：
+> 逐一預覽、確認後套用、詢問推送，衝突時給中文指引。
+> **通用工具**：不綁定本專案，任何 GitHub 倉庫都能用（來源會自動偵測並記在 .git/pick-pr.cfg）：
 >
 > ```powershell
 > # 只看不改（先評估這個 PR 改什麼）
@@ -12,6 +13,9 @@
 >
 > # 實際套用（會逐步跟你確認）
 > powershell -ExecutionPolicy Bypass -File scripts\pick-pr.ps1 247
+>
+> # 在其他專案撿別人家的 PR：指定來源倉庫即可（遠端自動配對或新增）
+> powershell -ExecutionPolicy Bypass -File scripts\pick-pr.ps1 43 -UpstreamRepo hugeBlack/OpenParsec -DryRun
 > ```
 >
 > 手動流程仍然值得讀懂——腳本只是幫你把下面每一步串起來，出狀況時你才知道發生什麼事。

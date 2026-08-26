@@ -1,26 +1,33 @@
 ﻿<#
 .SYNOPSIS
-   從上游 ossrs/oryx 撿取（cherry-pick）指定 PR 的所有 commit 到本 fork。
+   從任意 GitHub 倉庫撿取（cherry-pick）指定 PR 的所有 commit 到當前分支。
 .DESCRIPTION
-   自動向 GitHub API 查詢 PR 的精確 commit 清單，逐一預覽、確認後依序 cherry-pick，
+   向 GitHub API 查詢 PR 的精確 commit 清單，逐一預覽、確認後依序 cherry-pick，
    最後可選擇推送。衝突時提供中文處理指引。
 
+   來源倉庫判定順序：
+     1. -UpstreamRepo 參數（會自動配對或新增同名遠端）
+     2. 上次使用記錄（存在 .git/pick-pr.cfg）
+     3. 互動列出現有遠端供挑選（從遠端網址解析 owner/repo）
+
    用法：
-     powershell -ExecutionPolicy Bypass -File scripts\pick-pr.ps1 247
-     或在已允許腳本的環境： .\scripts\pick-pr.ps1 247
+     powershell -ExecutionPolicy Bypass -File scripts\pick-pr.ps1 247          # 本倉庫慣例上游
+     powershell -ExecutionPolicy Bypass -File scripts\pick-pr.ps1 43 -UpstreamRepo hugeBlack/OpenParsec
 
    選用參數：
-     -UpstreamRepo owner/repo   上游倉庫（預設 ossrs/oryx）
-     -Push                      完成後直接推送，不詢問
-     -DryRun                    只顯示 PR 內容與 commit 清單，不實際套用
+      -UpstreamRepo owner/repo   來源倉庫；省略則自動偵測
+      -RemoteName 名稱           強制使用某個本地遠端
+      -Push                      完成後直接推送，不詢問
+      -DryRun                    只顯示 PR 內容與 commit 清單，不實際套用
 .EXAMPLE
-   .\scripts\pick-pr.ps1 248 -DryRun     # 先看看 #248 改什麼
-   .\scripts\pick-pr.ps1 248             # 確認後套用
+   .\scripts\pick-pr.ps1 248 -DryRun                    # 先看看 #248 改什麼
+   .\scripts\pick-pr.ps1 43 -UpstreamRepo hugeBlack/OpenParsec -DryRun
 #>
 param(
     [Parameter(Mandatory = $true, Position = 0)]
     [int]$Number,
-    [string]$UpstreamRepo = 'ossrs/oryx',
+    [string]$UpstreamRepo = '',
+    [string]$RemoteName = '',
     [switch]$Push,
     [switch]$DryRun
 )
@@ -31,15 +38,75 @@ function Write-Step([string]$m) { Write-Host "==> $m" -ForegroundColor Cyan }
 function Write-Ok([string]$m)   { Write-Host "    [OK] $m" -ForegroundColor Green }
 function Write-Bad([string]$m)  { Write-Host "    [失敗] $m" -ForegroundColor Red }
 
-# ---------- 0. 環境檢查 ----------
+# ---------- 0. 解析來源倉庫與遠端 ----------
 git rev-parse --is-inside-work-tree *> $null
 if ($LASTEXITCODE -ne 0) { Write-Bad '必須在 git 倉庫內執行'; exit 1 }
 
-$remotes = @(git remote)
-if ($remotes -notcontains 'upstream') {
-    Write-Step "找不到 upstream remote，自動新增 https://github.com/$UpstreamRepo.git"
-    git remote add upstream "https://github.com/$UpstreamRepo.git"
+function Get-OwnerRepoFromUrl([string]$url) {
+    # 支援 https://github.com/o/r(.git) 與 git@github.com:o/r(.git)
+    if ($url -match 'github[.]com[:/]([^/]+)/([^/]+?)([.]git)?/?$') {
+        return ($Matches[1] + '/' + $Matches[2])
+    }
+    return ''
 }
+
+$remotes = @(git remote)
+$cfgPath = Join-Path (git rev-parse --git-dir) 'pick-pr.cfg'
+
+# 未指定時，先讀上次記錄
+if (-not $UpstreamRepo -and (Test-Path $cfgPath)) {
+    $saved = (Get-Content $cfgPath -TotalCount 1).Trim()
+    if ($saved -match '^([^|]+)\|(.+)$') {
+        $RemoteName = $Matches[1]
+        $UpstreamRepo = $Matches[2]
+        Write-Host "（使用上次記錄：$RemoteName -> $UpstreamRepo）" -ForegroundColor DarkGray
+    }
+}
+
+# 仍未知：互動列出現有遠端供挑選
+if (-not $UpstreamRepo) {
+    if ($remotes.Count -eq 0) { Write-Bad '此倉庫沒有任何遠端，請用 -UpstreamRepo 指定來源'; exit 1 }
+    Write-Host '偵測到以下遠端：' -ForegroundColor Cyan
+    $map = @{}
+    for ($i = 0; $i -lt $remotes.Count; $i++) {
+        $u = git remote get-url $remotes[$i]
+        $or = Get-OwnerRepoFromUrl $u
+        if ($or) {
+            Write-Host ("  [{0}] {1} -> {2}" -f $i, $remotes[$i], $or)
+            $map[$i] = @{ remote = $remotes[$i]; repo = $or }
+        } else {
+            Write-Host ("  [{0}] {1} -> {2}（無法解析）" -f $i, $remotes[$i], $u)
+        }
+    }
+    $sel = Read-Host 'PR 來源要使用哪個遠端？(行號，或直接輸入 owner/repo)'
+    if ($sel -match '^\d+$' -and $map.ContainsKey([int]$sel)) {
+        $RemoteName = $map[[int]$sel].remote
+        $UpstreamRepo = $map[[int]$sel].repo
+    } elseif ($sel -match '^[^/\s]+/[^/\s]+$') {
+        $UpstreamRepo = $sel
+    } else {
+        Write-Bad '無效選擇'; exit 1
+    }
+}
+
+# 未指定遠端名：找網址指向同一倉庫的現有遠端
+if (-not $RemoteName) {
+    foreach ($r in $remotes) {
+        $u = git remote get-url $r
+        if ((Get-OwnerRepoFromUrl $u) -eq $UpstreamRepo) { $RemoteName = $r; break }
+    }
+}
+if (-not $RemoteName) {
+    if ($remotes -notcontains 'upstream') {
+        Write-Step "找不到指向 $UpstreamRepo 的遠端，自動新增 https://github.com/$UpstreamRepo.git"
+        git remote add upstream "https://github.com/$UpstreamRepo.git"
+    }
+    $RemoteName = 'upstream'
+}
+
+# 記住選擇供下次使用
+Set-Content -Path $cfgPath -Value ("{0}|{1}" -f $RemoteName, $UpstreamRepo)
+Write-Host ("來源遠端: {0} ({1})" -f $RemoteName, $UpstreamRepo)
 
 # ---------- 1. 向 GitHub API 查詢 PR 資訊 ----------
 $headers = @{ 'User-Agent' = 'oryx-pick-pr'; 'Accept' = 'application/vnd.github+json' }
@@ -76,8 +143,8 @@ if ($merged) {
 }
 
 # ---------- 2. 抓取 PR ref ----------
-Write-Step "git fetch upstream pull/$Number/head"
-git fetch upstream "pull/$Number/head"
+Write-Step "git fetch $RemoteName pull/$Number/head"
+git fetch $RemoteName "pull/$Number/head"
 if ($LASTEXITCODE -ne 0) { Write-Bad 'fetch 失敗'; exit 1 }
 
 $fetchedTip = (git rev-parse FETCH_HEAD).Trim()
