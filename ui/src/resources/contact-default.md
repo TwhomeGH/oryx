@@ -1,0 +1,28 @@
+# 關於本專案
+
+本倉庫是 **ossrs/oryx** 的社區維護分支。由於上游項目疑似停止維護，本分支會持續
+套用上游未處理的 PR、修復問題，並進行獨立維護。
+
+## 維護者
+
+- GitHub：[TwhomeGH](https://github.com/TwhomeGH)
+- 問題回報：[GitHub Issues](https://github.com/TwhomeGH/oryx/issues)
+
+## 文檔
+
+技術文檔位於倉庫的 [docs/](https://github.com/TwhomeGH/oryx/tree/main/docs) 目錄：
+
+- 本地建置與部署
+- 版本升級與回滾
+- AI 服務擴展（本地 LLM）
+- 轉發架構說明
+
+## 自訂此頁面
+
+這是預設內容。在資料卷中建立 `contact.md` 即可替換本頁：
+
+1. 在 docker-compose 掛載的 data 目錄下新增 `contact.md`
+2. 內容使用 Markdown 格式，支援表格、連結、圖片（圖片請使用完整 URL）
+3. 重新整理頁面即可生效，無需重建映像
+
+中文讀取 `contact.md`；英文介面優先讀取 `contact.en.md`（不存在時回落本檔案）。

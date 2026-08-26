@@ -3,76 +3,64 @@
 //
 // SPDX-License-Identifier: MIT
 //
+// The contact page is a markdown-driven notice board for the fork maintainer.
+// Content is read from the data volume (containers/data/contact.md), so it can
+// be updated without rebuilding the image. When absent, a bundled default is
+// rendered instead.
 import React from "react";
-import {Container, Carousel} from "react-bootstrap";
-import srsStack from "../resources/oryx-1296x648.png";
-import srsVideo from "../resources/srs-xingqiu-1296x648.png";
+import {Container, Card, Spinner} from "react-bootstrap";
+import axios from "axios";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import {Token} from "../utils";
 import {useSrsLanguage} from "../components/LanguageSwitch";
+import {useErrorHandler} from "react-error-boundary";
+
+import defaultZh from "../resources/contact-default.md?raw";
+import defaultEn from "../resources/contact-default.en.md?raw";
 
 export default function Contact() {
   const language = useSrsLanguage();
-  return language === 'zh' ? <ContactCn /> : <ContactEn />;
+  return <ContactImpl locale={language === 'zh' ? 'zh' : 'en'} />;
 }
 
-function ContactCn() {
-  return (
-    <Container fluid>
-      <Carousel variant="dark" interval={null}>
-        <Carousel.Item>
-          <img
-            className="d-block w-100"
-            src={srsStack}
-            alt="Oryx"
-          />
-          <Carousel.Caption>
-            <h5>欢迎加Oryx微信群</h5>
-            <p>
-              欢迎加群探讨使用经验，寻求帮助，请先观看<a href='https://www.bilibili.com/video/BV1844y1L7dL/' target='_blank' rel='noreferrer'>视频入门教程</a>。
-            </p>
-          </Carousel.Caption>
-        </Carousel.Item>
-        <Carousel.Item>
-          <img
-            className="d-block w-100"
-            src={srsVideo}
-            alt="SRS付费星球"
-          />
-          <Carousel.Caption>
-            <h5>欢迎加入SRS付费星球</h5>
-            <p>
-              深度用户推荐加入SRS付费星球，可以获得更多资讯，以及技术支持。
-            </p>
-          </Carousel.Caption>
-        </Carousel.Item>
-      </Carousel>
-    </Container>
-  );
-}
+function ContactImpl({locale}) {
+  const handleError = useErrorHandler();
+  const [content, setContent] = React.useState();
+  const [custom, setCustom] = React.useState(false);
 
-function ContactEn() {
+  React.useEffect(() => {
+    axios.post('/terraform/v1/mgmt/contact/query', {
+      locale,
+    }, {
+      headers: Token.loadBearerHeader(),
+    }).then(res => {
+      const data = res.data.data || {};
+      if (data.exists && data.content) {
+        setContent(data.content);
+        setCustom(true);
+      } else {
+        setContent(locale === 'zh' ? defaultZh : defaultEn);
+      }
+    }).catch(handleError);
+  }, [locale, handleError]);
+
   return (
     <Container fluid>
-      Welcome to contact us by:
-      <ul>
-        <li>
-          Discord:
-          <a href='https://discord.gg/bQUPDRqy79' target='_blank' rel='noreferrer'>
-            https://discord.gg/bQUPDRqy79
-          </a>
-        </li>
-        <li>
-          Twitter:
-          <a href='https://twitter.com/srs_server' target='_blank' rel='noreferrer'>
-            https://twitter.com/srs_server
-          </a>
-        </li>
-        <li>
-          GitHub:
-          <a href='https://github.com/ossrs/oryx' target='_blank' rel='noreferrer'>
-            https://github.com/ossrs/oryx
-          </a>
-        </li>
-      </ul>
+      {custom && (
+        <div className="text-muted mb-2" style={{fontSize: '0.85em'}}>
+          {locale === 'zh'
+            ? `当前内容来自数据卷中的 contact${locale === 'en' ? '.en' : ''}.md，可直接编辑更新。`
+            : `Content is loaded from contact${locale === 'en' ? '.en' : ''}.md in your data volume.`}
+        </div>
+      )}
+      <Card body>
+        {!content ? (
+          <div className="text-center py-5"><Spinner animation="border" variant="success" /></div>
+        ) : (
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+        )}
+      </Card>
     </Container>
   );
 }
