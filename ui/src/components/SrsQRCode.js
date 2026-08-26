@@ -4,12 +4,11 @@
 // SPDX-License-Identifier: MIT
 //
 import React from "react";
-import QRCode from "react-qr-code";
+import {QRCodeSVG} from "qrcode.react";
 
 export default function SrsQRCode({url}) {
   if (!url) return <></>;
   return (
-    <QRCode value={url} data-testid='qrCode' size={200} fgColor="#661111" />
+    <QRCodeSVG value={url} data-testid='qrCode' size={200} fgColor="#661111" />
   );
 }
-
