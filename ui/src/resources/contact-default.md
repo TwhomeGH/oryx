@@ -17,6 +17,18 @@
 - AI 服務擴展（本地 LLM）
 - 轉發架構說明
 
+## 上游社區
+
+本項目基於 [ossrs/oryx](https://github.com/ossrs/oryx)，上游官方渠道：
+
+- Discord: <https://discord.gg/bQUPDRqy79>
+- Twitter: <https://twitter.com/srs_server>
+- GitHub: <https://github.com/ossrs/oryx>
+
+## 維護者社群
+
+- 直播／Discord 群：<https://www.twitch.tv/coffeelatte0709/about>
+
 ## 自訂此頁面
 
 這是預設內容。在資料卷中建立 `contact.md` 即可替換本頁：

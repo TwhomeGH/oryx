@@ -15,6 +15,19 @@ Technical docs live in the [docs/](https://github.com/TwhomeGH/oryx/tree/main/do
 directory: local builds, version upgrades and rollback, AI service extension
 (local LLM), and forward architecture.
 
+## Upstream Community
+
+This project is based on [ossrs/oryx](https://github.com/ossrs/oryx). Official
+upstream channels:
+
+- Discord: <https://discord.gg/bQUPDRqy79>
+- Twitter: <https://twitter.com/srs_server>
+- GitHub: <https://github.com/ossrs/oryx>
+
+## Maintainer Community
+
+- Stream / Discord group: <https://www.twitch.tv/coffeelatte0709/about>
+
 ## Customize This Page
 
 This is the default content. To replace this page, create `contact.en.md`
