@@ -1,5 +1,5 @@
 #coding: utf-8
-import dotenv, os, time, sys, tools, argparse
+import dotenv, os, time, tools, argparse
 
 parser = argparse.ArgumentParser(description="TencentCloud")
 parser.add_argument("--id", type=str, required=False, help="Write ID result to this file")

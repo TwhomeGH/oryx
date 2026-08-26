@@ -1,5 +1,5 @@
 #coding: utf-8
-import dotenv, os, tools, argparse, sys, time, datetime
+import dotenv, os, tools, argparse,  time, datetime
 
 parser = argparse.ArgumentParser(description="TencentCloud")
 parser.add_argument("--instance", type=str, required=False, help="The CVM instance id")

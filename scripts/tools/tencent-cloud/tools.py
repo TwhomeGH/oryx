@@ -1,5 +1,5 @@
 #coding: utf-8
-import json, dotenv, os, time, sys
+import json, os
 
 from tencentcloud.common import credential
 from tencentcloud.common.profile.client_profile import ClientProfile

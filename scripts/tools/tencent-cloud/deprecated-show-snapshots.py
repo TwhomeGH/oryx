@@ -1,5 +1,5 @@
 #coding: utf-8
-import dotenv, os, time, tools
+import dotenv, os, tools
 
 if os.path.exists(f'{os.getenv("HOME")}/.lighthouse/.env'):
     dotenv.load_dotenv(dotenv.find_dotenv(filename=f'{os.getenv("HOME")}/.lighthouse/.env'))
