@@ -49,8 +49,7 @@ jobs:
             https://github.com/ossrs/srs/raw/develop/trunk/doc/source.200kbps.768x320.flv
       - name: Install tools
         run: |
-          docker run --rm -v /usr/bin:/g ossrs/srs:tools \
-            cp /usr/local/bin/ffmpeg /usr/local/bin/ffprobe /g/
+          curl -L https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz | tar xJ --strip-components=2 -C /usr/local/bin/ ffmpeg-master-latest-linux64-gpl/bin/ffmpeg ffmpeg-master-latest-linux64-gpl/bin/ffprobe
           ffmpeg -version
       - name: Run test for platform image
         run: |

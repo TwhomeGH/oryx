@@ -28,6 +28,14 @@ import (
 	"github.com/ossrs/go-oryx-lib/logger"
 )
 
+const (
+	colorRed    = "\033[31m"
+	colorGreen  = "\033[32m"
+	colorYellow = "\033[33m"
+	colorCyan   = "\033[36m"
+	colorReset  = "\033[0m"
+)
+
 // The SDP offer to test WebRTC like Larix client.
 const SrsLarixExampleOffer = `v=0
 o=- 8155286585472813923 1679356492 IN IP4 0.0.0.0
@@ -216,7 +224,7 @@ func prepareTest(ctx context.Context) (err error) {
 
 	// Should parse it first.
 	flag.Parse()
-	logger.Tf(ctx, "Test with %v", options())
+	logger.Tf(ctx, "%vTest with %v%v", colorCyan, options(), colorReset)
 
 	if *checkApiSecret && *apiSecret == "" {
 		return errors.Errorf("empty api secret")
@@ -266,14 +274,14 @@ func prepareTest(ctx context.Context) (err error) {
 // tc prints the purpose of the current test case in Chinese, so that CI logs
 // are self-explanatory without reading the test source code.
 func tc(t *testing.T, zh string) {
-	t.Logf("測試案例 [%v]：%v", t.Name(), zh)
+	t.Logf("%v測試案例 [%v]：%v%v", colorCyan, t.Name(), zh, colorReset)
 }
 
 func TestMain(m *testing.M) {
 	ctx := logger.WithContext(context.Background())
 
 	if err := prepareTest(ctx); err != nil {
-		logger.Ef(ctx, "Prepare test fail, err %+v", err)
+		logger.Ef(ctx, "%vPrepare test fail, err %+v%v", colorRed, err, colorReset)
 		os.Exit(-1)
 	}
 
@@ -285,7 +293,7 @@ func TestMain(m *testing.M) {
 		if err := waitForServiceReady(ctx); err != nil {
 			os.Exit(-1)
 		}
-		logger.Tf(ctx, "Wait for service ready ok")
+		logger.Tf(ctx, "%vWait for service ready ok%v", colorGreen, colorReset)
 	}
 
 	// Auto-init if platform not initialized (e.g. running single test without -init-password).
@@ -295,32 +303,32 @@ func TestMain(m *testing.M) {
 			Init *bool `json:"init"`
 		}
 		if err := NewApi().NoAuth(ctx, "/terraform/v1/mgmt/init", nil, &probeResult); err != nil {
-			logger.Tf(ctx, "Platform not initialized (err=%v), auto-init", err)
+			logger.Tf(ctx, "%vPlatform not initialized (err=%v), auto-init%v", colorYellow, err, colorReset)
 			*initPassword = true
 			*initSelfSignedCert = true
 		} else if probeResult.Init != nil && !*probeResult.Init {
-			logger.Tf(ctx, "Platform not initialized (init=false), auto-init")
+			logger.Tf(ctx, "%vPlatform not initialized (init=false), auto-init%v", colorYellow, colorReset)
 			*initPassword = true
 			*initSelfSignedCert = true
 		} else {
-			logger.Tf(ctx, "Platform already initialized")
+			logger.Tf(ctx, "%vPlatform already initialized%v", colorGreen, colorReset)
 		}
 	}
 
 	if *initPassword {
 		if err := initSystemPassword(ctx); err != nil {
-			logger.Ef(ctx, "Init system fail, err %+v", err)
+			logger.Ef(ctx, "%vInit system fail, err %+v%v", colorRed, err, colorReset)
 			os.Exit(-1)
 		}
-		logger.Tf(ctx, "Init system password ok")
+		logger.Tf(ctx, "%vInit system password ok%v", colorGreen, colorReset)
 	}
 
 	if *initSelfSignedCert {
 		if err := NewApi().WithAuth(ctx, "/terraform/v1/mgmt/auto-self-signed-certificate", nil, nil); err != nil {
-			logger.Ef(ctx, "Init self-signed cert fail, err %+v", err)
+			logger.Ef(ctx, "%vInit self-signed cert fail, err %+v%v", colorRed, err, colorReset)
 			os.Exit(-1)
 		}
-		logger.Tf(ctx, "Init self-signed cert ok")
+		logger.Tf(ctx, "%vInit self-signed cert ok%v", colorGreen, colorReset)
 	}
 
 	// Disable the logger during all tests.
@@ -340,7 +348,7 @@ func waitForServiceReady(ctx context.Context) error {
 
 	for {
 		if ctx.Err() != nil {
-			logger.Ef(ctx, "Wait for API ready timeout, err %v", ctx.Err())
+			logger.Ef(ctx, "%vWait for API ready timeout, err %v%v", colorRed, ctx.Err(), colorReset)
 			return ctx.Err()
 		}
 
@@ -349,7 +357,7 @@ func waitForServiceReady(ctx context.Context) error {
 			break
 		}
 
-		logger.Tf(ctx, "Wait for API ready, err %v", err)
+		logger.Tf(ctx, "%vWait for API ready, err %v%v", colorYellow, err, colorReset)
 		time.Sleep(1 * time.Second)
 	}
 
@@ -389,7 +397,7 @@ func initSystemPassword(ctx context.Context) error {
 
 	// Update the api secret with the one returned by init, so subsequent calls auth correctly.
 	*apiSecret = bearer
-	logger.Tf(ctx, "Init system ok, api secret updated (%vB)", len(bearer))
+	logger.Tf(ctx, "%vInit system ok, api secret updated (%vB)%v", colorGreen, len(bearer), colorReset)
 
 	// Login the system by password. No auth required for login.
 	var token2 string
@@ -904,7 +912,7 @@ func (v *ffmpegClient) ReadyCtx() context.Context {
 }
 
 func (v *ffmpegClient) Run(ctx context.Context, cancel context.CancelFunc) error {
-	logger.Tf(ctx, "Starting FFmpeg by %v", strings.Join(v.args, " "))
+	logger.Tf(ctx, "%vStarting FFmpeg by %v%v", colorCyan, strings.Join(v.args, " "), colorReset)
 
 	v.process.name = *srsFFmpeg
 	v.process.args = v.args
@@ -912,9 +920,9 @@ func (v *ffmpegClient) Run(ctx context.Context, cancel context.CancelFunc) error
 	v.process.duration = v.ffmpegDuration
 
 	v.process.onStop = func(ctx context.Context, bs *backendService, cmd *exec.Cmd, r0 error, stdout, stderr *bytes.Buffer) error {
-		logger.Tf(ctx, "FFmpeg process pid=%v exit, r0=%v, stdout=%v", bs.pid, r0, stdout.String())
+		logger.Tf(ctx, "%vFFmpeg process pid=%v exit, r0=%v, stdout=%v%v", colorCyan, bs.pid, r0, stdout.String(), colorReset)
 		if *srsFFmpegStderr && stderr.Len() > 0 {
-			logger.Tf(ctx, "FFmpeg process pid=%v, stderr is \n%v", bs.pid, stderr.String())
+			logger.Tf(ctx, "%vFFmpeg process pid=%v, stderr is \n%v%v", colorYellow, bs.pid, stderr.String(), colorReset)
 		}
 		return nil
 	}
@@ -995,7 +1003,7 @@ func (v *ffprobeClient) Run(ctxCase context.Context, cancelCase context.CancelFu
 		ctx, cancel := context.WithTimeout(ctxCase, v.timeout)
 		defer cancel()
 
-		logger.Tf(ctx, "Starting FFprobe for stream=%v, dvr=%v, duration=%v, timeout=%v",
+		logger.Tf(ctx, "%vStarting FFprobe for stream=%v, dvr=%v, duration=%v, timeout=%v%v",
 			v.streamURL, v.dvrFile, v.duration, v.timeout)
 
 		// Try to start a DVR process.
@@ -1009,7 +1017,7 @@ func (v *ffprobeClient) Run(ctxCase context.Context, cancelCase context.CancelFu
 
 			// Check whether DVR file is ok.
 			if fs, err := os.Stat(v.dvrFile); err == nil && fs.Size() > 1024 {
-				logger.Tf(ctx, "DVR FFprobe file is ok, file=%v, size=%v", v.dvrFile, fs.Size())
+				logger.Tf(ctx, "%vDVR FFprobe file is ok, file=%v, size=%v%v", colorGreen, v.dvrFile, fs.Size(), colorReset)
 				break
 			}
 
@@ -1059,13 +1067,13 @@ func (v *ffprobeClient) doDVR(ctx context.Context) error {
 		return nil
 	}
 	process.onBeforeStart = func(ctx context.Context, bs *backendService, cmd *exec.Cmd) error {
-		logger.Tf(ctx, "DVR start %v %v", bs.name, strings.Join(bs.args, " "))
+		logger.Tf(ctx, "%vDVR start %v %v%v", colorCyan, bs.name, strings.Join(bs.args, " "), colorReset)
 		return nil
 	}
 	process.onStop = func(ctx context.Context, bs *backendService, cmd *exec.Cmd, r0 error, stdout, stderr *bytes.Buffer) error {
-		logger.Tf(ctx, "DVR process pid=%v exit, r0=%v, stdout=%v", bs.pid, r0, stdout.String())
+		logger.Tf(ctx, "%vDVR process pid=%v exit, r0=%v, stdout=%v%v", colorCyan, bs.pid, r0, stdout.String(), colorReset)
 		if *srsDVRStderr && stderr.Len() > 0 {
-			logger.Tf(ctx, "DVR process pid=%v, stderr is \n%v", bs.pid, stderr.String())
+			logger.Tf(ctx, "%vDVR process pid=%v, stderr is \n%v%v", colorYellow, bs.pid, stderr.String(), colorReset)
 		}
 		return nil
 	}
@@ -1085,7 +1093,7 @@ func (v *ffprobeClient) doProbe(ctx context.Context, cancel context.CancelFunc) 
 			os.Remove(v.dvrFile)
 		}
 	}()
-	logger.Tf(ctx, "Transmux to mp4 ok, file=%v", v.dvrFileMp4)
+	logger.Tf(ctx, "%vTransmux to mp4 ok, file=%v%v", colorGreen, v.dvrFileMp4, colorReset)
 
 	// Probe the mp4 file.
 	process := newBackendService()
@@ -1104,13 +1112,13 @@ func (v *ffprobeClient) doProbe(ctx context.Context, cancel context.CancelFunc) 
 		return nil
 	}
 	process.onBeforeStart = func(ctx context.Context, bs *backendService, cmd *exec.Cmd) error {
-		logger.Tf(ctx, "FFprobe start %v %v", bs.name, strings.Join(bs.args, " "))
+		logger.Tf(ctx, "%vFFprobe start %v %v%v", colorCyan, bs.name, strings.Join(bs.args, " "), colorReset)
 		return nil
 	}
 	process.onStop = func(ctx context.Context, bs *backendService, cmd *exec.Cmd, r0 error, stdout, stderr *bytes.Buffer) error {
-		logger.Tf(ctx, "FFprobe process pid=%v exit, r0=%v, stderr=%v", bs.pid, r0, stderr.String())
+		logger.Tf(ctx, "%vFFprobe process pid=%v exit, r0=%v, stderr=%v%v", colorCyan, bs.pid, r0, stderr.String(), colorReset)
 		if *srsFFprobeStdout && stdout.Len() > 0 {
-			logger.Tf(ctx, "FFprobe process pid=%v, stdout is \n%v", bs.pid, stdout.String())
+			logger.Tf(ctx, "%vFFprobe process pid=%v, stdout is \n%v%v", colorYellow, bs.pid, stdout.String(), colorReset)
 		}
 
 		str := stdout.String()
@@ -1121,7 +1129,7 @@ func (v *ffprobeClient) doProbe(ctx context.Context, cancel context.CancelFunc) 
 		}
 
 		m := v.metadata
-		logger.Tf(ctx, "FFprobe done pid=%v, %v", bs.pid, m.String())
+		logger.Tf(ctx, "%vFFprobe done pid=%v, %v%v", colorGreen, bs.pid, m.String(), colorReset)
 
 		v.doneCancel()
 		return nil
