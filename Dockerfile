@@ -56,11 +56,6 @@ RUN echo "Before UPX for $TARGETARCH" && \
 # For youtube-dl, see https://github.com/ytdl-org/ytdl-nightly
 FROM ${ARCH}python:3.9-slim-bullseye AS ytdl
 
-# Full-featured static ffmpeg+ffprobe, adds hardware encoders (nvenc/vaapi)
-# and many more codecs/filters over the srs fit-build.
-# https://github.com/mwader/static-ffmpeg
-FROM ${ARCH}mwader/static-ffmpeg:6.1 AS ffmpeg-full
-
 RUN apt-get update -y && apt-get install -y binutils curl unzip && \
     pip install pyinstaller
 
@@ -70,6 +65,12 @@ RUN curl -O -L https://github.com/ytdl-org/youtube-dl/archive/refs/heads/master.
     pyinstaller --onefile --clean --noconfirm --name youtube-dl youtube_dl/__main__.py && \
     cp dist/youtube-dl /usr/local/bin/ && \
     ldd /usr/local/bin/youtube-dl
+
+# Full-featured static ffmpeg+ffprobe, adds hardware encoders (nvenc/vaapi)
+# and many more codecs/filters over the srs fit-build.
+# NOTE: standalone stage with no RUN, the image contains only two binaries.
+# https://github.com/mwader/static-ffmpeg
+FROM ${ARCH}mwader/static-ffmpeg:6.1 AS ffmpeg-full
 
 # http://releases.ubuntu.com/focal/
 #FROM ${ARCH}ubuntu:focal AS dist
