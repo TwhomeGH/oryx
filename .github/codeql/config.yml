@@ -8,3 +8,4 @@ paths-ignore:
   - ui/**
   - '**/node_modules/**'
   - '**/testdata/**'
+  - scripts/tools/tencent-cloud/**
