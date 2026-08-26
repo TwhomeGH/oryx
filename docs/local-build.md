@@ -14,9 +14,12 @@
 
 ## 一條指令打包
 
-在 repo 根目錄執行：
+> **必須在 clone 下來的 oryx 倉庫根目錄執行**（有 Dockerfile 的地方，例如 `F:\oryx`）。
+> 在放 docker-compose.yml 的部署資料夾執行會報
+> `failed to read dockerfile: no such file or directory`。
 
 ```bash
+cd F:\oryx          # 換成你的倉庫路徑
 docker build -t oryx:local .
 ```
 
