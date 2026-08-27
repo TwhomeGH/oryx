@@ -18,3 +18,4 @@
 - [前端組件與頁面維護指南](frontend-guide.md) — 頁面骨架、排版慣例、i18n、能力探測卡片模式、Vite 特殊事項與常見炸點。
 - [本地整合測試教學](local-test.md) — 在本機跑 CI 同款整合測試的完整流程、偵錯旗標與常見問題排解。
 - [API 認證架構與 Status Code 說明](api-auth-architecture.md) — middleware 認證流程、HTTP status code 對應邏輯、init/login 端點的無 auth 設計。
+- [CodeQL 安全漏洞修復說明](security-fix-codeql.md) — 路徑穿越與反射型 XSS 修復細節、影響端點與安全建議。

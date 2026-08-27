@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -423,7 +424,7 @@ func (v *OCRWorker) Handle(ctx context.Context, handler *http.ServeMux) error {
 			filename := r.URL.Path[len("/terraform/v1/ai/ocr/image/"):]
 			// Format is :uuid.jpg
 			uuid := filename[:len(filename)-len(path.Ext(filename))]
-			if len(uuid) == 0 {
+			if len(uuid) == 0 || !regexp.MustCompile(`^[0-9a-f-]+$`).MatchString(uuid) {
 				return errors.Errorf("invalid uuid %v from %v of %v", uuid, filename, r.URL.Path)
 			}
 

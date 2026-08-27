@@ -1642,6 +1642,9 @@ func (w *whxpResponseModifier) Write(b []byte) (int, error) {
 	// TODO: FIXME: Should pass the rtc port to WHIP/WHEP api, because the port maybe not the same length to 8000,
 	//  for example, 80, 443, 18000, etc, in such case, the sdp length will change.
 	if port := envRtcListen(); port != "8000" {
+		if !regexp.MustCompile(`^[0-9]+$`).MatchString(port) {
+			return w.w.Write(b)
+		}
 		// Read line by line, replace " 8000 " with " {port} " if contains "candidate".
 		scan := bufio.NewScanner(strings.NewReader(string(b)))
 

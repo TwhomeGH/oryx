@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -463,6 +464,9 @@ func (v *VLiveWorker) Handle(ctx context.Context, handler *http.ServeMux) error 
 	handler.HandleFunc(ep, func(w http.ResponseWriter, r *http.Request) {
 		if err := func(ctx context.Context) error {
 			filename := r.URL.Path[len("/terraform/v1/ffmpeg/vlive/upload/"):]
+			if strings.Contains(filename, "..") || strings.ContainsAny(filename, `/\`) {
+				return errors.Errorf("invalid filename %v", filename)
+			}
 
 			targetUUID := uuid.NewString()
 			targetFileName := path.Join(dirUploadPath, fmt.Sprintf("%v%v", targetUUID, path.Ext(filename)))

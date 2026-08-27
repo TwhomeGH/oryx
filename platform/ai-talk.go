@@ -1975,6 +1975,9 @@ func handleAITalkService(ctx context.Context, handler *http.ServeMux) error {
 	handler.HandleFunc(ep, func(w http.ResponseWriter, r *http.Request) {
 		if err := func() error {
 			filename := r.URL.Path[len("/terraform/v1/ai-talk/stage/hello-voices/"):]
+			if strings.Contains(filename, "..") || strings.ContainsAny(filename, `/\`) {
+				return errors.Errorf("invalid filename %v", filename)
+			}
 			if !strings.Contains(filename, ".") {
 				filename = fmt.Sprintf("%v.aac", filename)
 			}

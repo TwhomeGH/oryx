@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -396,7 +397,7 @@ func (v *RecordWorker) Handle(ctx context.Context, handler *http.ServeMux) error
 		// Format is :uuid.m3u8
 		filename = strings.ReplaceAll(filename, "/index.m3u8", ".m3u8")
 		uuid := filename[:len(filename)-len(path.Ext(filename))]
-		if len(uuid) == 0 {
+		if len(uuid) == 0 || !regexp.MustCompile(`^[0-9a-f-]+$`).MatchString(uuid) {
 			return errors.Errorf("invalid uuid %v from %v of %v", uuid, filename, r.URL.Path)
 		}
 
@@ -427,13 +428,13 @@ func (v *RecordWorker) Handle(ctx context.Context, handler *http.ServeMux) error
 		fileDir, fileBase := path.Dir(filename), path.Base(filename)
 		uuid := fileBase[:len(fileBase)-len(path.Ext(fileBase))]
 		dir, m3u8 := path.Dir(fileDir), path.Base(fileDir)
-		if len(uuid) == 0 {
+		if len(uuid) == 0 || !regexp.MustCompile(`^[0-9a-f-]+$`).MatchString(uuid) {
 			return errors.Errorf("invalid uuid %v from %v of %v", uuid, fileBase, r.URL.Path)
 		}
-		if len(dir) == 0 {
+		if len(dir) == 0 || strings.Contains(dir, "..") || strings.ContainsAny(dir, `/\`) {
 			return errors.Errorf("invalid dir %v from %v of %v", dir, fileDir, r.URL.Path)
 		}
-		if len(m3u8) == 0 {
+		if len(m3u8) == 0 || !regexp.MustCompile(`^[0-9a-zA-Z._-]+$`).MatchString(m3u8) {
 			return errors.Errorf("invalid m3u8 %v from %v of %v", m3u8, fileDir, r.URL.Path)
 		}
 
@@ -458,7 +459,7 @@ func (v *RecordWorker) Handle(ctx context.Context, handler *http.ServeMux) error
 		// Format is :uuid/index.mp4
 		filename := r.URL.Path[len("/terraform/v1/hooks/record/hls/"):]
 		uuid := path.Dir(filename)
-		if len(uuid) == 0 {
+		if len(uuid) == 0 || !regexp.MustCompile(`^[0-9a-f-]+$`).MatchString(uuid) {
 			return errors.Errorf("invalid uuid %v from %v of %v", uuid, filename, r.URL.Path)
 		}
 

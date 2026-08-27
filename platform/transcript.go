@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -579,7 +580,7 @@ func (v *TranscriptWorker) Handle(ctx context.Context, handler *http.ServeMux) e
 			filename := r.URL.Path[len("/terraform/v1/ai/transcript/hls/webvtt/"):]
 			fileBase := path.Base(filename)
 			uuid := fileBase[:len(fileBase)-len(path.Ext(fileBase))]
-			if len(uuid) == 0 {
+			if len(uuid) == 0 || !regexp.MustCompile(`^[0-9a-f-]+$`).MatchString(uuid) {
 				return errors.Errorf("invalid uuid %v from %v of %v", uuid, fileBase, r.URL.Path)
 			}
 
@@ -606,7 +607,7 @@ func (v *TranscriptWorker) Handle(ctx context.Context, handler *http.ServeMux) e
 			filename := r.URL.Path[len(webvttPrefix):]
 			// Format is :uuid/index.m3u8
 			uuid := filename[:len(filename)-len("/subtitles.m3u8")]
-			if len(uuid) == 0 {
+			if len(uuid) == 0 || !regexp.MustCompile(`^[0-9a-f-]+$`).MatchString(uuid) {
 				return errors.Errorf("invalid uuid %v from %v of %v", uuid, filename, r.URL.Path)
 			}
 
@@ -636,7 +637,7 @@ func (v *TranscriptWorker) Handle(ctx context.Context, handler *http.ServeMux) e
 			filename := r.URL.Path[len("/terraform/v1/ai/transcript/hls/webvtt/"):]
 			fileBase := path.Base(filename)
 			uuid := fileBase[:len(fileBase)-len(path.Ext(fileBase))]
-			if len(uuid) == 0 {
+			if len(uuid) == 0 || !regexp.MustCompile(`^[0-9a-f-]+$`).MatchString(uuid) {
 				return errors.Errorf("invalid uuid %v from %v of %v", uuid, fileBase, r.URL.Path)
 			}
 
@@ -714,7 +715,7 @@ func (v *TranscriptWorker) Handle(ctx context.Context, handler *http.ServeMux) e
 			filename := r.URL.Path[len("/terraform/v1/ai/transcript/hls/overlay/"):]
 			// Format is :uuid.m3u8
 			uuid := filename[:len(filename)-len(path.Ext(filename))]
-			if len(uuid) == 0 {
+			if len(uuid) == 0 || !regexp.MustCompile(`^[0-9a-f-]+$`).MatchString(uuid) {
 				return errors.Errorf("invalid uuid %v from %v of %v", uuid, filename, r.URL.Path)
 			}
 
@@ -742,7 +743,7 @@ func (v *TranscriptWorker) Handle(ctx context.Context, handler *http.ServeMux) e
 			filename := r.URL.Path[len("/terraform/v1/ai/transcript/hls/overlay/"):]
 			fileBase := path.Base(filename)
 			uuid := fileBase[:len(fileBase)-len(path.Ext(fileBase))]
-			if len(uuid) == 0 {
+			if len(uuid) == 0 || !regexp.MustCompile(`^[0-9a-f-]+$`).MatchString(uuid) {
 				return errors.Errorf("invalid uuid %v from %v of %v", uuid, fileBase, r.URL.Path)
 			}
 
@@ -784,7 +785,7 @@ func (v *TranscriptWorker) Handle(ctx context.Context, handler *http.ServeMux) e
 			filename := r.URL.Path[len("/terraform/v1/ai/transcript/hls/original/"):]
 			// Format is :uuid.m3u8
 			uuid := filename[:len(filename)-len(path.Ext(filename))]
-			if len(uuid) == 0 {
+			if len(uuid) == 0 || !regexp.MustCompile(`^[0-9a-f-]+$`).MatchString(uuid) {
 				return errors.Errorf("invalid uuid %v from %v of %v", uuid, filename, r.URL.Path)
 			}
 
@@ -812,7 +813,7 @@ func (v *TranscriptWorker) Handle(ctx context.Context, handler *http.ServeMux) e
 			filename := r.URL.Path[len("/terraform/v1/ai/transcript/hls/original/"):]
 			fileBase := path.Base(filename)
 			uuid := fileBase[:len(fileBase)-len(path.Ext(fileBase))]
-			if len(uuid) == 0 {
+			if len(uuid) == 0 || !regexp.MustCompile(`^[0-9a-f-]+$`).MatchString(uuid) {
 				return errors.Errorf("invalid uuid %v from %v of %v", uuid, fileBase, r.URL.Path)
 			}
 
