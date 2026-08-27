@@ -109,15 +109,29 @@ docker compose ps           # 查看狀態
 
 ### 部署端（跑服務的機器）
 
-```bash
-# 固定版本：先把 compose 裡的 image tag 改成新版號，然後：
-docker compose pull && docker compose up -d
+更新時只需改 compose 裡的 image tag，然後重建容器：
 
-# 或直接追 latest：
-docker compose pull && docker compose up -d
+**固定版本（建議）** — 明確指定版號，升級可控、出問題好回退：
+
+```yaml
+services:
+  oryx:
+    image: ghcr.io/twhomegh/oryx:v5.16.0   # ← 改成新版號
 ```
 
-> 建議 compose 固定明確版號而不是 latest，升級時間可控、出問題好回退。
+**追 latest** — 每次 pull 都拿到最新版，但可能引入 breaking change：
+
+```yaml
+services:
+  oryx:
+    image: ghcr.io/twhomegh/oryx:latest     # ← 保持 latest
+```
+
+改完後執行：
+
+```bash
+docker compose pull && docker compose up -d
+```
 
 ### 回退版本
 
