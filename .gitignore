@@ -142,3 +142,5 @@ __pycache__
 .tmp
 __debug_bin*
 test/oryx.test.exe
+.playwright-mcp/*
+docs/player-layout-wide.png

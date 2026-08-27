@@ -49,6 +49,7 @@
     </footer>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
 <script src="js/adapter-7.4.0.min.js"></script>
 <script src="js/srs.sdk.js"></script>
 <script src="js/winlin.utility.js"></script>
@@ -57,7 +58,6 @@
 (function () {
     'use strict';
 
-    var PREVIEW_VIDEO = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
     var isPreview = window.location.protocol === 'file:';
     var sdk = null;
     var videoEl = document.getElementById('rtc_media_player');
@@ -71,7 +71,7 @@
         previewBanner.textContent = 'Running locally — showing layout preview (WebRTC not available).';
         previewBanner.classList.remove('hidden');
         videoEl.classList.remove('hidden');
-        videoEl.src = PREVIEW_VIDEO;
+        srs_preview_play(videoEl);
         return;
     }
 

@@ -1,6 +1,25 @@
 // to query the swf anti cache.
 function srs_get_version_code() { return "1.33"; }
 
+var SRS_PREVIEW_VIDEO = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
+
+/**
+ * Play the preview video in preview mode (file://).
+ * Uses hls.js when available (Chrome/Edge/Firefox), falls back to native
+ * HLS for Safari.
+ * @param videoEl the video element to attach the stream to.
+ */
+function srs_preview_play(videoEl) {
+    videoEl.classList.remove('hidden');
+    if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+        var hls = new Hls({ enableWorker: true });
+        hls.loadSource(SRS_PREVIEW_VIDEO);
+        hls.attachMedia(videoEl);
+    } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+        videoEl.src = SRS_PREVIEW_VIDEO;
+    }
+}
+
 /**
  * update the navigator, add same query string.
  */
