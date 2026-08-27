@@ -160,7 +160,6 @@ a:hover { color: var(--accent-hover); }
     overflow: hidden;
     width: 100%;
     aspect-ratio: 16 / 9;
-    max-height: 70vh;
 }
 .player-wrapper video,
 .player-wrapper audio {
@@ -318,10 +317,12 @@ a:hover { color: var(--accent-hover); }
         flex-wrap: wrap;
         gap: 24px;
         align-items: flex-start;
+        justify-content: center;
     }
     .card {
         flex: 1;
         min-width: 0;
+        max-width: 900px;
     }
     .tips {
         width: 300px;
@@ -332,9 +333,6 @@ a:hover { color: var(--accent-hover); }
     }
     .footer {
         width: 100%;
-    }
-    .player-wrapper {
-        max-height: 80vh;
     }
 }
 
