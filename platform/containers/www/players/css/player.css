@@ -158,15 +158,17 @@ a:hover { color: var(--accent-hover); }
     background: #000;
     border-radius: var(--radius-lg);
     overflow: hidden;
-    aspect-ratio: 16 / 9;
+    width: 100%;
+    max-height: 70vh;
 }
 .player-wrapper video,
 .player-wrapper audio {
     width: 100%;
     height: 100%;
     display: block;
+    object-fit: contain;
 }
-.player-wrapper audio { aspect-ratio: auto; height: 48px; }
+.player-wrapper audio { height: 48px; max-height: 48px; }
 
 /* Alerts */
 .alert {
