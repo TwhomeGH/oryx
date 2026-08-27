@@ -20,7 +20,7 @@
 
 <nav class="navbar">
     <div class="navbar-inner">
-        <a class="navbar-brand" href="https://github.com/ossrs/srs" target="_blank">SRS</a>
+        <a class="navbar-brand" href="https://github.com/ossrs/srs" target="_blank" rel="noopener">SRS</a>
         <ul class="navbar-nav">
             <li><a href="srs_player.html">Live Player</a></li>
             <li><a href="rtc_player.html">WebRTC Player</a></li>
@@ -47,48 +47,48 @@
         <div class="card">
             <div class="card-header">
                 <span id="connToggle" class="collapse-trigger">▾ 連線設定</span>
-                <div class="form-row" style="gap:8px">
-                    <span id="connSummary" class="text-dim" style="font-size:12px"></span>
+                <div class="form-row">
+                    <span id="connSummary" class="text-dim"></span>
                     <button id="startBtn" class="btn btn-primary btn-sm">開始分析</button>
                     <button id="stopBtn" class="btn btn-secondary btn-sm hidden">停止</button>
                 </div>
             </div>
             <div id="connBody">
-                <div class="diag-grid cols-2" style="margin-bottom:12px">
-                    <div class="form-group" style="margin-bottom:0">
+                <div class="diag-grid cols-2 mb-12">
+                    <div class="form-group mb-0">
                         <label class="form-label" for="hostInput">SRS HTTP 主機 (FLV 播放埠)</label>
-                        <input id="hostInput" type="text" class="form-input" value="http://192.168.0.102:882">
+                        <input id="hostInput" type="text" class="form-input" value="http://localhost:882">
                     </div>
-                    <div class="form-group" style="margin-bottom:0">
+                    <div class="form-group mb-0">
                         <label class="form-label" for="streamInput">串流名稱 (stream key)</label>
-                        <div class="form-row" style="gap:8px">
+                        <div class="form-row">
                             <input id="streamInput" type="password" autocomplete="off" class="form-input" value="livestream">
                             <button id="streamEye" type="button" class="btn btn-secondary btn-sm" title="顯示/隱藏 stream key">顯示</button>
                         </div>
                     </div>
                 </div>
-                <div class="form-row" style="gap:16px; align-items:center">
+                <div class="form-row12">
                     <label class="checkbox-label">
                         <input id="previewEnabled" type="checkbox" checked> 分析時自動播放
                     </label>
                     <label class="checkbox-label">
                         <input id="hudEnabled" type="checkbox" checked> 疊加資訊
                     </label>
-                    <span class="text-dim" style="font-size:12px">目標：<code id="flvUrl" class="text-info" style="cursor:pointer" title="點擊顯示/隱藏 stream key">—</code></span>
+                    <span class="text-dim fs-12">目標：<code id="flvUrl" class="text-info cursor-pointer" title="點擊顯示/隱藏 stream key">—</code></span>
                 </div>
             </div>
         </div>
 
         <!-- 狀態 + 預覽 + 健康 -->
         <div class="diag-grid cols-3-2">
-            <div class="card" style="margin-bottom:0">
+            <div class="card mb-0">
                 <div class="card-header">
                     <h2 class="text-ok">即時預覽</h2>
-                    <span id="previewStatus" class="text-dim" style="font-size:12px">未啟動</span>
+                    <span id="previewStatus" class="text-dim fs-12">未啟動</span>
                 </div>
                 <div class="player-wrapper">
-                    <video id="previewVideo" class="hidden" controls playsinline></video>
-                    <div id="previewOverlay" class="text-dim" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.6)">點擊「開始分析」後播放</div>
+                    <video id="previewVideo" class="hidden" controls playsinline webkit-playsinline></video>
+                    <div id="previewOverlay" class="text-dim center-overlay">點擊「開始分析」後播放</div>
                     <div id="previewHud" class="hud hidden">
                         <div class="text-ok">LIVE</div>
                         <div><span class="hud-label">fps</span> <span id="hudFps" class="hud-val">—</span></div>
@@ -100,7 +100,7 @@
                     </div>
                 </div>
             </div>
-            <div class="diag-grid" style="grid-template-columns:1fr">
+            <div class="diag-grid single-col">
                 <div class="stat-grid" id="connCards">
                     <div class="stat-card">
                         <div class="stat-label">連線狀態</div>
@@ -123,45 +123,45 @@
                         <div id="statTagsSub" class="stat-sub">&nbsp;</div>
                     </div>
                 </div>
-                <div class="card" style="margin-bottom:0">
-                    <h2 class="text-ok" style="margin-bottom:12px">健康診斷</h2>
-                    <div id="healthFlags" class="text-dim" style="font-size:12px">尚未開始分析</div>
+                <div class="card mb-0">
+                    <h2 class="text-ok mb-12">健康診斷</h2>
+                    <div id="healthFlags" class="text-dim fs-12">尚未開始分析</div>
                 </div>
             </div>
         </div>
 
         <!-- 元資料 / 影片 / 音訊 -->
         <div class="diag-grid cols-3">
-            <div class="card" style="margin-bottom:0">
-                <h2 class="text-info" style="margin-bottom:12px">元資料 (onMetaData)</h2>
-                <div id="metaInfo" style="font-size:13px" class="text-dim">尚未擷取</div>
+            <div class="card mb-0">
+                <h2 class="text-info mb-12">元資料 (onMetaData)</h2>
+<div id="metaInfo" class="fs-13 text-dim">尚未擷取</div>
             </div>
-            <div class="card" style="margin-bottom:0">
-                <h2 class="text-info" style="margin-bottom:12px">影片資訊</h2>
-                <div id="videoInfo" style="font-size:13px" class="text-dim">尚未擷取</div>
+            <div class="card mb-0">
+                <h2 class="text-info mb-12">影片資訊</h2>
+<div id="videoInfo" class="fs-13 text-dim">尚未擷取</div>
             </div>
-            <div class="card" style="margin-bottom:0">
-                <h2 class="text-info" style="margin-bottom:12px">音訊資訊</h2>
-                <div id="audioInfo" style="font-size:13px" class="text-dim">尚未擷取</div>
+            <div class="card mb-0">
+                <h2 class="text-info mb-12">音訊資訊</h2>
+<div id="audioInfo" class="fs-13 text-dim">尚未擷取</div>
             </div>
         </div>
 
         <!-- 圖表 -->
         <div class="diag-grid cols-2">
-            <div class="card" style="margin-bottom:0">
-                <h2 class="text-info" style="margin-bottom:12px">位元率 (kbps) / 秒</h2>
+            <div class="card mb-0">
+                <h2 class="text-info mb-12">位元率 (kbps) / 秒</h2>
                 <div class="chart-box"><canvas id="bitrateChart"></canvas></div>
             </div>
-            <div class="card" style="margin-bottom:0">
-                <h2 class="text-warn" style="margin-bottom:12px">影片封包大小（紅點 = 關鍵影格）</h2>
+            <div class="card mb-0">
+                <h2 class="text-warn mb-12">影片封包大小（紅點 = 關鍵影格）</h2>
                 <div class="chart-box"><canvas id="packetChart"></canvas></div>
             </div>
-            <div class="card" style="margin-bottom:0">
-                <h2 class="text-ok" style="margin-bottom:12px">影音時間戳偏移 (audio - video, ms)</h2>
+            <div class="card mb-0">
+                <h2 class="text-ok mb-12">影音時間戳偏移 (audio - video, ms)</h2>
                 <div class="chart-box"><canvas id="syncChart"></canvas></div>
             </div>
-            <div class="card" style="margin-bottom:0">
-                <h2 class="text-warn" style="margin-bottom:12px">關鍵影格間隔 (GOP, ms)</h2>
+            <div class="card mb-0">
+                <h2 class="text-warn mb-12">關鍵影格間隔 (GOP, ms)</h2>
                 <div class="chart-box"><canvas id="gopChart"></canvas></div>
             </div>
         </div>
@@ -169,8 +169,8 @@
         <!-- 封包檢查器 -->
         <div class="card">
             <div class="card-header">
-                <h2>封包檢查器 <span class="text-dim" style="font-size:12px">（點 🔍 檢視原始位元組）</span></h2>
-                <div class="form-row" style="gap:8px">
+                <h2>封包檢查器 <span class="text-dim fs-12">（點 🔍 檢視原始位元組）</span></h2>
+                <div class="form-row">
                     <button id="pauseBtn" class="btn btn-secondary btn-sm">暫停列表</button>
                     <button id="clearPktsBtn" class="btn btn-secondary btn-sm">清空</button>
                 </div>
@@ -189,7 +189,7 @@
 
         <!-- 影片塊明細 -->
         <div class="card">
-            <h2 style="margin-bottom:12px">影片塊明細（最近 50 個）</h2>
+            <h2  class="mb-12">影片塊明細（最近 50 個）</h2>
             <div class="diag-table-wrap">
                 <table class="diag-table">
                     <thead>
@@ -202,7 +202,7 @@
 
         <!-- 音訊塊明細 -->
         <div class="card">
-            <h2 style="margin-bottom:12px">音訊塊明細（最近 50 個）</h2>
+            <h2  class="mb-12">音訊塊明細（最近 50 個）</h2>
             <div class="diag-table-wrap">
                 <table class="diag-table">
                     <thead>
@@ -221,20 +221,20 @@
         <div class="card">
             <div class="card-header">
                 <span class="collapse-trigger">▾ WebRTC 連線設定</span>
-                <div class="form-row" style="gap:8px">
+                <div class="form-row">
                     <button id="rtcStartBtn" class="btn btn-primary btn-sm">開始分析</button>
                     <button id="rtcStopBtn" class="btn btn-secondary btn-sm hidden">停止</button>
                 </div>
             </div>
             <div>
-                <div class="diag-grid cols-2" style="margin-bottom:12px">
-                    <div class="form-group" style="margin-bottom:0">
+                <div class="diag-grid cols-2 mb-12">
+                    <div class="form-group mb-0">
                         <label class="form-label" for="rtcUrlInput">WHEP URL</label>
-                        <input id="rtcUrlInput" type="text" class="form-input" value="http://localhost:1985/rtc/v1/whep/?app=live&stream=livestream">
+                        <input id="rtcUrlInput" type="text" class="form-input" value="http://localhost:882/rtc/v1/whep/?app=live&stream=livestream">
                     </div>
-                    <div class="form-group" style="margin-bottom:0">
+                    <div class="form-group mb-0">
                         <label class="form-label">分析模式</label>
-                        <div class="form-row" style="gap:8px">
+                        <div class="form-row">
                             <label class="checkbox-label">
                                 <input id="rtcVideoOnly" type="checkbox"> Video Only
                             </label>
@@ -244,20 +244,20 @@
                         </div>
                     </div>
                 </div>
-                <p class="text-dim" style="font-size:12px">透過 getStats() 分析 WebRTC 傳輸：ICE 型別 / RTT / 封包遺失 / jitter / 掉幀 / 品質限制。</p>
+                <p class="text-dim fs-12">透過 getStats() 分析 WebRTC 傳輸：ICE 型別 / RTT / 封包遺失 / jitter / 掉幀 / 品質限制。</p>
             </div>
         </div>
 
         <!-- 狀態 + 預覽 + 健康 -->
         <div class="diag-grid cols-3-2">
-            <div class="card" style="margin-bottom:0">
+            <div class="card mb-0">
                 <div class="card-header">
                     <h2 class="text-ok">即時預覽</h2>
-                    <span id="rtcPreviewStatus" class="text-dim" style="font-size:12px">未啟動</span>
+                    <span id="rtcPreviewStatus" class="text-dim fs-12">未啟動</span>
                 </div>
                 <div class="player-wrapper">
-                    <video id="rtcPreviewVideo" class="hidden" controls playsinline></video>
-                    <div id="rtcPreviewOverlay" class="text-dim" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.6)">點擊「開始分析」後播放</div>
+                    <video id="rtcPreviewVideo" class="hidden" controls playsinline webkit-playsinline></video>
+                    <div id="rtcPreviewOverlay" class="text-dim center-overlay">點擊「開始分析」後播放</div>
                     <div id="rtcPreviewHud" class="hud hidden">
                         <div class="text-ok">LIVE</div>
                         <div><span class="hud-label">fps</span> <span id="rtcHudFps" class="hud-val">—</span></div>
@@ -269,7 +269,7 @@
                     </div>
                 </div>
             </div>
-            <div class="diag-grid" style="grid-template-columns:1fr">
+            <div class="diag-grid single-col">
                 <div class="stat-grid">
                     <div class="stat-card">
                         <div class="stat-label">連線狀態</div>
@@ -302,32 +302,32 @@
                         <div id="rtcResSub" class="stat-sub">&nbsp;</div>
                     </div>
                 </div>
-                <div class="card" style="margin-bottom:0">
-                    <h2 class="text-ok" style="margin-bottom:12px">WebRTC 健康診斷</h2>
-                    <div id="rtcHealthFlags" class="text-dim" style="font-size:12px">尚未開始分析</div>
+                <div class="card mb-0">
+                    <h2 class="text-ok mb-12">WebRTC 健康診斷</h2>
+                    <div id="rtcHealthFlags" class="text-dim fs-12">尚未開始分析</div>
                 </div>
             </div>
         </div>
 
         <!-- 圖表 -->
         <div class="diag-grid cols-3">
-            <div class="card" style="margin-bottom:0">
-                <h2 class="text-info" style="margin-bottom:12px">RTT (ms)</h2>
+            <div class="card mb-0">
+                <h2 class="text-info mb-12">RTT (ms)</h2>
                 <div class="chart-box"><canvas id="rtcRttChart"></canvas></div>
             </div>
-            <div class="card" style="margin-bottom:0">
-                <h2 class="text-warn" style="margin-bottom:12px">位元率 (kbps)</h2>
+            <div class="card mb-0">
+                <h2 class="text-warn mb-12">位元率 (kbps)</h2>
                 <div class="chart-box"><canvas id="rtcBitrateChart"></canvas></div>
             </div>
-            <div class="card" style="margin-bottom:0">
-                <h2 class="text-ok" style="margin-bottom:12px">jitter (ms)</h2>
+            <div class="card mb-0">
+                <h2 class="text-ok mb-12">jitter (ms)</h2>
                 <div class="chart-box"><canvas id="rtcJitterChart"></canvas></div>
             </div>
         </div>
 
         <!-- WebRTC 統計表格 -->
         <div class="card">
-            <h2 style="margin-bottom:12px">傳輸統計 (getStats)</h2>
+            <h2  class="mb-12">傳輸統計 (getStats)</h2>
             <div class="diag-table-wrap">
                 <table class="diag-table">
                     <thead>
@@ -344,7 +344,7 @@
         <div class="modal">
             <div class="modal-header">
                 <div id="rawModalTitle" class="modal-title">原文檢視</div>
-                <div class="form-row" style="gap:8px; align-items:center">
+                <div class="form-row">
                     <div class="tab-group">
                         <button id="rawTabHex" class="active">十六進位</button>
                         <button id="rawTabText">UTF-8 文字</button>
@@ -356,7 +356,7 @@
             <div class="modal-body">
                 <pre id="rawModalHex" class="hex-dump hidden"></pre>
                 <pre id="rawModalText" class="raw-text hidden"></pre>
-                <div id="rawModalParsed" style="font-size:13px"></div>
+                <div id="rawModalParsed"  class="fs-13"></div>
             </div>
             <div class="modal-footer" id="rawModalMeta"></div>
         </div>
@@ -909,7 +909,7 @@ function renderMetaCard() {
   var el = document.getElementById('metaInfo');
   if (!state.meta) { el.innerHTML = '<span class="text-dim">尚未擷取</span>'; return; }
   var rows = Object.keys(state.meta).map(function (k) {
-    return '<div style="display:flex;justify-content:space-between;gap:12px"><span class="text-dim">' + esc(k) + '</span><span>' + esc(state.meta[k]) + '</span></div>';
+    return '<div  class="flex-between"><span class="text-dim">' + esc(k) + '</span><span>' + esc(state.meta[k]) + '</span></div>';
   }).join('');
   el.innerHTML = rows;
 }
@@ -949,7 +949,7 @@ function renderAudioCard() {
 }
 
 function infoRow(k, v) {
-  return '<div style="display:flex;justify-content:space-between;gap:12px"><span class="text-dim">' + esc(k) + '</span><span>' + esc(v) + '</span></div>';
+  return '<div  class="flex-between"><span class="text-dim">' + esc(k) + '</span><span>' + esc(v) + '</span></div>';
 }
 
 // ── 健康診斷 ──
@@ -1183,7 +1183,7 @@ function parseTagStructure(seq, data) {
   var rm = state.rawMeta.get(seq);
   var type = rm ? rm.typeName : '?';
   var box = function (title, rows) {
-    return '<div class="parse-box"><div class="text-dim" style="font-size:12px;margin-bottom:4px">' + title + '</div>' + rows.join('') + '</div>';
+    return '<div class="parse-box"><div class="text-dim fs-12 mb-4">' + title + '</div>' + rows.join('') + '</div>';
   };
   var row = function (k, v, cls) {
     return '<div class="parse-row"><span class="parse-key">' + esc(k) + '</span><span class="parse-val ' + (cls || '') + '">' + v + '</span></div>';

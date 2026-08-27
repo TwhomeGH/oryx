@@ -117,12 +117,20 @@ a:hover { color: var(--accent-hover); }
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-glow);
 }
+.form-row12 {
+    gap:12px; 
+    align-items:center;
+}
 .form-row {
     display: flex;
-    gap: 12px;
+    gap: 8px;
     align-items: flex-end;
 }
 .form-row .form-input { flex: 1; }
+
+.font12 {
+    font-size:12px
+}
 
 /* Buttons */
 .btn {
@@ -286,6 +294,22 @@ a:hover { color: var(--accent-hover); }
 .mb-8 { margin-bottom: 8px; }
 .mb-16 { margin-bottom: 16px; }
 .ml-16 { margin-left: 16px; }
+.mb-0 { margin-bottom: 0; }
+.mb-12 { margin-bottom: 12px; }
+.mb-4 { margin-bottom: 4px; }
+.fs-12 { font-size: 12px; }
+.fs-13 { font-size: 13px; }
+.cursor-pointer { cursor: pointer; }
+.flex-between { display: flex; justify-content: space-between; gap: 12px; }
+.single-col { grid-template-columns: 1fr; }
+.center-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+}
 
 /* Diagnostics */
 .diag-full { display: block !important; max-width: 1600px; }
