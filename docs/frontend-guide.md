@@ -193,3 +193,33 @@ npm run test                        # vitest
 **輪詢：** Overview/Vhosts/Streams/Clients 每 3 秒更新（`setTimeout` 自重排，非 `setInterval`，避免重疊）。
 
 **修改提示：** 加 tab → 在 `SrsConsoleImpl` 的 `<Tabs>` 加 `<Tab>`，並在 `locale.json` 的 `console` 區塊補中英文。
+
+### 13.1 本地調試預覽
+
+console 需要連到真實平台後端才有資料。兩種方式：
+
+**方式一：一鍵腳本（推薦）**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\dev-console.ps1
+```
+
+- 自動偵測平台端口（先試原生 `127.0.0.1:2022`，再試 Docker 映射 `882`）
+- 自動安裝缺漏的 UI 依賴（esbuild/rollup native module）
+- 啟動 Vite dev server 並自動開瀏覽器到 `http://localhost:3000/mgmt/zh/routers-console`
+- 可加參數：`-Platform http://127.0.0.1:882` 指定平台、`-Port 4000` 改端口、`-NoBrowser` 不開瀏覽器
+
+**方式二：手動**
+
+```powershell
+cd ui
+$env:PUBLIC_URL="/mgmt"; $env:REACT_APP_LOCALE="zh"
+$env:SRS_PLATFORM="http://127.0.0.1:882"   # 改為你的平台端口
+npm start
+```
+
+然後開 `http://localhost:3000/mgmt/zh/routers-console`，用平台密碼登入。
+
+**關鍵：`SRS_PLATFORM` 環境變數** — vite.config.mjs 的 dev proxy 預設指向 `127.0.0.1:2022`（原生端口）。若平台跑在 Docker（如 host `882→容器 2022`），`2022` 在 host 不可達，必須用 `SRS_PLATFORM` 指到映射端口，否則 `/api` `/terraform` 請求會 404。
+
+**提醒：** dev 模式 `%PUBLIC_URL%` 由 vite.config.mjs 的 `transformIndexHtml` hook 替換（build 模式走 `transform` hook），兩者都已處理，直接 `npm start` 即可。
