@@ -21,18 +21,18 @@
 </nav>
 
 <div class="container">
-    <div id="preview_banner" class="preview-banner hidden"></div>
-
-    <div id="info_alert" class="alert alert-info">
-        <span>Enter a WebRTC URL (e.g. webrtc://localhost/live/stream) and click Publish.</span>
-        <button class="alert-dismiss" onclick="this.parentElement.classList.add('hidden')">&times;</button>
-    </div>
-
-    <div id="error_alert" class="alert alert-danger hidden">
-        <span id="error_msg"></span>
-    </div>
-
     <div class="card">
+        <div id="preview_banner" class="preview-banner hidden"></div>
+
+        <div id="info_alert" class="alert alert-info">
+            <span>Enter a WebRTC URL (e.g. webrtc://localhost/live/stream) and click Publish.</span>
+            <button class="alert-dismiss" onclick="this.parentElement.classList.add('hidden')">&times;</button>
+        </div>
+
+        <div id="error_alert" class="alert alert-danger hidden">
+            <span id="error_msg"></span>
+        </div>
+
         <div class="form-group">
             <label class="form-label" for="txt_url">WebRTC URL</label>
             <div class="form-row">
@@ -68,6 +68,7 @@
 <script src="js/adapter-7.4.0.min.js"></script>
 <script src="js/srs.sdk.js"></script>
 <script src="js/winlin.utility.js"></script>
+<script src="js/srs.page.js"></script>
 <script>
 (function () {
     var PREVIEW_VIDEO = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';

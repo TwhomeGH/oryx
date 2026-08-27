@@ -1,44 +1,36 @@
-
 // to query the swf anti cache.
 function srs_get_version_code() { return "1.33"; }
 
 /**
-* player specified size.
-*/
-function srs_get_player_modal() { return 740; }
-function srs_get_player_width() { return srs_get_player_modal() - 30; }
-function srs_get_player_height() { return srs_get_player_width() * 9 / 19; }
-
-/**
-* update the navigator, add same query string.
-*/
+ * update the navigator, add same query string.
+ */
 function update_nav() {
-    $("#nav_srs_player").attr("href", "srs_player.html" + window.location.search);
-    $("#nav_rtc_player").attr("href", "rtc_player.html" + window.location.search);
-    $("#nav_rtc_publisher").attr("href", "rtc_publisher.html" + window.location.search);
-    $("#nav_whip").attr("href", "whip.html" + window.location.search);
-    $("#nav_whep").attr("href", "whep.html" + window.location.search);
-    $("#nav_srs_publisher").attr("href", "srs_publisher.html" + window.location.search);
-    $("#nav_srs_chat").attr("href", "srs_chat.html" + window.location.search);
-    $("#nav_srs_bwt").attr("href", "srs_bwt.html" + window.location.search);
-    $("#nav_vlc").attr("href", "vlc.html" + window.location.search);
+    var qs = window.location.search;
+    var navs = {
+        nav_srs_player: 'srs_player.html',
+        nav_rtc_player: 'rtc_player.html',
+        nav_rtc_publisher: 'rtc_publisher.html',
+        nav_whip: 'whip.html',
+        nav_whep: 'whep.html',
+        nav_srs_publisher: 'srs_publisher.html'
+    };
+    for (var id in navs) {
+        var el = document.getElementById(id);
+        if (el) el.href = navs[id] + qs;
+    }
 }
 
 // Special extra params, such as auth_key.
-function user_extra_params(query, params, rtc) {
+function user_extra_params(query, params) {
     var queries = params || [];
+    var skip = {
+        app:1, autostart:1, dir:1, filename:1, host:1, hostname:1,
+        http_port:1, pathname:1, port:1, server:1, stream:1, buffer:1,
+        schema:1, vhost:1, api:1, path:1
+    };
 
     for (var key in query.user_query) {
-        if (key === 'app' || key === 'autostart' || key === 'dir'
-            || key === 'filename' || key === 'host' || key === 'hostname'
-            || key === 'http_port' || key === 'pathname' || key === 'port'
-            || key === 'server' || key === 'stream' || key === 'buffer'
-            || key === 'schema' || key === 'vhost' || key === 'api'
-            || key === 'path'
-        ) {
-            continue;
-        }
-
+        if (skip[key]) continue;
         if (query[key]) {
             queries.push(key + '=' + query[key]);
         }
@@ -55,21 +47,17 @@ function is_default_port(schema, port) {
 }
 
 /**
-@param server the ip of server. default to window.location.hostname
-@param vhost the vhost of HTTP-FLV. default to window.location.hostname
-@param port the port of HTTP-FLV. default to 1935
-@param app the app of HTTP-FLV. default to live.
-@param stream the stream of HTTP-FLV. default to livestream.flv
-*/
+ * Build default FLV URL from query string params.
+ */
 function build_default_flv_url() {
     var query = parse_query_string();
 
-    var schema = (!query.schema)? "http":query.schema;
-    var server = (!query.server)? window.location.hostname:query.server;
-    var port = (!query.port)? (schema==="http"? 8080:1935) : Number(query.port);
-    var vhost = (!query.vhost)? window.location.hostname:query.vhost;
-    var app = (!query.app)? "live":query.app;
-    var stream = (!query.stream)? "livestream.flv":query.stream;
+    var schema = (!query.schema) ? "http" : query.schema;
+    var server = (!query.server) ? window.location.hostname : query.server;
+    var port = (!query.port) ? (schema === "http" ? 8080 : 1935) : Number(query.port);
+    var vhost = (!query.vhost) ? window.location.hostname : query.vhost;
+    var app = (!query.app) ? "live" : query.app;
+    var stream = (!query.stream) ? "livestream.flv" : query.stream;
 
     var queries = [];
     if (server !== vhost && vhost !== "__defaultVhost__") {
@@ -90,16 +78,11 @@ function build_default_flv_url() {
 }
 
 function build_default_rtc_url(query) {
-    // The format for query string to overwrite configs of server.
-    console.log('?eip=x.x.x.x to overwrite candidate. 覆盖服务器candidate(外网IP)配置');
-    console.log('?api=x to overwrite WebRTC API(1985).');
-    console.log('?schema=http|https to overwrite WebRTC API protocol.');
-
-    var server = (!query.server)? window.location.hostname:query.server;
-    var vhost = (!query.vhost)? window.location.hostname:query.vhost;
-    var app = (!query.app)? "live":query.app;
-    var stream = (!query.stream)? "livestream":query.stream;
-    var api = query.api? ':'+query.api : '';
+    var server = (!query.server) ? window.location.hostname : query.server;
+    var vhost = (!query.vhost) ? window.location.hostname : query.vhost;
+    var app = (!query.app) ? "live" : query.app;
+    var stream = (!query.stream) ? "livestream" : query.stream;
+    var api = query.api ? ':' + query.api : '';
 
     var queries = [];
     if (server !== vhost && vhost !== "__defaultVhost__") {
@@ -108,7 +91,7 @@ function build_default_rtc_url(query) {
     if (query.schema && window.location.protocol !== query.schema + ':') {
         queries.push('schema=' + query.schema);
     }
-    queries = user_extra_params(query, queries, true);
+    queries = user_extra_params(query, queries);
 
     var uri = "webrtc://" + server + api + "/" + app + "/" + stream + "?" + queries.join('&');
     while (uri.lastIndexOf("?") === uri.length - 1) {
@@ -116,21 +99,15 @@ function build_default_rtc_url(query) {
     }
 
     return uri;
-};
+}
 
 function build_default_whip_whep_url(query, apiPath) {
-    // The format for query string to overwrite configs of server.
-    console.log('?eip=x.x.x.x to overwrite candidate. 覆盖服务器candidate(外网IP)配置');
-    console.log('?api=x to overwrite WebRTC API(1985).');
-    console.log('?schema=http|https to overwrite WebRTC API protocol.');
-    console.log(`?path=xxx to overwrite default ${apiPath}`);
-
-    var server = (!query.server)? window.location.hostname:query.server;
-    var vhost = (!query.vhost)? window.location.hostname:query.vhost;
-    var app = (!query.app)? "live":query.app;
-    var stream = (!query.stream)? "livestream":query.stream;
+    var server = (!query.server) ? window.location.hostname : query.server;
+    var vhost = (!query.vhost) ? window.location.hostname : query.vhost;
+    var app = (!query.app) ? "live" : query.app;
+    var stream = (!query.stream) ? "livestream" : query.stream;
     var api = ':' + (query.api || (window.location.protocol === 'http:' ? '1985' : '1990'));
-    const realApiPath = query.path || apiPath;
+    var realApiPath = query.path || apiPath;
 
     var queries = [];
     if (server !== vhost && vhost !== "__defaultVhost__") {
@@ -139,7 +116,7 @@ function build_default_whip_whep_url(query, apiPath) {
     if (query.schema && window.location.protocol !== query.schema + ':') {
         queries.push('schema=' + query.schema);
     }
-    queries = user_extra_params(query, queries, true);
+    queries = user_extra_params(query, queries);
 
     var uri = window.location.protocol + "//" + server + api + realApiPath + "?app=" + app + "&stream=" + stream + "&" + queries.join('&');
     while (uri.lastIndexOf("?") === uri.length - 1) {
@@ -153,30 +130,25 @@ function build_default_whip_whep_url(query, apiPath) {
 }
 
 /**
-* initialize the page.
-* @param flv_url the div id contains the flv stream url to play
-* @param hls_url the div id contains the hls stream url to play
-* @param modal_player the div id contains the modal player
-*/
+ * initialize the page.
+ * @param flv_url the div id contains the flv stream url to play
+ * @param modal_player the div id contains the modal player
+ */
 function srs_init_flv(flv_url, modal_player) {
     update_nav();
     if (flv_url) {
-        $(flv_url).val(build_default_flv_url());
-    }
-    if (modal_player) {
-        $(modal_player).width(srs_get_player_modal() + "px");
-        $(modal_player).css("margin-left", "-" + srs_get_player_modal() / 2 +"px");
+        document.querySelector(flv_url).value = build_default_flv_url();
     }
 }
 function srs_init_rtc(id, query) {
     update_nav();
-    $(id).val(build_default_rtc_url(query));
+    document.querySelector(id).value = build_default_rtc_url(query);
 }
 function srs_init_whip(id, query) {
     update_nav();
-    $(id).val(build_default_whip_whep_url(query, '/rtc/v1/whip/'));
+    document.querySelector(id).value = build_default_whip_whep_url(query, '/rtc/v1/whip/');
 }
 function srs_init_whep(id, query) {
     update_nav();
-    $(id).val(build_default_whip_whep_url(query, '/rtc/v1/whep/'));
+    document.querySelector(id).value = build_default_whip_whep_url(query, '/rtc/v1/whep/');
 }
