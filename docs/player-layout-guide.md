@@ -16,8 +16,10 @@ platform/containers/www/
 │   ├── whip.html               ← WHIP 推流
 │   ├── whep.html               ← WHEP 播放器
 │   ├── rtc_publisher.html      ← WebRTC 推流（SRS SDK）
+│   ├── pushdiag.html           ← 推流診斷工具（FLV + WebRTC 兩種模式）
 │   └── js/
 │       ├── srs.sdk.js          ← WebRTC SDK（已修復安全問題）
+│       ├── srs.page.js         ← 頁面初始化（query string → 預設 URL，純 vanilla JS）
 │       ├── winlin.utility.js   ← 工具函數（已修復 prototype pollution）
 │       └── adapter-7.4.0.min.js ← WebRTC adapter
 └── tools/
@@ -182,11 +184,51 @@ file:///F:/oryx/platform/containers/www/tools/player.html
 | `whip.html` | Video Only / Audio Only 核取方塊 | srs.sdk.js（SrsRtcWhipWhepAsync） |
 | `whep.html` | 同 WHIP，但用於播放 | srs.sdk.js（SrsRtcWhipWhepAsync） |
 | `rtc_publisher.html` | codec 資訊（Audio/Video） | srs.sdk.js（SrsRtcPublisherAsync） |
+| `pushdiag.html` | 推流診斷工具（FLV + WebRTC 模式） | mpegts.js + Chart.js + srs.sdk.js |
 | `tools/player.html` | 極簡版，無導覽列 | hls.js, mpegts.js |
 
 ---
 
-## 6. 注意事項
+## 6. 推流診斷工具（pushdiag.html）
+
+> 獨立工具頁面，用於分析推流品質，不是播放器本身。
+
+### 6.1 兩種模式
+
+| 模式 | 分析對象 | 診斷項目 |
+|---|---|---|
+| **FLV 分析** | HTTP-FLV 串流（`/live/<stream>.flv`） | 位元率、GOP 間隔、影音時間戳偏移、掉幀、封包檢查器、SPS/AAC 解析、原始位元組檢視 |
+| **WebRTC 分析** | WHEP URL（`/rtc/v1/whep/`） | ICE 型別（host/srflx/relay）、RTT、封包遺失、jitter、掉幀率、codec（`getStats()`） |
+
+### 6.2 使用方式
+
+1. 從任一 player 頁面的導覽列點 **Push Diag**
+2. **FLV 模式**：填入 SRS HTTP 主機 + stream key → 開始分析
+3. **WebRTC 模式**：填入 WHEP URL → 開始分析
+4. 健康診斷會自動給出旗標（正常/警告/錯誤）
+
+### 6.3 診斷 CSS（加到 player.css）
+
+pushdiag 用到的一組診斷專用類別，全部在 `player.css` 的 `/* Diagnostics */` 區塊：
+
+| 類別 | 用途 |
+|---|---|
+| `.diag-full` | 全寬容器（覆蓋 sidebar flex 佈局） |
+| `.mode-tabs` / `.mode-tab` | 模式切換按鈕 |
+| `.diag-grid` / `.cols-3` / `.cols-2` / `.cols-3-2` | 響應式格線 |
+| `.stat-card` / `.stat-value` | 數據卡片 |
+| `.badge` / `.badge-ok` / `.badge-warn` / `.badge-err` / `.badge-info` | 健康旗標 |
+| `.diag-table-wrap` / `.diag-table` | 診斷表格 |
+| `.chart-box` | Chart.js 圖表容器 |
+| `.hud` / `.hud-label` / `.hud-val` | 影片疊加資訊 |
+| `.modal-overlay` / `.modal` | 原始位元組檢視彈窗 |
+| `.parse-box` / `.parse-row` | 封包結構解析 |
+| `.text-ok` / `.text-warn` / `.text-err` / `.text-info` / `.text-dim` | 文字顏色 |
+| `.collapse-trigger` | 可收合區塊標題 |
+
+---
+
+## 7. 注意事項
 
 - **所有 player 頁面共用 `player.css`**，改一個檔案全部生效
 - **不要用 inline style**（`style="..."`），改用 CSS class
