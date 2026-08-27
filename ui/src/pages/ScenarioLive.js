@@ -45,8 +45,6 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
   const env = React.useContext(SrsEnvContext)[0];
 
   const rtmpPublishUrl = `${rtmpServer}${rtmpStreamKey}`;
-  const xgFlvPlayerUrl = flvPlayer?.replace('player.html', 'xgplayer.html');
-  const xgHlsPlayerUrl = hlsPlayer?.replace('player.html', 'xgplayer.html');
   const ffmpegPublishCli = `ffmpeg -re -i ~/git/srs/trunk/doc/source.flv -c copy -f flv ${rtmpPublishUrl}`;
   const ffmpegSrtCli = `ffmpeg -re -i ~/git/srs/trunk/doc/source.flv -c copy -pes_payload_size 0 -f mpegts '${srtPublishUrl}'`;
   const ffplayWindows = `ffplay -fflags nobuffer -flags low_delay -i "${srtPlayUrl}"`;
@@ -166,8 +164,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
               <ul>
                 <li>
                   {t('live.share.flv')}&nbsp;
-                  <a href={flvPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>,&nbsp;
-                  <a href={xgFlvPlayerUrl} target='_blank' rel='noreferrer'>{t('live.share.xg')}</a>&nbsp;
+                  <a href={flvPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>&nbsp;
                   <code>{flvUrl}</code> &nbsp;
                   <div role='button' style={{display: 'inline-block'}} title={t('helper.copy')}>
                     <Icon.Clipboard size={20} onClick={(e) => copyToClipboard(e, flvUrl)} />
@@ -175,8 +172,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
                 </li>
                 <li>
                   {t('live.share.hls')}&nbsp;
-                  <a href={hlsPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>,&nbsp;
-                  <a href={xgHlsPlayerUrl} target='_blank' rel='noreferrer'>{t('live.share.xg')}</a>&nbsp;
+                  <a href={hlsPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>&nbsp;
                   <code>{m3u8Url}</code> &nbsp;
                   <div role='button' style={{display: 'inline-block'}} title={t('helper.copy')}>
                     <Icon.Clipboard size={20} onClick={(e) => copyToClipboard(e, m3u8Url)} />
@@ -265,8 +261,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
               <ul>
                 <li>
                   {t('live.share.flv')}&nbsp;
-                  <a href={flvPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>,&nbsp;
-                  <a href={xgFlvPlayerUrl} target='_blank' rel='noreferrer'>{t('live.share.xg')}</a>&nbsp;
+                  <a href={flvPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>&nbsp;
                   <code>{flvUrl}</code> &nbsp;
                   <div role='button' style={{display: 'inline-block'}} title={t('helper.copy')}>
                     <Icon.Clipboard size={20} onClick={(e) => copyToClipboard(e, flvUrl)} />
@@ -274,8 +269,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
                 </li>
                 <li>
                   {t('live.share.hls')}&nbsp;
-                  <a href={hlsPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>,&nbsp;
-                  <a href={xgHlsPlayerUrl} target='_blank' rel='noreferrer'>{t('live.share.xg')}</a>&nbsp;
+                  <a href={hlsPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>&nbsp;
                   <code>{m3u8Url}</code> &nbsp;
                   <div role='button' style={{display: 'inline-block'}} title={t('helper.copy')}>
                     <Icon.Clipboard size={20} onClick={(e) => copyToClipboard(e, m3u8Url)} />
@@ -387,8 +381,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
                   <ul>
                     <li>
                       {t('live.share.flv')}&nbsp;
-                      <a href={flvPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>,&nbsp;
-                      <a href={xgFlvPlayerUrl} target='_blank' rel='noreferrer'>{t('live.share.xg')}</a>&nbsp;
+                      <a href={flvPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>&nbsp;
                       <code>{flvUrl}</code> &nbsp;
                       <div role='button' style={{display: 'inline-block'}} title={t('helper.copy')}>
                         <Icon.Clipboard size={20} onClick={(e) => copyToClipboard(e, flvUrl)} />
@@ -396,8 +389,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
                     </li>
                     <li>
                       {t('live.share.hls')}&nbsp;
-                      <a href={hlsPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>,&nbsp;
-                      <a href={xgHlsPlayerUrl} target='_blank' rel='noreferrer'>{t('live.share.xg')}</a>&nbsp;
+                      <a href={hlsPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>&nbsp;
                       <code>{m3u8Url}</code> &nbsp;
                       <div role='button' style={{display: 'inline-block'}} title={t('helper.copy')}>
                         <Icon.Clipboard size={20} onClick={(e) => copyToClipboard(e, m3u8Url)} />
@@ -516,8 +508,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
                   <ul>
                     <li>
                       {t('live.share.flv')}&nbsp;
-                      <a href={flvPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>,&nbsp;
-                      <a href={xgFlvPlayerUrl} target='_blank' rel='noreferrer'>{t('live.share.xg')}</a>&nbsp;
+                      <a href={flvPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>&nbsp;
                       <code>{flvUrl}</code> &nbsp;
                       <div role='button' style={{display: 'inline-block'}} title={t('helper.copy')}>
                         <Icon.Clipboard size={20} onClick={(e) => copyToClipboard(e, flvUrl)} />
@@ -525,8 +516,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
                     </li>
                     <li>
                       {t('live.share.hls')}&nbsp;
-                      <a href={hlsPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>,&nbsp;
-                      <a href={xgHlsPlayerUrl} target='_blank' rel='noreferrer'>{t('live.share.xg')}</a>&nbsp;
+                      <a href={hlsPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>&nbsp;
                       <code>{m3u8Url}</code> &nbsp;
                       <div role='button' style={{display: 'inline-block'}} title={t('helper.copy')}>
                         <Icon.Clipboard size={20} onClick={(e) => copyToClipboard(e, m3u8Url)} />
@@ -627,8 +617,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
                 <ul>
                   <li>
                     {t('live.share.flv')}&nbsp;
-                    <a href={flvPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>,&nbsp;
-                    <a href={xgFlvPlayerUrl} target='_blank' rel='noreferrer'>{t('live.share.xg')}</a>&nbsp;
+                    <a href={flvPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>&nbsp;
                     <code>{flvUrl}</code> &nbsp;
                     <div role='button' style={{display: 'inline-block'}} title={t('helper.copy')}>
                       <Icon.Clipboard size={20} onClick={(e) => copyToClipboard(e, flvUrl)} />
@@ -636,8 +625,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
                   </li>
                   <li>
                     {t('live.share.hls')}&nbsp;
-                    <a href={hlsPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>,&nbsp;
-                    <a href={xgHlsPlayerUrl} target='_blank' rel='noreferrer'>{t('live.share.xg')}</a>&nbsp;
+                    <a href={hlsPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>&nbsp;
                     <code>{m3u8Url}</code> &nbsp;
                     <div role='button' style={{display: 'inline-block'}} title={t('helper.copy')}>
                       <Icon.Clipboard size={20} onClick={(e) => copyToClipboard(e, m3u8Url)} />
@@ -718,8 +706,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
               <ul>
                 <li>
                   {t('live.share.flv')}&nbsp;
-                  <a href={flvPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>,&nbsp;
-                  <a href={xgFlvPlayerUrl} target='_blank' rel='noreferrer'>{t('live.share.xg')}</a>&nbsp;
+                  <a href={flvPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>&nbsp;
                   <code>{flvUrl}</code> &nbsp;
                   <div role='button' style={{display: 'inline-block'}} title={t('helper.copy')}>
                     <Icon.Clipboard size={20} onClick={(e) => copyToClipboard(e, flvUrl)} />
@@ -727,8 +714,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
                 </li>
                 <li>
                   {t('live.share.hls')}&nbsp;
-                  <a href={hlsPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>,&nbsp;
-                  <a href={xgHlsPlayerUrl} target='_blank' rel='noreferrer'>{t('live.share.xg')}</a>&nbsp;
+                  <a href={hlsPlayer} target='_blank' rel='noreferrer'>{t('live.share.simple')}</a>&nbsp;
                   <code>{m3u8Url}</code> &nbsp;
                   <div role='button' style={{display: 'inline-block'}} title={t('helper.copy')}>
                     <Icon.Clipboard size={20} onClick={(e) => copyToClipboard(e, m3u8Url)} />

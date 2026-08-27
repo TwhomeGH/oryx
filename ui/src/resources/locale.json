@@ -317,7 +317,6 @@
           "title": "请选择播放的流：",
           "flv": "播放HTTP-FLV流, 请选择播放器：",
           "simple": "简易播放器",
-          "xg": "西瓜播放器",
           "hls": "播放HLS流, 请选择播放器",
           "rtc": "播放WebRTC流, 请选择WHEP播放器：",
           "wp": "你也可以嵌入到WordPress：",
@@ -1196,7 +1195,6 @@
           "wp": "You can also embed to WordPress:",
           "rtc": "Play WebRTC stream, WHEP player:",
           "hls": "Play HLS stream, choose player:",
-          "xg": "Xigua Player",
           "simple": "Simple Player",
           "flv": "Play HTTP-FLV stream, choose player:",
           "title": "Play the stream by:"
