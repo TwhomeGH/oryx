@@ -28,6 +28,8 @@ platform/containers/www/
 
 **重點：所有 player 頁面共用同一個 `css/player.css`，改一個檔案全部生效。**
 
+> **歷史清理：** 舊版 jQuery/Bootstrap/swfobject/json2.js 及舊頁面（index.html、srs_chat、vlc、srs_publisher 等）已於 2026-08 移除。這些是上游殘留的舊式網頁，入口僅是 redirect 到現代化頁面，且引用的舊庫是 CodeQL 告警來源。若看到某個頁面報 JS 錯誤，先確認它是否引用 `js/` 下不存在的檔案。
+
 ---
 
 ## 2. 本地測試（不需要 Docker）
