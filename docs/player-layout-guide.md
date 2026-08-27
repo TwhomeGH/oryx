@@ -72,8 +72,8 @@ file:///F:/oryx/platform/containers/www/tools/player.html
     --text-primary: #e4e7f1;    /* 主要文字 */
     --text-secondary: #9ca3b8;  /* 次要文字（label、placeholder） */
     --text-muted: #6b7394;      /* 頁尾等弱化文字 */
-    --accent: #6366f1;          /* 主題色（按鈕、連結、focus 光暈） */
-    --accent-hover: #818cf8;    /* 主題色 hover */
+    --accent: #a2a4ff;          /* 主題色（按鈕、連結、focus 光暈） */
+    --accent-hover: #b0b8ff;    /* 主題色 hover */
     --accent-glow: rgba(99,102,241,0.25); /* focus 光暈 */
     --border: #2d3245;          /* 邊框顏色 */
     --success: #22c55e;         /* 成功綠 */
