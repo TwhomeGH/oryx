@@ -411,8 +411,11 @@ func handleHTTPService(ctx context.Context, handler *http.ServeMux) error {
 		}
 
 		// We directly serve the static files, because we overwrite the www for DVR.
-		if strings.HasPrefix(r.URL.Path, "/console/") || strings.HasPrefix(r.URL.Path, "/players/") ||
-			strings.HasPrefix(r.URL.Path, "/tools/") {
+		if strings.HasPrefix(r.URL.Path, "/console/") {
+			http.Redirect(w, r, "/mgmt", http.StatusFound)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/players/") || strings.HasPrefix(r.URL.Path, "/tools/") {
 			if r.URL.Path != "/tools/player.html" && r.URL.Path != "/tools/xgplayer.html" {
 				w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%v", 30*24*3600))
 			}

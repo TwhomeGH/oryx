@@ -50,6 +50,28 @@
 - mpegts.js: 1.7.3（保持）
 - dash.js: 4.5.1 → 4.7.4
 
+## 第三批：舊 AngularJS Console 升級（消除 Library alerts）
+
+### 5. 舊 console 的 3rdparty 函式庫
+
+**問題：** `platform/containers/www/console/` 是舊版 AngularJS 管理介面，依賴過時的第三方函式庫，CodeQL 回報 13 個 Library alerts：
+
+| 函式庫 | 問題 | Alerts 數 |
+|---|---|---|
+| `bootstrap.js` | DOM text reinterpreted as HTML | 9 |
+| `angular.js` | Incomplete string escaping | 1 |
+| `angular-route.js` | Incomplete string escaping | 2 |
+| `adapter-7.4.0.js` | DOM text reinterpreted as HTML | 1 |
+
+**修復方式：** 不再直接修補這些無法在 place 修復的 Library alerts，而是**完整升級 console 到 React**：
+
+- 新增 `ui/src/pages/SrsConsole.js` — 用 React 重寫全部 console 功能（Overview/Vhosts/Streams/Clients/Configs）
+- 透過平台內建的 `/api/` proxy 存取 SRS HTTP API（帶 Bearer token，取代舊 JSONP）
+- 導覽列新增「控制台」入口，`UrlGenerator` 的 console 連結改指向 `/mgmt/routers-console`
+- **刪除** `platform/containers/www/console/` 整個舊 AngularJS 目錄（含 `3rdparty/`）
+
+**效果：** 13 個 Library alerts 全部消除，console 功能升級為現代 React UI。
+
 ## 安全建議
 
 - 所有從 URL 路徑提取的檔案路徑組件，使用前必須驗證格式

@@ -22,6 +22,7 @@ ui/
     ├── resources/          # locale.json（雙語字典）與圖片、預設 md
     ├── components/         # 跨頁面共用元件（SrsQRCode、SecretInput、ThemeSwitch…）
     └── pages/              # 一個路由一個檔案
+        └── SrsConsole.js   # SRS 控制台（Overview/Vhosts/Streams/Clients/Configs）
 ```
 
 ## 2. 頁面標準骨架（照抄即可）
@@ -172,3 +173,23 @@ npm run test                        # vitest
 - 切換元件：components/ThemeSwitch.js（存在 localStorage `oryx-theme`）
 - 防閃爍：index.html head 內聯腳本在首繪前套用
 - 自訂樣式請盡量用 bootstrap 變數/class，避免寫死白色背景
+
+## 13. SRS 控制台（SrsConsole.js）
+
+取代舊版 AngularJS console（`/console/`，已刪除）。Route: `routers-console`。
+
+**資料來源：** 直接呼叫 SRS HTTP API，經平台 `/api/` proxy（帶 Bearer token）：
+
+| Tab | API | 備註 |
+|---|---|---|
+| Overview | `/api/v1/summaries` | 回傳包在 `data` 內 |
+| Vhosts | `/api/v1/vhosts/` | 列表在頂層（無 `data` 包裝） |
+| Streams | `/api/v1/streams/` | 先抓 vhosts join owner 名稱 |
+| Clients | `/api/v1/clients/` | Kickoff 用 `axios.delete` |
+| Configs | `/api/v1/raw?rpc=raw` | `http_api` 頂層 |
+
+**⚠️ API 回應結構不一致：** SRS HTTP API 的 summaries 包在 `data`，但 vhosts/streams/clients/raw 在頂層。`srsApi()` helper 返回完整 envelope，呼叫端自行取欄位，勿統一 unwrap。
+
+**輪詢：** Overview/Vhosts/Streams/Clients 每 3 秒更新（`setTimeout` 自重排，非 `setInterval`，避免重疊）。
+
+**修改提示：** 加 tab → 在 `SrsConsoleImpl` 的 `<Tabs>` 加 `<Tab>`，並在 `locale.json` 的 `console` 區塊補中英文。

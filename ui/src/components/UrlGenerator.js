@@ -51,9 +51,8 @@ export function buildUrls(defaultUrl, secret, env) {
 
   // Build console url.
   if (true) {
-    const httpPort = env.httpPort ? env.httpPort : defaultPort;
-    urls.cnConsole = `/console/ng_index.html#/summaries?port=${httpPort}&http=${httpPort}`;
-    urls.enConsole = `/console/en_index.html#/summaries?port=${httpPort}&http=${httpPort}`;
+    urls.cnConsole = `/routers-console`;
+    urls.enConsole = `/routers-console`;
   }
 
   // The player url.

@@ -29,6 +29,7 @@ import {Locale, Token} from "./utils";
 import Components from "./pages/Components";
 import Scenario from "./pages/Scenario";
 import Settings from "./pages/Settings";
+import SrsConsole from "./pages/SrsConsole";
 import Contact from "./pages/Contact";
 import {ErrorBoundary, useErrorHandler} from 'react-error-boundary';
 import {SrsErrorBoundary} from "./components/SrsErrorBoundary";
@@ -145,6 +146,7 @@ function AppRoute({initialized, setInitialized}) {
                 <Route path="routers-login" element={<Login onLogin={() => setTokenUpdated(!tokenUpdated)}/>}/>
                 <Route path="routers-scenario" element={<Scenario/>}/>
                 <Route path="routers-settings" element={<Settings/>}/>
+                <Route path="routers-console" element={<SrsConsole/>}/>
                 <Route path="routers-contact" element={<Contact/>}/>
                 <Route path="routers-components" element={<Components/>}/>
                 <Route path="routers-logout" element={<Logout onLogout={() => setTokenUpdated(!tokenUpdated)}/>}/>
