@@ -1357,6 +1357,12 @@ function checkPreviewStall() {
 
 function updatePreviewHud() {
   if (!state.running) return;
+  var hud = document.getElementById('previewHud');
+  if (document.getElementById('hudEnabled').checked) {
+    hud.classList.remove('hidden');
+  } else {
+    hud.classList.add('hidden');
+  }
   var fps = measureFps();
   var sps = state.sps;
   var kbps = state.bytes * 8 / 1024 / Math.max((performance.now() - state.startTime) / 1000, 0.001);
