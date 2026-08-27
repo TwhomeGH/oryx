@@ -76,11 +76,11 @@
             const u = new URL(url, window.location.origin);
             // 僅允許 http/https
             if (u.protocol === "http:" || u.protocol === "https:") {
-            return u.href;
+                return u.href;
             }
         } catch (e) {
             // 無效 URL
-            console.error("Error Input SRC:",e)
+            console.error("Error Input SRC:", e);
         }
         return "about:blank"; // fallback
     }
@@ -94,6 +94,13 @@
     function play(url) {
         if (player) { try { player.destroy(); } catch (e) {} player = null; }
         errorAlert.classList.add('hidden');
+
+        // Sanitize once at entry so every downstream use (loadSource, src
+        // assignment) only ever sees a validated http/https URL.
+        url = sanitizeUrl(url);
+        if (url === 'about:blank') {
+            return showError('Invalid or unsupported URL.');
+        }
 
         if (url.indexOf('.m3u8') > 0) {
             if (typeof Hls !== 'undefined' && Hls.isSupported()) {
@@ -125,9 +132,8 @@
             return;
         }
 
-        // Fallback to native
-        let safeURL = sanitizeUrl(url)
-        videoEl.src = safeURL;
+        // Fallback to native (url already sanitized at play() entry).
+        videoEl.src = url;
     }
 
     document.getElementById('btn_play').addEventListener('click', function () {

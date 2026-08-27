@@ -47,8 +47,11 @@ line = strings.ReplaceAll(line, " 8000 ", fmt.Sprintf(" %v ", port))
 
 | 檔案 | 問題 | 修復 |
 |---|---|---|
-| `srs.sdk.js` | `document.createElement("a").href = url` 後讀取屬性，被 CodeQL 標為 DOM text reinterpreted as HTML | 改用 `new URL()` 解析，fallback 到 `createElement("a")` |
-| `winlin.utility.js` | `obj[query[0]] = query[1]` 未驗證 key，可能污染 `__proto__`/`constructor` | 加入 `__proto__`/`constructor`/`prototype` key 過濾 |
+| `srs.sdk.js` | `document.createElement("a").href = url` 後讀取屬性，被 CodeQL 標為 DOM text reinterpreted as HTML | 改用 `new URL()` 解析；**完全移除 createElement fallback**，解析失敗回傳空欄位（不影響呼叫端） |
+| `winlin.utility.js` | `obj[query[0]] = query[1]` 未驗證 key，可能污染 `__proto__`/`constructor` | **key 白名單**：只允許 `[a-zA-Z0-9._-]`，不符即跳過（比黑名單更徹底） |
+| `srs_player.html` | `buildShareUrl()` 把用戶輸入直接拼進 share href（DOM XSS） | query 值全部 `encodeURIComponent`（見 4.1） |
+| `srs_player.html` / `tools/player.html` / `pushdiag.html` | `video.src` / `audio.src` 直接賦值用戶輸入 URL（DOM XSS / client XSS / URL redirect） | 統一 `sanitizeUrl()` 只允許 http/https，其餘回 `about:blank` |
+| `winlin.utility.js` | `parse_rtmp_url` 用 `createElement("a").href` 解析 | 改用 `new URL(url, base)` + try/catch 安全 fallback |
 
 ### 4. 播放器現代化
 

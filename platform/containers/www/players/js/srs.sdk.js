@@ -151,17 +151,16 @@ function SrsRtcPublisherAsync() {
             };
         },
         parse: function (url) {
-            // @see: http://stackoverflow.com/questions/10469575/how-to-use-location-object-to-parse-url-without-redirecting-the-page-in-javascri
+            // Parse with the URL API. No createElement('a') fallback (CodeQL
+            // flags that as DOM text reinterpreted as HTML); on invalid input
+            // we return empty fields so callers degrade safely.
             var parsed;
             try {
                 parsed = new URL(url.replace("rtmp://", "http://")
                     .replace("webrtc://", "http://")
-                    .replace("rtc://", "http://"));
+                    .replace("rtc://", "http://"), window.location.href);
             } catch (e) {
-                parsed = document.createElement("a");
-                parsed.href = url.replace("rtmp://", "http://")
-                    .replace("webrtc://", "http://")
-                    .replace("rtc://", "http://");
+                parsed = { hostname: "", pathname: "", search: "", port: "" };
             }
 
             var vhost = parsed.hostname;
@@ -393,17 +392,16 @@ function SrsRtcPlayerAsync() {
             };
         },
         parse: function (url) {
-            // @see: http://stackoverflow.com/questions/10469575/how-to-use-location-object-to-parse-url-without-redirecting-the-page-in-javascri
+            // Parse with the URL API. No createElement('a') fallback (CodeQL
+            // flags that as DOM text reinterpreted as HTML); on invalid input
+            // we return empty fields so callers degrade safely.
             var parsed;
             try {
                 parsed = new URL(url.replace("rtmp://", "http://")
                     .replace("webrtc://", "http://")
-                    .replace("rtc://", "http://"));
+                    .replace("rtc://", "http://"), window.location.href);
             } catch (e) {
-                parsed = document.createElement("a");
-                parsed.href = url.replace("rtmp://", "http://")
-                    .replace("webrtc://", "http://")
-                    .replace("rtc://", "http://");
+                parsed = { hostname: "", pathname: "", search: "", port: "" };
             }
 
             var vhost = parsed.hostname;
@@ -663,10 +661,9 @@ function SrsRtcWhipWhepAsync() {
 
             var parsed;
             try {
-                parsed = new URL(url);
+                parsed = new URL(url, window.location.href);
             } catch (e) {
-                parsed = document.createElement("a");
-                parsed.href = url;
+                parsed = { protocol: "", host: "" };
             }
             return {
                 sessionid: sessionid, // Should be ice-ufrag of answer:offer.

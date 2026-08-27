@@ -148,9 +148,22 @@
         return url;
     }
 
+    function sanitizeUrl(url) {
+        try {
+            var u = new URL(url, window.location.origin);
+            if (u.protocol === 'http:' || u.protocol === 'https:') {
+                return u.href;
+            }
+        } catch (e) {
+            // ignore invalid URL
+        }
+        return 'about:blank';
+    }
+
     function startPlay(r) {
         stopPlayers();
         if (!r) return;
+        r.url = sanitizeUrl(r.url);
 
         // Audio files
         if (r.stream.indexOf('.mp3') > 0 || r.stream.indexOf('.aac') > 0) {

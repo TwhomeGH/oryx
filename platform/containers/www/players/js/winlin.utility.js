@@ -267,8 +267,9 @@ function __fill_query(query_string, obj) {
 
         var query = elem.split("=");
         var key = query[0];
-        // Validate key to prevent prototype pollution.
-        if (!key || key === '__proto__' || key === 'constructor' || key === 'prototype') {
+        // Whitelist key to prevent prototype pollution and property
+        // injection: only alphanumerics plus . _ - are allowed.
+        if (!key || !/^[a-zA-Z0-9._-]+$/.test(key)) {
             continue;
         }
         obj[key] = query[1];
@@ -296,11 +297,17 @@ function __fill_query(query_string, obj) {
  }
  */
 function parse_rtmp_url(rtmp_url) {
-    // @see: http://stackoverflow.com/questions/10469575/how-to-use-location-object-to-parse-url-without-redirecting-the-page-in-javascri
-    var a = document.createElement("a");
-    a.href = rtmp_url.replace("rtmp://", "http://")
+    // Use the URL API to parse instead of createElement('a').href, which
+    // CodeQL flags as DOM text reinterpreted as HTML.
+    var urlStr = rtmp_url.replace("rtmp://", "http://")
         .replace("webrtc://", "http://")
         .replace("rtc://", "http://");
+    var a;
+    try {
+        a = new URL(urlStr, window.location.href);
+    } catch (e) {
+        a = { hostname: "", pathname: "", search: "", port: "" };
+    }
 
     var vhost = a.hostname;
     var app = a.pathname.substring(1, a.pathname.lastIndexOf("/"));
