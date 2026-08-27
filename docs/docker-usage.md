@@ -84,6 +84,22 @@ services:
 左邊是主機埠，可自行更換（例如範例用 882 對應容器內的 2022）；
 換埠後瀏覽器要改用新的位址，推流域名也要跟著調整。
 
+### 環境變數
+
+在 compose 裡設定：
+
+```yaml
+services:
+  oryx:
+    image: ghcr.io/twhomegh/oryx:v5.15.20
+    environment:
+      - SRS_TLS_SKIP_VERIFY=true    # 關閉 callback TLS 驗證（預設關閉）
+```
+
+| 環境變數 | 預設 | 說明 |
+|---|---|---|
+| `SRS_TLS_SKIP_VERIFY` | `false` | callback（webhook）目標 URL 為 `https://` 時，是否跳過 TLS 憑證驗證。若目標是 `http://` 則此設定無作用。僅在 callback target 使用自簽憑證的 HTTPS 服務時才需設為 `true`，一般用戶不需要設定 |
+
 ### 啟動與停止
 
 ```bash

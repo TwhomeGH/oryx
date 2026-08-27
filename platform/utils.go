@@ -479,6 +479,10 @@ func envForwardLimit() string {
 	return os.Getenv("SRS_FORWARD_LIMIT")
 }
 
+func envTLSSkipVerify() bool {
+	return os.Getenv("SRS_TLS_SKIP_VERIFY") == "true"
+}
+
 func envVLiveLimit() string {
 	return os.Getenv("SRS_VLIVE_LIMIT")
 }

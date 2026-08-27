@@ -297,7 +297,7 @@ func (v *CallbackWorker) OnStreamMessage(ctx context.Context, action SrsAction, 
 			client := &http.Client{
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
+						InsecureSkipVerify: envTLSSkipVerify(),
 					},
 				},
 			}
@@ -443,7 +443,7 @@ func (v *CallbackWorker) OnRecordMessage(ctx context.Context, action SrsAction, 
 			client := &http.Client{
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
+						InsecureSkipVerify: envTLSSkipVerify(),
 					},
 				},
 			}
@@ -584,7 +584,7 @@ func (v *CallbackWorker) OnOCR(ctx context.Context, action SrsAction, taskUUID s
 			client := &http.Client{
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
+						InsecureSkipVerify: envTLSSkipVerify(),
 					},
 				},
 			}
