@@ -20,7 +20,9 @@ export default defineConfig(({ mode }) => {
         // Replace CRA style placeholders in index.html, such as %PUBLIC_URL%
         // and %REACT_APP_LOCALE%, which are used by source code as globals.
         // Must run before vite:build-html, whose decodeURI chokes on the raw
-        // percent placeholders.
+        // percent placeholders. The transform hook (enforce: pre) covers the
+        // production build; transformIndexHtml covers the dev server, where
+        // the browser requests %PUBLIC_URL%/manifest.json directly.
         name: 'oryx-html-env',
         enforce: 'pre',
         transform(code, id) {
@@ -32,6 +34,11 @@ export default defineConfig(({ mode }) => {
             .replaceAll('%REACT_APP_LOCALE%', process.env.REACT_APP_LOCALE || '');
           console.log(`[oryx-html-env] placeholders replaced, locale=${process.env.REACT_APP_LOCALE}`);
           return { code: replaced, map: null };
+        },
+        transformIndexHtml(html) {
+          return html
+            .replaceAll('%PUBLIC_URL%', publicUrl)
+            .replaceAll('%REACT_APP_LOCALE%', process.env.REACT_APP_LOCALE || '');
         },
       },
     ],
@@ -64,14 +71,17 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       // Proxy for development, the same as previous src/setupProxy.js.
-      proxy: [
-        { context: ['/console'], target: 'http://127.0.0.1:2022', changeOrigin: true },
-        { context: ['/players'], target: 'http://127.0.0.1:2022', changeOrigin: true },
-        { context: ['/terraform'], target: 'http://127.0.0.1:2022', changeOrigin: true },
-        { context: ['/tools'], target: 'http://127.0.0.1:2022', changeOrigin: true },
-        { context: ['/api'], target: 'http://127.0.0.1:2022', changeOrigin: true },
-        { context: ['/rtc'], target: 'http://127.0.0.1:2022', changeOrigin: true },
-      ],
+      // The platform default is 127.0.0.1:2022 (native); override with
+      // SRS_PLATFORM to reach a Docker-mapped port, e.g.:
+      //   SRS_PLATFORM=http://127.0.0.1:882 npm start
+      proxy: {
+        '/console': {target: process.env.SRS_PLATFORM || 'http://127.0.0.1:2022', changeOrigin: true},
+        '/players': {target: process.env.SRS_PLATFORM || 'http://127.0.0.1:2022', changeOrigin: true},
+        '/terraform': {target: process.env.SRS_PLATFORM || 'http://127.0.0.1:2022', changeOrigin: true},
+        '/tools': {target: process.env.SRS_PLATFORM || 'http://127.0.0.1:2022', changeOrigin: true},
+        '/api': {target: process.env.SRS_PLATFORM || 'http://127.0.0.1:2022', changeOrigin: true},
+        '/rtc': {target: process.env.SRS_PLATFORM || 'http://127.0.0.1:2022', changeOrigin: true},
+      },
     },
     test: {
       environment: 'jsdom',
