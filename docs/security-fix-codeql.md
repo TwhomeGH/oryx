@@ -67,6 +67,14 @@ line = strings.ReplaceAll(line, " 8000 ", fmt.Sprintf(" %v ", port))
 - mpegts.js: 1.7.3（保持）
 - dash.js: 4.5.1 → 4.7.4
 
+### 4.1 `srs_player.html` share URL 的 DOM XSS
+
+**問題：** `buildShareUrl()` 把用戶輸入的 stream URL 參數（`r.app`、`r.stream`、`r.server`、`r.port`）直接拼進 URL 後賦值給 `linkUrl.href`（`<a>` 元素）。CodeQL 標為 **DOM text reinterpreted as HTML**（`js/xss-through-dom`）— 若值含 `"`、`onmouseover=` 等字元，可能突破 URL 邊界成為 HTML 屬性。
+
+**修復：** 對每個 query 參數值用 `encodeURIComponent` 完整編碼（host/pathname 用 `encodeURI` 保留 `/`）。用戶輸入的 `" onmouseover="alert(1)"` 被編碼成 `%2522%2520onmouseover%3D%2522...`，只能當作參數值，無法突破成 HTML 屬性或 `javascript:` scheme。
+
+**驗證：** 正常 URL 產生的 share 連結正確；惡意輸入的 href 無裸引號、事件屬性被編碼。
+
 ## 第三批：舊 AngularJS Console 升級（消除 Library alerts）
 
 ### 5. 舊 console 的 3rdparty 函式庫

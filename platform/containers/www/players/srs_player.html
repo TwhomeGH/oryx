@@ -136,10 +136,15 @@
 
     function buildShareUrl(r) {
         var q = parse_query_string();
-        var url = window.location.protocol + '//' + q.host + q.pathname + '?autostart=true'
-            + '&app=' + r.app + '&stream=' + r.stream + '&server=' + r.server + '&port=' + r.port;
-        if (r.vhost !== '__defaultVhost__') url += '&vhost=' + r.vhost;
-        if (r.schema !== 'rtmp') url += '&schema=' + r.schema;
+        // host/pathname keep slashes (encodeURI); query values are fully
+        // encoded (encodeURIComponent) so user input can't break out of the
+        // URL into a javascript: scheme or an attribute boundary.
+        var url = window.location.protocol + '//' + encodeURI(q.host || '') + encodeURI(q.pathname || '')
+            + '?autostart=true'
+            + '&app=' + encodeURIComponent(r.app) + '&stream=' + encodeURIComponent(r.stream)
+            + '&server=' + encodeURIComponent(r.server) + '&port=' + encodeURIComponent(r.port);
+        if (r.vhost !== '__defaultVhost__') url += '&vhost=' + encodeURIComponent(r.vhost);
+        if (r.schema !== 'rtmp') url += '&schema=' + encodeURIComponent(r.schema);
         return url;
     }
 
