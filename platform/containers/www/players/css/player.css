@@ -286,6 +286,30 @@ a:hover { color: var(--accent-hover); }
 .mb-16 { margin-bottom: 16px; }
 .ml-16 { margin-left: 16px; }
 
+/* Preview Mode Banner */
+.preview-banner {
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    color: #fbbf24;
+    padding: 10px 16px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.preview-banner::before {
+    content: "Preview";
+    background: var(--warning);
+    color: #000;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .navbar-inner { gap: 16px; }

@@ -20,6 +20,8 @@
 </nav>
 
 <div class="container">
+    <div id="preview_banner" class="preview-banner hidden"></div>
+
     <div id="info_alert" class="alert alert-info">
         <span>Enter a WebRTC WHIP URL and click Publish to start streaming.</span>
         <button class="alert-dismiss" onclick="this.parentElement.classList.add('hidden')">&times;</button>
@@ -76,6 +78,8 @@
 <script src="js/winlin.utility.js"></script>
 <script>
 (function () {
+    var PREVIEW_VIDEO = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
+    var isPreview = window.location.protocol === 'file:';
     var sdk = null;
     var urlInput = document.getElementById('txt_url');
     var errorAlert = document.getElementById('error_alert');
@@ -83,6 +87,16 @@
     var videoWrapper = document.getElementById('video_wrapper');
     var videoEl = document.getElementById('rtc_media_player');
     var sessionInfo = document.getElementById('session_info');
+    var previewBanner = document.getElementById('preview_banner');
+
+    if (isPreview) {
+        previewBanner.textContent = 'Running locally — showing layout preview (WebRTC not available).';
+        previewBanner.classList.remove('hidden');
+        document.getElementById('info_alert').classList.add('hidden');
+        videoWrapper.classList.remove('hidden');
+        videoEl.src = PREVIEW_VIDEO;
+        return;
+    }
 
     function showError(msg) {
         if (sdk) { sdk.close(); sdk = null; }
@@ -125,12 +139,14 @@
     }
 
     videoWrapper.classList.add('hidden');
-    var query = parse_query_string();
-    srs_init_whip('#txt_url', query);
+    if (!isPreview) {
+        var query = parse_query_string();
+        srs_init_whip('#txt_url', query);
 
-    document.getElementById('btn_publish').addEventListener('click', startPublish);
-    if (query.autostart === 'true') {
-        window.addEventListener('load', startPublish);
+        document.getElementById('btn_publish').addEventListener('click', startPublish);
+        if (query.autostart === 'true') {
+            window.addEventListener('load', startPublish);
+        }
     }
 })();
 </script>

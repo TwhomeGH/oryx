@@ -19,6 +19,8 @@
 </nav>
 
 <div class="container">
+    <div id="preview_banner" class="preview-banner hidden"></div>
+
     <div id="info_alert" class="alert alert-info">
         <span>Enter an HTTP-FLV / HLS / MPEG-DASH URL and click Play.</span>
         <button class="alert-dismiss" onclick="this.parentElement.classList.add('hidden')">&times;</button>
@@ -70,6 +72,8 @@
 (function () {
     'use strict';
 
+    var PREVIEW_VIDEO = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
+    var isPreview = window.location.protocol === 'file:';
     var flvPlayer = null, tsPlayer = null, hlsPlayer = null, dashPlayer = null;
     var videoEl = document.getElementById('video_player');
     var audioEl = document.getElementById('audio_player');
@@ -79,6 +83,21 @@
     var errorAlert = document.getElementById('error_alert');
     var errorMsg = document.getElementById('error_msg');
     var infoAlert = document.getElementById('info_alert');
+    var previewBanner = document.getElementById('preview_banner');
+
+    if (isPreview) {
+        previewBanner.textContent = 'Running locally — using placeholder video for layout testing.';
+        previewBanner.classList.remove('hidden');
+        infoAlert.classList.add('hidden');
+        videoEl.classList.remove('hidden');
+        if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+            hlsPlayer = new Hls({ enableWorker: true });
+            hlsPlayer.loadSource(PREVIEW_VIDEO);
+            hlsPlayer.attachMedia(videoEl);
+        } else {
+            videoEl.src = PREVIEW_VIDEO;
+        }
+    }
 
     function stopPlayers() {
         [flvPlayer, tsPlayer, hlsPlayer, dashPlayer].forEach(function (p) {
@@ -227,16 +246,18 @@
     });
 
     // Initialize
-    var query = parse_query_string();
-    urlInput.value = build_default_flv_url();
+    if (!isPreview) {
+        var query = parse_query_string();
+        urlInput.value = build_default_flv_url();
 
-    if (query.autostart === 'true') {
-        videoEl.muted = true;
-        var r = applyUrlChange();
-        if (r) startPlay(r);
-    } else {
-        videoEl.classList.add('hidden');
-        audioEl.classList.add('hidden');
+        if (query.autostart === 'true') {
+            videoEl.muted = true;
+            var r = applyUrlChange();
+            if (r) startPlay(r);
+        } else {
+            videoEl.classList.add('hidden');
+            audioEl.classList.add('hidden');
+        }
     }
 })();
 </script>

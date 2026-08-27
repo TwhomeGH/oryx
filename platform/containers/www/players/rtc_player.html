@@ -19,6 +19,8 @@
 </nav>
 
 <div class="container">
+    <div id="preview_banner" class="preview-banner hidden"></div>
+
     <div class="card">
         <div class="form-group">
             <label class="form-label" for="txt_url">WebRTC URL</label>
@@ -54,12 +56,23 @@
 (function () {
     'use strict';
 
+    var PREVIEW_VIDEO = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
+    var isPreview = window.location.protocol === 'file:';
     var sdk = null;
     var videoEl = document.getElementById('rtc_media_player');
     var urlInput = document.getElementById('txt_url');
     var errorAlert = document.getElementById('error_alert');
     var errorMsg = document.getElementById('error_msg');
     var sessionInfo = document.getElementById('session_info');
+    var previewBanner = document.getElementById('preview_banner');
+
+    if (isPreview) {
+        previewBanner.textContent = 'Running locally — showing layout preview (WebRTC not available).';
+        previewBanner.classList.remove('hidden');
+        videoEl.classList.remove('hidden');
+        videoEl.src = PREVIEW_VIDEO;
+        return;
+    }
 
     function showError(msg) {
         if (sdk) { sdk.close(); sdk = null; }
@@ -93,17 +106,19 @@
     }
 
     videoEl.classList.add('hidden');
-    var query = parse_query_string();
-    srs_init_rtc('#txt_url', query);
+    if (!isPreview) {
+        var query = parse_query_string();
+        srs_init_rtc('#txt_url', query);
 
-    document.getElementById('btn_play').addEventListener('click', function () {
-        videoEl.muted = false;
-        startPlay();
-    });
+        document.getElementById('btn_play').addEventListener('click', function () {
+            videoEl.muted = false;
+            startPlay();
+        });
 
-    if (query.autostart === 'true') {
-        videoEl.muted = true;
-        window.addEventListener('load', function () { startPlay(); });
+        if (query.autostart === 'true') {
+            videoEl.muted = true;
+            window.addEventListener('load', function () { startPlay(); });
+        }
     }
 })();
 </script>

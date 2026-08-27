@@ -12,6 +12,8 @@
 </head>
 <body>
 <div class="container">
+    <div id="preview_banner" class="preview-banner hidden"></div>
+
     <div class="card">
         <div class="form-group">
             <label class="form-label" for="txt_url">Stream URL</label>
@@ -45,11 +47,28 @@
 (function () {
     'use strict';
 
+    var PREVIEW_VIDEO = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
+    var isPreview = window.location.protocol === 'file:';
     var player = null;
     var videoEl = document.getElementById('video_player');
     var urlInput = document.getElementById('txt_url');
     var errorAlert = document.getElementById('error_alert');
     var errorMsg = document.getElementById('error_msg');
+    var previewBanner = document.getElementById('preview_banner');
+
+    if (isPreview) {
+        previewBanner.textContent = 'Running locally — using placeholder video for layout testing.';
+        previewBanner.classList.remove('hidden');
+        videoEl.classList.remove('hidden');
+        if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+            player = new Hls({ enableWorker: true });
+            player.loadSource(PREVIEW_VIDEO);
+            player.attachMedia(videoEl);
+        } else {
+            videoEl.src = PREVIEW_VIDEO;
+        }
+        return;
+    }
 
 
     function sanitizeUrl(url) {
@@ -122,11 +141,13 @@
     });
 
     // Auto-play from query string
-    var q = new URLSearchParams(location.search);
-    var resource = q.get('url');
-    if (resource) {
-        urlInput.value = resource;
-        play(resource);
+    if (!isPreview) {
+        var q = new URLSearchParams(location.search);
+        var resource = q.get('url');
+        if (resource) {
+            urlInput.value = resource;
+            play(resource);
+        }
     }
 })();
 </script>
