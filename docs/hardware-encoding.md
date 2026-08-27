@@ -2,7 +2,7 @@
 
 > 目標：讓 AI 字幕疊加、攝影機推流等轉碼任務改用 GPU，大幅降低 CPU 佔用。
 > 本倉庫的映像已內建全功能 ffmpeg（BtbN GPL 版，含 nvenc/qsv/vaapi/amf 編碼器），
-> 剩下的工作只有一件事：**讓容器看得見你的 GPU**。
+> 剩下的工作只有一件事：**讓容器看得見你的 GPU，並讓函式庫版本與驅動對齊**。
 
 ---
 
@@ -10,16 +10,19 @@
 
 | 部署形態 | N 卡 (NVENC) | A 卡 (VAAPI) | Intel 核顯 (QSV/VAAPI) |
 |---|---|---|---|
-| 原生 Linux + Docker | ✅ | ✅ | ✅ |
-| Windows Docker Desktop (WSL2) | ✅ | ❌ WSL2 不暴露 /dev/dri | ❌ |
+| 原生 Linux + Docker | ✅（runtime 自動掛載函式庫） | ✅ | ✅ |
+| Windows Docker Desktop (WSL2) | ✅（需手動掛載函式庫，見 2.1） | ❌ WSL2 不暴露 /dev/dri | ❌ |
 
-\* WSL2 NVENC 需要：(1) Windows 安裝 NVIDIA Game Ready 驅動 (2) Docker Desktop 內建 WSL2 GPU 支援 (3) 映像內建 `libnvidia-encode`（已在 Dockerfile 中安裝）。
+**NVENC 函式庫（libnvidia-encode）不 bake 進映像**，原因：它的版本必須與主機驅動的 nvenc API 版本一致，bake 固定版本會在主機驅動更新後失配（例如 bake 570 而驅動升級到 610 時，報 `Required: 13.1 Found: 13.0`）。所以：
+
+- **原生 Linux**：由 NVIDIA Container Toolkit 的 runtime 自動掛載主機驅動對應的函式庫，無需手動處理
+- **WSL2**：runtime 不自動掛載 libnvidia-encode，需手動 bind mount 主機（WSL2）的函式庫，見第 2.1 節
 
 ## 2. 一次性配置：docker-compose.yml
 
 在部署機的 `docker-compose.yml` 的 oryx 服務下加上對應段落：
 
-### N 卡
+### N 卡（原生 Linux）
 
 ```yaml
 services:
@@ -27,9 +30,25 @@ services:
     gpus: all
 ```
 
-前提：宿主機已裝好 N 卡驅動；Linux 另需
-[NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
-（Docker Desktop 已內建，不用額外裝）。
+前提：宿主機已裝好 N 卡驅動，並安裝
+[NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)。
+runtime 會自動把與驅動同版本的 `libnvidia-*`（含 libnvidia-encode）掛進容器。
+
+### N 卡（Windows Docker Desktop / WSL2）
+
+WSL2 的 Docker Desktop 內建 GPU 支援，`gpus: all` + `NVIDIA_DRIVER_CAPABILITIES` 就能讓 runtime 自動掛載與主機驅動同版本的函式庫（含 libnvidia-encode）：
+
+```yaml
+services:
+  oryx:
+    gpus: all
+    environment:
+      - NVIDIA_DRIVER_CAPABILITIES=all
+```
+
+> `NVIDIA_DRIVER_CAPABILITIES` 控制 runtime 掛載哪些函式庫；不設的話 encode 函式庫不會掛，nvenc 會報 `Cannot load libnvidia-encode.so.1`。設 `all`（或 `video,compute,utility`）即可。
+>
+> ⚠️ 需先確認 WSL2 能看到 GPU（`wsl -e nvidia-smi -L` 有輸出）；若看不到，先 `wsl --update` + `wsl --shutdown` + 重啟 Docker Desktop。
 
 ### A 卡 / Intel 核顯（僅原生 Linux）
 
@@ -93,6 +112,91 @@ docker exec oryx ffmpeg -hide_banner -encoders 2>/dev/null | grep -E "nvenc|qsv|
 | vaapi 紅燈，報 `/dev/dri/renderD128` 相關 | compose 沒掛 devices，或你在 WSL2（無解，改用 NVENC） |
 | qsv 紅燈 | Intel 核顯需 11 代以上較穩；或缺 `/dev/dri` 透通 |
 | 全部紅燈但以前是綠的 | 映像更新後重啟容器即可；或驅動被動過 |
+| **全部紅燈，容器內 `ls /dev/nvidia*` 找不到，但主機 `nvidia-smi` 正常** | WSL2 裝置節點沒掛載（見下節 5.1） |
+
+### 5.1 WSL2 容器看不到 GPU 的診斷與修復
+
+**症狀：** 組件頁「FFmpeg 編碼能力」全部硬體編碼器紅燈，探測輸出類似：
+
+```
+h264_amf:   Invalid argument
+h264_nvenc: Invalid argument
+h264_qsv:   device creation failed: -542398533
+h264_vaapi: found for device /dev/dri/renderD128. Device creation failed: -22
+```
+
+**診斷順序**（在 PowerShell 依序跑）：
+
+```powershell
+# 1. 主機有沒有 GPU？有 → 往下
+nvidia-smi
+
+# 2. WSL2 內能不能看到 GPU？（CUDA 層）
+wsl -e nvidia-smi -L
+
+# 3. WSL2 內裝置節點在不在？（關鍵！）
+wsl -e ls /dev/dri /dev/nvidia*
+
+# 4. 容器內裝置節點在不在？
+docker exec oryx ls /dev/dri /dev/nvidia*
+```
+
+**判讀：**
+
+| 2 的結果 | 3 的結果 | 4 的結果 | 結論 |
+|---|---|---|---|
+| 看得到 | 看得到 | 看得到 | ✅ 一切正常，問題在別處 |
+| 看得到 | **看不到** | 看不到 | WSL2 沒把 `/dev/nvidia*` 掛進系統（最常見） |
+| 看得到 | 看得到 | **看不到** | Docker Desktop 沒透通，重啟 Docker Desktop |
+
+**WSL2 裝置節點消失的修復（步驟 3 看不到時）：**
+
+```powershell
+# 完整關閉 WSL2（所有發行版），強制重新掛載 GPU 裝置
+wsl --shutdown
+
+# 更新 WSL2 內核（WSL 2.0+ 會自動建立 /dev/dxg 並映射 nvidia 節點）
+wsl --update
+
+# 重開 WSL2 後再檢查裝置節點
+wsl -e ls /dev/dri /dev/nvidia*
+
+# 沒問題後重啟 Docker Desktop，重建容器
+docker compose up -d
+```
+
+若 `wsl --update` 後 `ls /dev/nvidia*` 仍空，多半是驅動不是最新 Game Ready 版，或系統是虛擬機（VM 內再開 WSL2 時 GPU 透通常失效，Nested Virtualization）。這種情況建議直接放棄容器內硬體編碼，改用主機原生跑 ffmpeg，或改用 CPU 軟編碼。
+
+### 5.2 nvenc 報 `Driver does not support the required nvenc API version`
+
+**症狀：** 容器內 `nvidia-smi` 看得到 GPU，但 h264_nvenc/hevc_nvenc 探測失敗，報：
+
+```
+[h264_nvenc] Driver does not support the required nvenc API version. Required: 13.1 Found: 13.0
+[h264_nvenc] The minimum required Nvidia driver for nvenc is 610.00 or newer
+```
+
+**原因：** 容器內使用的 `libnvidia-encode` 版本與主機驅動的 nvenc API 版本失配。本映像內建最新 BtbN ffmpeg（2026-08 之後），需要 nvenc API 13.1（驅動 ≥610）；若容器內函式庫是舊版（如 570 → API 13.0），就會報這個錯。**舊版映像曾 bake `libnvidia-encode-570`，已移除** — 現在 NVENC 依賴 runtime 掛載（原生 Linux）或手動掛載（WSL2，見 2.1）。
+
+**診斷確認：**
+
+```powershell
+# 容器內函式庫版本（應與驅動一致）
+docker exec oryx ls -la /usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1
+
+# 容器內 ffmpeg 需要的 API 版本
+docker exec oryx ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc=duration=0.05 -frames:v 3 -c:v h264_nvenc -f null -
+```
+
+**解法（擇一）：**
+
+| 方案 | 做法 | 適用 |
+|---|---|---|
+| **A. 移除 bake 函式庫（已內建）** | 新映像已移除 bake 570，runtime 自動掛載與驅動同版本 | 所有環境 |
+| **B. WSL2 設 NVIDIA_DRIVER_CAPABILITIES** | compose 加 `environment: NVIDIA_DRIVER_CAPABILITIES=all` | Windows + Docker Desktop |
+| **C. 原生 Linux 裝 Container Toolkit** | 裝 nvidia-container-toolkit，`gpus: all` 即可 | 原生 Linux 主機 |
+
+**判斷：** 若用舊映像（還 bake 570）會報此錯，換新映像即可；WSL2 記得加 `NVIDIA_DRIVER_CAPABILITIES`。
 
 ## 6. 收益參考
 

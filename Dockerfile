@@ -103,12 +103,15 @@ RUN mv /usr/local/bin/ffmpeg /usr/local/bin/ffmpeg-fit && \
     COPY --from=ffmpeg-full /usr/local/bin/ffprobe /usr/local/bin/ffprobe
 # Runtime libraries for hardware encoding:
 # - VAAPI/QSV: libva/libdrm client libs, libva-drm DRM backend, mesa/intel userspace drivers.
-# - NVENC: libnvidia-encode for NVIDIA hardware encoding (WSL2 doesn't mount this from host).
+# - NVENC: NOT baked in. libnvidia-encode must match the host driver's nvenc API
+#   version, so we rely on the nvidia-container-toolkit runtime to mount the host
+#   driver's libraries (native Linux), or the user mounts them manually (WSL2,
+#   where the runtime doesn't auto-mount them). A baked version (e.g. 570) goes
+#   stale as the host driver updates and breaks the nvenc API handshake.
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -y && apt-get install -y --no-install-recommends \
     libva2 libva-drm2 libdrm2 libx11-6 \
-    mesa-va-drivers intel-media-va-driver \
-    libnvidia-encode-570 && rm -rf /var/lib/apt/lists/*
+    mesa-va-drivers intel-media-va-driver && rm -rf /var/lib/apt/lists/*
 
 # Prepare data directory.
 RUN mkdir -p /data && \
