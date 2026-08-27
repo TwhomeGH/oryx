@@ -20,9 +20,26 @@
 
 ### 2. 反射型 XSS（Reflected XSS）— 2 個
 
-**問題：** `whxpResponseModifier.Write()` 中，環境變數 `RTC_LISTEN` 的值（port）透過 `fmt.Sprintf` 嵌入 SDP 回應內容。
+**問題：** `whxpResponseModifier.Write()` 中，環境變數 `RTC_PORT` 的值（port）透過 `fmt.Sprintf` 嵌入 SDP 回應內容（`whxpResponseModifier` 是 WHIP/WHEP 的 response modifier）。
 
-**修復方式：** 用 regex `^[0-9]+$` 驗證 port 只含數字，不合法則跳過替換。
+**修復方式（兩階段）：**
+
+第一版：用 regex `^[0-9]+$` 驗證 port 只含數字，不合法則跳過替換。
+
+**強化（2026-08）：** CodeQL 仍追蹤「env 變數 → 回應內容」的資料流，單靠 regex 驗證後反射仍被視為風險。改為**嚴格轉換**：
+
+1. `safePort()` 用 `strconv.Atoi` 把 `RTC_PORT` 轉成整數，並檢查範圍 `1–65535`
+2. 不合法輸入**回退到預設 8000**，絕不反射原始字串
+3. SDP 中只輸出**已驗證的整數**（`fmt.Sprintf(" %v ", port)`，`port` 是 int）— 整數型別天生不可能含 HTML/XSS 字元
+
+```go
+port := safePort()          // strconv.Atoi + 1-65535 範圍檢查 + fallback 8000
+if port == 8000 { return w.w.Write(b) }  // 預設 port，SDP 無需改
+// 替換 candidate 行：只輸出整數 port
+line = strings.ReplaceAll(line, " 8000 ", fmt.Sprintf(" %v ", port))
+```
+
+`envRtcListen()` 現在只有 `safePort()` 呼叫它，不再直接被反射。
 
 ## 第二批：前端播放器安全修復與現代化
 
