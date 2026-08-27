@@ -11,7 +11,7 @@
 | 部署形態 | N 卡 (NVENC) | A 卡 (AMF/VAAPI) | Intel 核顯 (QSV/VAAPI) |
 |---|---|---|---|
 | 原生 Linux + Docker | ✅（runtime 自動掛載函式庫） | ✅（需透通 /dev/dri + 補裝函式庫） | ✅ |
-| Windows Docker Desktop (WSL2) | ✅（`gpus: all` + `NVIDIA_DRIVER_CAPABILITIES=all`，見 2.1） | ❌ WSL2 不透通 AMD，函式庫也未裝（見 5.3） | ❌ WSL2 不暴露 /dev/dri |
+| Windows Docker Desktop (WSL2) | ✅（`gpus: all` + `NVIDIA_DRIVER_CAPABILITIES=all`，見 2.1） | ❌ 僅特定獨立顯卡 + ROCm 用途，內顯無解（見 5.3） | ❌ WSL2 不暴露 /dev/dri |
 
 **NVENC 函式庫（libnvidia-encode）不 bake 進映像**，原因：它的版本必須與主機驅動的 nvenc API 版本一致，bake 固定版本會在主機驅動更新後失配（例如 bake 570 而驅動升級到 610 時，報 `Required: 13.1 Found: 13.0`）。所以：
 
@@ -212,14 +212,21 @@ docker exec oryx ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc=duratio
 | 條件 | WSL2 狀態 |
 |---|---|
 | **函式庫 `libamfrt64.so.1`** | 映像未安裝（Dockerfile 只處理了 VAAPI/QSV/NVENC 的函式庫，從未裝過 AMF runtime） |
-| **AMD GPU 透通** | WSL2 的 GPU 透通機制（/dev/dxg + nvidia runtime）**只支援 NVIDIA**；AMD Radeon 內顯不會透通進容器 |
+| **AMD GPU 透通** | WSL2 的 GPU 透通機制（/dev/dxg + nvidia runtime）**只支援 NVIDIA**；AMD 的透通僅限特定獨立顯卡 |
 
-**這不是 env 變數能解的：** 設任何 `NVIDIA_DRIVER_CAPABILITIES` 之類的變數都沒用，因為根本沒有 AMD 裝置可透通。即使補裝 `libamfrt64.so.1`，容器也看不到 AMD GPU。
+**AMD 官方有提供 WSL2 驅動，但有嚴格限制：**
 
-**在原生 Linux + Docker 下不確定：** AMD 透通（/dev/dri + /dev/kfd）在原生 Linux 是可行的，理論上補裝 `libamfrt64` + 透通 `/dev/dri`/`/dev/kfd` 後 AMF 可能可用，但本 fork 未實測。若你是 AMD GPU 用戶，建議：
+[AMD Software for WSL 2](https://www.amd.com/en/resources/support-articles/release-notes/RN-RAD-WIN-24-10-21-01-WSL-2.html) 僅支援：
+- **用途**：ROCm（PyTorch AI 開發），**不是 AMF 硬體編碼**
+- **GPU**：RX 7900 XTX/XT/GRE、PRO W7900/W7800（皆為**獨立顯卡**）
+- 筆電內顯（如 Radeon Vega 8，DEV_1638）**不在支援清單**
 
-1. 原生 Linux 主機 → 嘗試補裝 `libamfrt64` 與透通 AMD 裝置
-2. 仍用 WSL2 → 接受 AMF 不可用，NVENC（若有 N 卡）或 CPU 軟編碼替代
+**結論：**
+- 你的 AMD **內顯**（Vega 8）在 WSL2 下 AMF 不可用，不是單純補裝函式庫能解
+- 即使有支援清單內的 AMD 獨立顯卡，也需 AMD 的 container runtime 透通（本 fork 未實測）
+- **這不是 env 變數能解的** — 設任何 `NVIDIA_DRIVER_CAPABILITIES` 都沒用，根本沒有 AMD 裝置可透通
+
+**在原生 Linux + Docker 下：** AMD 透通（/dev/dri + /dev/kfd）較成熟，理論上補裝 `libamfrt64` + 透通 AMD 裝置後 AMF 可能可用，但本 fork 未實測。若你是 AMD GPU 用戶，建議用原生 Linux 主機。
 
 ## 6. 收益參考
 
