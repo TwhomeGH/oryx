@@ -1,5 +1,5 @@
 #coding: utf-8
-import os,time,hashlib,json,urllib.request
+import os,time,hashlib,json,urllib.request,sys
 md5sum = lambda s: hashlib.md5(s.encode('utf-8')).hexdigest()
 
 # See https://www.bt.cn/bbs/thread-20376-1-1.html
@@ -7,7 +7,7 @@ md5sum = lambda s: hashlib.md5(s.encode('utf-8')).hexdigest()
 BT_KEY= os.getenv('BT_KEY')
 if not BT_KEY:
     print("BT_KEY is not set")
-    exit(1)
+    sys.exit(1)
 
 now_time = int(time.time())
 request_token = md5sum(str(now_time) + md5sum(BT_KEY))
@@ -26,7 +26,7 @@ print(f"request_time={now_time}, request_token={request_token}, result={result})
 jr = json.loads(result)
 if len(jr) is 0:
     print(f"No site, result={result})")
-    exit(0)
+    sys.exit(0)
 
 for site in jr['data']:
     if site['name'] != 'srs.stack.local':
@@ -52,6 +52,6 @@ for site in jr['data']:
     jr = json.loads(result)
     if jr['status'] != True:
         print(f"failed to remove site, result={result})")
-        exit(1)
+        sys.exit(1)
 
     print(f"Remove site success")

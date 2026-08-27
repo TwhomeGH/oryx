@@ -1,5 +1,5 @@
 #coding: utf-8
-import os,time,hashlib,json,urllib.request
+import os,time,hashlib,json,urllib.request,sys
 md5sum = lambda s: hashlib.md5(s.encode('utf-8')).hexdigest()
 
 # See https://www.bt.cn/bbs/thread-20376-1-1.html
@@ -7,7 +7,7 @@ md5sum = lambda s: hashlib.md5(s.encode('utf-8')).hexdigest()
 BT_KEY = os.getenv('BT_KEY')
 if not BT_KEY:
     print("BT_KEY is not set")
-    exit(1)
+    sys.exit(1)
 
 domain = "bt.ossrs.net"
 if os.getenv("DOMAIN") is not None:
@@ -41,5 +41,5 @@ print(f"request_time={now_time}, request_token={request_token}, result={result})
 jr = json.loads(result)
 if jr['siteStatus'] != True:
     print(f"failed to create site, result={result})")
-    exit(1)
+    sys.exit(1)
 print(f"Create site success, id={jr['siteId']}")
