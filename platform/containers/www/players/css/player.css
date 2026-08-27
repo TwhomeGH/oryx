@@ -159,6 +159,7 @@ a:hover { color: var(--accent-hover); }
     border-radius: var(--radius-lg);
     overflow: hidden;
     width: 100%;
+    aspect-ratio: 16 / 9;
     max-height: 70vh;
 }
 .player-wrapper video,
