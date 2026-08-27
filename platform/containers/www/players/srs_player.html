@@ -21,10 +21,10 @@
 <div class="container">
     <div id="info_alert" class="alert alert-info">
         <span>Enter an HTTP-FLV / HLS / MPEG-DASH URL and click Play.</span>
-        <button class="alert-dismiss" onclick="this.parentElement.style.display='none'">&times;</button>
+        <button class="alert-dismiss" onclick="this.parentElement.classList.add('hidden')">&times;</button>
     </div>
 
-    <div id="error_alert" class="alert alert-danger" style="display:none">
+    <div id="error_alert" class="alert alert-danger hidden">
         <span id="error_msg"></span>
     </div>
 
@@ -42,7 +42,7 @@
             <audio id="audio_player" controls></audio>
         </div>
 
-        <div id="share_section" class="share-link" style="display:none; margin-top:16px">
+        <div id="share_section" class="share-link hidden mt-16">
             <span>Share:</span>
             <a id="link_url" href="#" target="_blank"></a>
         </div>
@@ -90,25 +90,25 @@
     function showError(msg) {
         stopPlayers();
         errorMsg.textContent = msg;
-        errorAlert.style.display = '';
-        infoAlert.style.display = 'none';
-        videoEl.style.display = 'none';
-        audioEl.style.display = 'none';
-        shareSection.style.display = 'none';
+        errorAlert.classList.remove('hidden');
+        infoAlert.classList.add('hidden');
+        videoEl.classList.add('hidden');
+        audioEl.classList.add('hidden');
+        shareSection.classList.add('hidden');
     }
 
     function showVideo() {
-        errorAlert.style.display = 'none';
-        infoAlert.style.display = '';
-        videoEl.style.display = '';
-        audioEl.style.display = 'none';
+        errorAlert.classList.add('hidden');
+        infoAlert.classList.remove('hidden');
+        videoEl.classList.remove('hidden');
+        audioEl.classList.add('hidden');
     }
 
     function showAudio() {
-        errorAlert.style.display = 'none';
-        infoAlert.style.display = '';
-        videoEl.style.display = 'none';
-        audioEl.style.display = '';
+        errorAlert.classList.add('hidden');
+        infoAlert.classList.remove('hidden');
+        videoEl.classList.add('hidden');
+        audioEl.classList.remove('hidden');
     }
 
     function buildShareUrl(r) {
@@ -215,7 +215,7 @@
         }
         linkUrl.href = buildShareUrl(r);
         linkUrl.textContent = buildShareUrl(r);
-        shareSection.style.display = '';
+        shareSection.classList.remove('hidden');
         return r;
     }
 
@@ -235,8 +235,8 @@
         var r = applyUrlChange();
         if (r) startPlay(r);
     } else {
-        videoEl.style.display = 'none';
-        audioEl.style.display = 'none';
+        videoEl.classList.add('hidden');
+        audioEl.classList.add('hidden');
     }
 })();
 </script>

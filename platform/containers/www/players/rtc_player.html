@@ -32,11 +32,11 @@
             <video id="rtc_media_player" controls playsinline autoplay></video>
         </div>
 
-        <div id="error_alert" class="alert alert-danger" style="display:none">
+        <div id="error_alert" class="alert alert-danger hidden">
             <span id="error_msg"></span>
         </div>
 
-        <div class="session-info" style="display:none" id="session_info">
+        <div class="session-info hidden" id="session_info">
             <div>SessionID: <span id="sessionid"></span></div>
             <div>Simulator: <a href="#" id="simulator-drop">Drop</a></div>
         </div>
@@ -64,14 +64,14 @@
     function showError(msg) {
         if (sdk) { sdk.close(); sdk = null; }
         errorMsg.textContent = msg;
-        errorAlert.style.display = '';
-        videoEl.style.display = 'none';
-        sessionInfo.style.display = 'none';
+        errorAlert.classList.remove('hidden');
+        videoEl.classList.add('hidden');
+        sessionInfo.classList.add('hidden');
     }
 
     function startPlay() {
-        videoEl.style.display = '';
-        errorAlert.style.display = 'none';
+        videoEl.classList.remove('hidden');
+        errorAlert.classList.add('hidden');
 
         if (sdk) sdk.close();
         sdk = new SrsRtcPlayerAsync();
@@ -84,7 +84,7 @@
             document.getElementById('sessionid').textContent = session.sessionid;
             var dropUrl = session.simulator + '?drop=1&username=' + encodeURIComponent(session.sessionid);
             document.getElementById('simulator-drop').href = dropUrl;
-            sessionInfo.style.display = '';
+            sessionInfo.classList.remove('hidden');
         }).catch(function (reason) {
             sdk.close();
             sdk = null;
@@ -92,7 +92,7 @@
         });
     }
 
-    videoEl.style.display = 'none';
+    videoEl.classList.add('hidden');
     var query = parse_query_string();
     srs_init_rtc('#txt_url', query);
 

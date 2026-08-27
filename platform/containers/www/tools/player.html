@@ -22,10 +22,14 @@
         </div>
 
         <div class="player-wrapper">
-            <video id="video_player" controls playsinline></video>
+            <video id="video_player" 
+                    controls 
+                    webkit-playsinline
+                    x5-playsinline
+            ></video>
         </div>
 
-        <div id="error_alert" class="alert alert-danger" style="display:none">
+        <div id="error_alert" class="alert alert-danger hidden">
             <span id="error_msg"></span>
         </div>
     </div>
@@ -47,15 +51,30 @@
     var errorAlert = document.getElementById('error_alert');
     var errorMsg = document.getElementById('error_msg');
 
+
+    function sanitizeUrl(url) {
+        try {
+            const u = new URL(url, window.location.origin);
+            // 僅允許 http/https
+            if (u.protocol === "http:" || u.protocol === "https:") {
+            return u.href;
+            }
+        } catch (e) {
+            // 無效 URL
+            console.error("Error Input SRC:",e)
+        }
+        return "about:blank"; // fallback
+    }
+
     function showError(msg) {
         if (player) { try { player.destroy(); } catch (e) {} player = null; }
         errorMsg.textContent = msg;
-        errorAlert.style.display = '';
+        errorAlert.classList.remove('hidden');
     }
 
     function play(url) {
         if (player) { try { player.destroy(); } catch (e) {} player = null; }
-        errorAlert.style.display = 'none';
+        errorAlert.classList.add('hidden');
 
         if (url.indexOf('.m3u8') > 0) {
             if (typeof Hls !== 'undefined' && Hls.isSupported()) {
@@ -88,7 +107,8 @@
         }
 
         // Fallback to native
-        videoEl.src = url;
+        let safeURL = sanitizeUrl(url)
+        videoEl.src = safeURL;
     }
 
     document.getElementById('btn_play').addEventListener('click', function () {
