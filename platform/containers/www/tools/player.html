@@ -1,87 +1,114 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>SRS Cloud</title>
-  <meta charset="utf-8">
-  <style>
-      body {
-          margin: 10px 10px 10px 10px;
-      }
-  </style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SRS Player</title>
+    <link rel="stylesheet" href="../players/css/player.css">
+    <style>
+        body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+        .container { max-width: 960px; width: 100%; }
+    </style>
 </head>
 <body>
-  <video id="player" autoplay controls muted></video>
-</body>
-<script type="text/javascript" src="js/jquery-1.10.2.min.js"></script>
-<script type="text/javascript" src="js/mpegts-1.7.3.min.js"></script>
-<script type="text/javascript" src="js/hls-1.4.14.min.js"></script>
-<script type="text/javascript">
-  $(function(){
-    // See https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
-    const q = new URLSearchParams(location.search);
+<div class="container">
+    <div class="card">
+        <div class="form-group">
+            <label class="form-label" for="txt_url">Stream URL</label>
+            <div class="form-row">
+                <input class="form-input" type="text" id="txt_url" placeholder="http://localhost:8080/live/livestream.flv">
+                <button class="btn btn-primary" id="btn_play">Play</button>
+            </div>
+        </div>
 
-    const resource = q.get('url');
-    if (!resource) return alert(`No URL`);
+        <div class="player-wrapper">
+            <video id="video_player" controls playsinline></video>
+        </div>
 
-    const video = document.getElementById('player');
-    if (resource.indexOf('.m3u8') > 0) {
-      if (!Hls.isSupported()) {
-        // See https://stackoverflow.com/a/12905122/17679565
-        if (document.createElement('video').canPlayType('application/vnd.apple.mpegURL')) {
-          console.log(`Play by native for ${resource}`);
-          $('#player').prop('src', resource);
-          return;
+        <div id="error_alert" class="alert alert-danger" style="display:none">
+            <span id="error_msg"></span>
+        </div>
+    </div>
+
+    <div class="footer">
+        <a href="https://github.com/ossrs/srs">SRS Team</a> &copy; 2013–2026
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mpegts.js@1.7.3/dist/mpegts.min.js"></script>
+<script>
+(function () {
+    'use strict';
+
+    var player = null;
+    var videoEl = document.getElementById('video_player');
+    var urlInput = document.getElementById('txt_url');
+    var errorAlert = document.getElementById('error_alert');
+    var errorMsg = document.getElementById('error_msg');
+
+    function showError(msg) {
+        if (player) { try { player.destroy(); } catch (e) {} player = null; }
+        errorMsg.textContent = msg;
+        errorAlert.style.display = '';
+    }
+
+    function play(url) {
+        if (player) { try { player.destroy(); } catch (e) {} player = null; }
+        errorAlert.style.display = 'none';
+
+        if (url.indexOf('.m3u8') > 0) {
+            if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+                player = new Hls({
+                    enableWorker: true, lowLatencyMode: true,
+                    liveSyncDurationCount: 2, liveMaxLatencyDurationCount: 10,
+                    maxBufferLength: 8, maxMaxBufferLength: 10,
+                    maxLiveSyncPlaybackRate: 1.2, liveDurationInfinity: true
+                });
+                player.loadSource(url);
+                player.attachMedia(videoEl);
+                videoEl.play();
+                return;
+            }
+            if (videoEl.canPlayType('application/vnd.apple.mpegURL')) {
+                videoEl.src = url;
+                return;
+            }
+            return showError('HLS is not supported.');
         }
-        return alert(`HLS is not supported, url is ${resource}`);
-      }
 
-      // See https://github.com/video-dev/hls.js/blob/master/docs/API.md#maxlivesyncplaybackrate
-      // See https://github.com/video-dev/hls.js/issues/3077#issuecomment-705152394
-      const player = new Hls({
-        enableWorker: true, // Improve performance and avoid lag/frame drops.
-        lowLatencyMode: true, // Enable Low-Latency HLS part playlist and segment loading.
-        liveSyncDurationCount: 2, // Start from the last few segments.
-        liveMaxLatencyDurationCount: 10, // Maximum delay allowed from edge of live.
-        maxBufferLength: 8, // Maximum buffer length in seconds.
-        maxMaxBufferLength: 10, // The max Maximum buffer length in seconds.
-        maxLiveSyncPlaybackRate: 1.2, // Catch up if the latency is large.
-        liveDurationInfinity: true // Override current Media Source duration to Infinity for a live broadcast.
-      });
-      player.loadSource(resource);
-      player.attachMedia(video);
-      video.play();
-      console.log(`Play by hls.js for ${resource}`);
-      return;
+        // HTTP-FLV or HTTP-TS
+        if (mpegts && mpegts.getFeatureList().mseLivePlayback) {
+            var type = url.indexOf('.ts') > 0 ? 'mpegts' : 'flv';
+            player = mpegts.createPlayer({ type: type, url: url, isLive: true, enableStashBuffer: false });
+            player.attachMediaElement(videoEl);
+            player.load();
+            player.play();
+            return;
+        }
+
+        // Fallback to native
+        videoEl.src = url;
     }
 
-    // Start play HTTP-FLV.
-    let isFlv = resource.indexOf('.flv') > 0;
-    // Compatible with NGINX-HTTP-FLV module, see https://github.com/winshining/nginx-http-flv-module and the stream
-    // url without .flv, such as:
-    //          http://localhost:8080/live?app=live&stream=livestream
-    isFlv = isFlv || resource && resource.indexOf('http') === 0;
-    if (isFlv) {
-      if (!mpegts.getFeatureList().mseLivePlayback) {
-        return alert(`HTTP-FLV is not supported, url is ${resource}`);
-      }
+    document.getElementById('btn_play').addEventListener('click', function () {
+        var url = urlInput.value.trim();
+        if (!url) return showError('Please enter a URL.');
+        play(url);
+    });
 
-      // See https://github.com/xqq/mpegts.js/blob/master/src/config.js#L32
-      // See https://github.com/xqq/mpegts.js/blob/master/docs/api.md
-      const player = mpegts.createPlayer({
-        type: 'flv', url: resource,
-        isLive: true, enableStashBuffer: false, liveSync: true
-      });
-      player.attachMediaElement(video);
-      player.load();
-      player.play();
-      console.log(`Play by flv.js for ${resource}`);
-      return;
+    urlInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') document.getElementById('btn_play').click();
+    });
+
+    // Auto-play from query string
+    var q = new URLSearchParams(location.search);
+    var resource = q.get('url');
+    if (resource) {
+        urlInput.value = resource;
+        play(resource);
     }
-
-    const msg = `Not supported URL ${resource}`;
-    console.error(msg);
-    alert(msg);
-  });
+})();
 </script>
+</body>
 </html>
-

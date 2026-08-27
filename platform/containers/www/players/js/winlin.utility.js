@@ -266,8 +266,13 @@ function __fill_query(query_string, obj) {
         var elem = queries[i];
 
         var query = elem.split("=");
-        obj[query[0]] = query[1];
-        obj.user_query[query[0]] = query[1];
+        var key = query[0];
+        // Validate key to prevent prototype pollution.
+        if (!key || key === '__proto__' || key === 'constructor' || key === 'prototype') {
+            continue;
+        }
+        obj[key] = query[1];
+        obj.user_query[key] = query[1];
     }
 
     // alias domain for vhost.

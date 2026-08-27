@@ -1,115 +1,111 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>SRS</title>
     <meta charset="utf-8">
-    <style>
-        body{
-            padding-top: 30px;
-        }
-    </style>
-    <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css"/>
-    <script type="text/javascript" src="js/jquery-1.12.2.min.js"></script>
-    <script type="text/javascript" src="js/adapter-7.4.0.min.js"></script>
-    <script type="text/javascript" src="js/srs.sdk.js"></script>
-    <script type="text/javascript" src="js/winlin.utility.js"></script>
-    <script type="text/javascript" src="js/srs.page.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SRS WebRTC Player</title>
+    <link rel="stylesheet" href="css/player.css">
 </head>
 <body>
-<img src='//ossrs.net/gif/v1/sls.gif?site=ossrs.net&path=/player/rtcplayer'/>
-<div class="navbar navbar-fixed-top">
+<nav class="navbar">
     <div class="navbar-inner">
-        <div class="container">
-            <a id="srs_index" class="brand" href="https://github.com/ossrs/srs">SRS</a>
-            <div class="nav-collapse collapse">
-                <ul class="nav">
-                    <li><a id="nav_srs_player" href="srs_player.html">LivePlayer</a></li>
-                    <li class="active"><a id="nav_rtc_player" href="rtc_player.html">RTC播放器</a></li>
-                    <li><a id="nav_rtc_publisher" href="rtc_publisher.html">RTC推流</a></li>
-                    <li><a id="nav_whip" href="whip.html">WHIP</a></li>
-                    <li><a id="nav_whep" href="whip.html">WHEP</a></li>
-                    <li><a  href="http://ossrs.net/srs.release/releases/app.html">iOS/Andriod</a></li>
-                    <!--<li><a id="nav_srs_publisher" href="srs_publisher.html">SRS编码器</a></li>-->
-                    <!--<li><a id="nav_srs_chat" href="srs_chat.html">SRS会议</a></li>-->
-                    <!--<li><a id="nav_srs_bwt" href="srs_bwt.html">SRS测网速</a></li>-->
-                    <!--<li><a id="nav_vlc" href="vlc.html">VLC播放器</a></li>-->
-                    <!--<li><a id="nav_gb28181" href="srs_gb28181.html">GB28181</a></li>-->
-                    <li>
-                        <a href="https://github.com/ossrs/srs">
-                            <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/ossrs/srs?style=social">
-                        </a>
-                    </li>
-                </ul>
+        <a class="navbar-brand" href="https://github.com/ossrs/srs" target="_blank">SRS</a>
+        <ul class="navbar-nav">
+            <li><a href="srs_player.html">Live Player</a></li>
+            <li><a href="whip.html">WHIP</a></li>
+            <li><a href="whep.html">WHEP</a></li>
+        </ul>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="card">
+        <div class="form-group">
+            <label class="form-label" for="txt_url">WebRTC URL</label>
+            <div class="form-row">
+                <input class="form-input" type="text" id="txt_url" placeholder="webrtc://localhost:1985/live/livestream">
+                <button class="btn btn-primary" id="btn_play">Play</button>
             </div>
         </div>
+
+        <div class="player-wrapper">
+            <video id="rtc_media_player" controls playsinline autoplay></video>
+        </div>
+
+        <div id="error_alert" class="alert alert-danger" style="display:none">
+            <span id="error_msg"></span>
+        </div>
+
+        <div class="session-info" style="display:none" id="session_info">
+            <div>SessionID: <span id="sessionid"></span></div>
+            <div>Simulator: <a href="#" id="simulator-drop">Drop</a></div>
+        </div>
     </div>
-</div>
-<div class="container">
-    <div class="form-inline">
-        URL:
-        <input type="text" id="txt_url" class="input-xxlarge" value="">
-        <button class="btn btn-primary" id="btn_play">播放视频</button>
-    </div>
 
-    <label></label>
-    <video id="rtc_media_player" controls autoplay></video>
-
-    <label></label>
-    SessionID: <span id='sessionid'></span>
-
-    <label></label>
-    Simulator: <a href='#' id='simulator-drop'>Drop</a>
-
-    <footer>
-        <p></p>
-        <p><a href="https://github.com/ossrs/srs">SRS Team &copy; 2020</a></p>
+    <footer class="footer">
+        <a href="https://github.com/ossrs/srs">SRS Team</a> &copy; 2013–2026
     </footer>
 </div>
-<script type="text/javascript">
-$(function(){
-    var sdk = null; // Global handler to do cleanup when replaying.
-    var startPlay = function() {
-        $('#rtc_media_player').show();
 
-        // Close PC when user replay.
-        if (sdk) {
-            sdk.close();
-        }
+<script src="js/adapter-7.4.0.min.js"></script>
+<script src="js/srs.sdk.js"></script>
+<script src="js/winlin.utility.js"></script>
+<script>
+(function () {
+    'use strict';
+
+    var sdk = null;
+    var videoEl = document.getElementById('rtc_media_player');
+    var urlInput = document.getElementById('txt_url');
+    var errorAlert = document.getElementById('error_alert');
+    var errorMsg = document.getElementById('error_msg');
+    var sessionInfo = document.getElementById('session_info');
+
+    function showError(msg) {
+        if (sdk) { sdk.close(); sdk = null; }
+        errorMsg.textContent = msg;
+        errorAlert.style.display = '';
+        videoEl.style.display = 'none';
+        sessionInfo.style.display = 'none';
+    }
+
+    function startPlay() {
+        videoEl.style.display = '';
+        errorAlert.style.display = 'none';
+
+        if (sdk) sdk.close();
         sdk = new SrsRtcPlayerAsync();
+        videoEl.srcObject = sdk.stream;
 
-        // https://webrtc.org/getting-started/remote-streams
-        $('#rtc_media_player').prop('srcObject', sdk.stream);
-        // Optional callback, SDK will add track to stream.
-        // sdk.ontrack = function (event) { console.log('Got track', event); sdk.stream.addTrack(event.track); };
+        var url = urlInput.value.trim();
+        if (!url) return showError('Please enter a WebRTC URL.');
 
-        // For example: webrtc://r.ossrs.net/live/livestream
-        var url = $("#txt_url").val();
-        sdk.play(url).then(function(session){
-            $('#sessionid').html(session.sessionid);
-            $('#simulator-drop').attr('href', session.simulator + '?drop=1&username=' + session.sessionid);
+        sdk.play(url).then(function (session) {
+            document.getElementById('sessionid').textContent = session.sessionid;
+            var dropUrl = session.simulator + '?drop=1&username=' + encodeURIComponent(session.sessionid);
+            document.getElementById('simulator-drop').href = dropUrl;
+            sessionInfo.style.display = '';
         }).catch(function (reason) {
             sdk.close();
-            $('#rtc_media_player').hide();
-            console.error(reason);
+            sdk = null;
+            showError(reason.toString() || 'WebRTC play failed.');
         });
-    };
+    }
 
-    $('#rtc_media_player').hide();
+    videoEl.style.display = 'none';
     var query = parse_query_string();
-    srs_init_rtc("#txt_url", query);
+    srs_init_rtc('#txt_url', query);
 
-    $("#btn_play").click(function() {
-        $('#rtc_media_player').prop('muted', false);
+    document.getElementById('btn_play').addEventListener('click', function () {
+        videoEl.muted = false;
         startPlay();
     });
 
     if (query.autostart === 'true') {
-        $('#rtc_media_player').prop('muted', true);
-        console.warn('For autostart, we should mute it, see https://www.jianshu.com/p/c3c6944eed5a ' +
-            'or https://developers.google.com/web/updates/2017/09/autoplay-policy-changes#audiovideo_elements');
-        window.addEventListener("load", function(){ startPlay(); });
+        videoEl.muted = true;
+        window.addEventListener('load', function () { startPlay(); });
     }
-});
+})();
 </script>
 </body>
 </html>

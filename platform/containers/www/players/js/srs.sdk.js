@@ -152,14 +152,21 @@ function SrsRtcPublisherAsync() {
         },
         parse: function (url) {
             // @see: http://stackoverflow.com/questions/10469575/how-to-use-location-object-to-parse-url-without-redirecting-the-page-in-javascri
-            var a = document.createElement("a");
-            a.href = url.replace("rtmp://", "http://")
-                .replace("webrtc://", "http://")
-                .replace("rtc://", "http://");
+            var parsed;
+            try {
+                parsed = new URL(url.replace("rtmp://", "http://")
+                    .replace("webrtc://", "http://")
+                    .replace("rtc://", "http://"));
+            } catch (e) {
+                parsed = document.createElement("a");
+                parsed.href = url.replace("rtmp://", "http://")
+                    .replace("webrtc://", "http://")
+                    .replace("rtc://", "http://");
+            }
 
-            var vhost = a.hostname;
-            var app = a.pathname.substring(1, a.pathname.lastIndexOf("/"));
-            var stream = a.pathname.slice(a.pathname.lastIndexOf("/") + 1);
+            var vhost = parsed.hostname;
+            var app = parsed.pathname.substring(1, parsed.pathname.lastIndexOf("/"));
+            var stream = parsed.pathname.slice(parsed.pathname.lastIndexOf("/") + 1);
 
             // parse the vhost in the params of app, that srs supports.
             app = app.replace("...vhost...", "?vhost=");
@@ -177,9 +184,9 @@ function SrsRtcPublisherAsync() {
 
             // when vhost equals to server, and server is ip,
             // the vhost is __defaultVhost__
-            if (a.hostname === vhost) {
+            if (parsed.hostname === vhost) {
                 var re = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/;
-                if (re.test(a.hostname)) {
+                if (re.test(parsed.hostname)) {
                     vhost = "__defaultVhost__";
                 }
             }
@@ -190,11 +197,11 @@ function SrsRtcPublisherAsync() {
                 schema = url.slice(0, url.indexOf("://"));
             }
 
-            var port = a.port;
+            var port = parsed.port;
             if (!port) {
                 // Finger out by webrtc url, if contains http or https port, to overwrite default 1985.
-                if (schema === 'webrtc' && url.indexOf(`webrtc://${a.host}:`) === 0) {
-                    port = (url.indexOf(`webrtc://${a.host}:80`) === 0) ? 80 : 443;
+                if (schema === 'webrtc' && url.indexOf('webrtc://' + parsed.host + ':') === 0) {
+                    port = (url.indexOf('webrtc://' + parsed.host + ':80') === 0) ? 80 : 443;
                 }
 
                 // Guess by schema.
@@ -210,10 +217,10 @@ function SrsRtcPublisherAsync() {
             var ret = {
                 url: url,
                 schema: schema,
-                server: a.hostname, port: port,
+                server: parsed.hostname, port: port,
                 vhost: vhost, app: app, stream: stream
             };
-            self.__internal.fill_query(a.search, ret);
+            self.__internal.fill_query(parsed.search, ret);
 
             // For webrtc API, we use 443 if page is https, or schema specified it.
             if (!ret.port) {
@@ -387,14 +394,21 @@ function SrsRtcPlayerAsync() {
         },
         parse: function (url) {
             // @see: http://stackoverflow.com/questions/10469575/how-to-use-location-object-to-parse-url-without-redirecting-the-page-in-javascri
-            var a = document.createElement("a");
-            a.href = url.replace("rtmp://", "http://")
-                .replace("webrtc://", "http://")
-                .replace("rtc://", "http://");
+            var parsed;
+            try {
+                parsed = new URL(url.replace("rtmp://", "http://")
+                    .replace("webrtc://", "http://")
+                    .replace("rtc://", "http://"));
+            } catch (e) {
+                parsed = document.createElement("a");
+                parsed.href = url.replace("rtmp://", "http://")
+                    .replace("webrtc://", "http://")
+                    .replace("rtc://", "http://");
+            }
 
-            var vhost = a.hostname;
-            var app = a.pathname.substring(1, a.pathname.lastIndexOf("/"));
-            var stream = a.pathname.slice(a.pathname.lastIndexOf("/") + 1);
+            var vhost = parsed.hostname;
+            var app = parsed.pathname.substring(1, parsed.pathname.lastIndexOf("/"));
+            var stream = parsed.pathname.slice(parsed.pathname.lastIndexOf("/") + 1);
 
             // parse the vhost in the params of app, that srs supports.
             app = app.replace("...vhost...", "?vhost=");
@@ -412,9 +426,9 @@ function SrsRtcPlayerAsync() {
 
             // when vhost equals to server, and server is ip,
             // the vhost is __defaultVhost__
-            if (a.hostname === vhost) {
+            if (parsed.hostname === vhost) {
                 var re = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/;
-                if (re.test(a.hostname)) {
+                if (re.test(parsed.hostname)) {
                     vhost = "__defaultVhost__";
                 }
             }
@@ -425,11 +439,11 @@ function SrsRtcPlayerAsync() {
                 schema = url.slice(0, url.indexOf("://"));
             }
 
-            var port = a.port;
+            var port = parsed.port;
             if (!port) {
                 // Finger out by webrtc url, if contains http or https port, to overwrite default 1985.
-                if (schema === 'webrtc' && url.indexOf(`webrtc://${a.host}:`) === 0) {
-                    port = (url.indexOf(`webrtc://${a.host}:80`) === 0) ? 80 : 443;
+                if (schema === 'webrtc' && url.indexOf('webrtc://' + parsed.host + ':') === 0) {
+                    port = (url.indexOf('webrtc://' + parsed.host + ':80') === 0) ? 80 : 443;
                 }
 
                 // Guess by schema.
@@ -445,10 +459,10 @@ function SrsRtcPlayerAsync() {
             var ret = {
                 url: url,
                 schema: schema,
-                server: a.hostname, port: port,
+                server: parsed.hostname, port: port,
                 vhost: vhost, app: app, stream: stream
             };
-            self.__internal.fill_query(a.search, ret);
+            self.__internal.fill_query(parsed.search, ret);
 
             // For webrtc API, we use 443 if page is https, or schema specified it.
             if (!ret.port) {
@@ -647,11 +661,16 @@ function SrsRtcWhipWhepAsync() {
             sessionid += answer.substr(answer.indexOf('a=ice-ufrag:') + 'a=ice-ufrag:'.length);
             sessionid = sessionid.substr(0, sessionid.indexOf('\n'));
 
-            const a = document.createElement("a");
-            a.href = url;
+            var parsed;
+            try {
+                parsed = new URL(url);
+            } catch (e) {
+                parsed = document.createElement("a");
+                parsed.href = url;
+            }
             return {
                 sessionid: sessionid, // Should be ice-ufrag of answer:offer.
-                simulator: a.protocol + '//' + a.host + '/rtc/v1/nack/',
+                simulator: parsed.protocol + '//' + parsed.host + '/rtc/v1/nack/',
             };
         },
     };
