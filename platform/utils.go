@@ -36,13 +36,13 @@ import (
 
 // Safe Port
 func safePort() int {
-    portStr := envRtcListen()
-    port, err := strconv.Atoi(portStr)
-    if err != nil || port < 1 || port > 65535 {
-        // fallback 到預設安全值
-        return 8000
-    }
-    return port
+	portStr := envRtcListen()
+	port, err := strconv.Atoi(portStr)
+	if err != nil || port < 1 || port > 65535 {
+		// fallback 到預設安全值
+		return 8000
+	}
+	return port
 }
 
 // Versions is latest and stable version from Oryx API.
@@ -700,7 +700,11 @@ func srsGenerateConfig(ctx context.Context) error {
 		if f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644); err != nil {
 			return errors.Wrapf(err, "open file %v", fileName)
 		} else {
-			defer f.Close()
+			defer func() {
+				if err := f.Close(); err != nil {
+					logger.Wf(ctx, "close file %v, err=%v", fileName, err)
+				}
+			}()
 			if _, err = f.Write([]byte(confData)); err != nil {
 				return errors.Wrapf(err, "write file %v with %v", fileName, confData)
 			}
@@ -718,7 +722,11 @@ func srsGenerateConfig(ctx context.Context) error {
 		if f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644); err != nil {
 			return errors.Wrapf(err, "open file %v", fileName)
 		} else {
-			defer f.Close()
+			defer func() {
+				if err := f.Close(); err != nil {
+					logger.Wf(ctx, "close file %v, err=%v", fileName, err)
+				}
+			}()
 			if _, err = f.Write([]byte(confData)); err != nil {
 				return errors.Wrapf(err, "write file %v with %v", fileName, confData)
 			}
@@ -820,7 +828,7 @@ func srsGenerateConfig(ctx context.Context) error {
 }
 
 // nginxGenerateConfig is to build NGINX configuration and reload NGINX.
-func nginxGenerateConfig(ctx context.Context) error {
+func nginxGenerateConfig(ctx context.Context) (r0 error) {
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Build the SSL/TLS config.
 	sslConf := []string{}
@@ -867,7 +875,11 @@ func nginxGenerateConfig(ctx context.Context) error {
 		if f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644); err != nil {
 			return errors.Wrapf(err, "open file %v", fileName)
 		} else {
-			defer f.Close()
+			defer func() {
+				if err := f.Close(); err != nil && r0 == nil {
+					r0 = errors.Wrapf(err, "close file %v", fileName)
+				}
+			}()
 			if _, err = f.Write([]byte(confData)); err != nil {
 				return errors.Wrapf(err, "write file %v with %v", fileName, confData)
 			}
@@ -886,7 +898,11 @@ func nginxGenerateConfig(ctx context.Context) error {
 		if f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644); err != nil {
 			return errors.Wrapf(err, "open file %v", fileName)
 		} else {
-			defer f.Close()
+			defer func() {
+				if err := f.Close(); err != nil && r0 == nil {
+					r0 = errors.Wrapf(err, "close file %v", fileName)
+				}
+			}()
 			if _, err = f.Write([]byte(confData)); err != nil {
 				return errors.Wrapf(err, "write file %v with %v", fileName, confData)
 			}
@@ -895,7 +911,7 @@ func nginxGenerateConfig(ctx context.Context) error {
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Reload NGINX to apply the new config.
-	reloadNginx := func(ctx context.Context) error {
+	reloadNginx := func(ctx context.Context) (r0 error) {
 		defer certManager.ReloadCertificate(ctx)
 
 		if conf.IsDarwin {
@@ -909,7 +925,11 @@ func nginxGenerateConfig(ctx context.Context) error {
 		if f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644); err != nil {
 			return errors.Wrapf(err, "open file %v", fileName)
 		} else {
-			defer f.Close()
+			defer func() {
+				if err := f.Close(); err != nil && r0 == nil {
+					r0 = errors.Wrapf(err, "close file %v", fileName)
+				}
+			}()
 			msg := fmt.Sprintf("Oryx reload Nginx at %v\n", time.Now().Format(time.RFC3339))
 			if _, err = f.Write([]byte(msg)); err != nil {
 				return errors.Wrapf(err, "write file %v", fileName)
@@ -1648,8 +1668,6 @@ type whxpResponseModifier struct {
 func (w *whxpResponseModifier) Header() http.Header {
 	return w.w.Header()
 }
-
-
 
 func (w *whxpResponseModifier) Write(b []byte) (int, error) {
 	// TODO: FIXME: Should pass the rtc port to WHIP/WHEP api, because the port maybe not the same length to 8000,

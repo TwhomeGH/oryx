@@ -384,7 +384,7 @@ func (v *VLiveWorker) Handle(ctx context.Context, handler *http.ServeMux) error 
 	ep = "/terraform/v1/ffmpeg/vlive/server"
 	logger.Tf(ctx, "Handle %v", ep)
 	handler.Handle(ep, middlewareAuthTokenInBody(ctx, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := func() error {
+		if err := func() (r0 error) {
 			var qFile string
 			if err := ParseBody(ctx, r.Body, &struct {
 				StreamFile *string `json:"file"`
@@ -427,13 +427,21 @@ func (v *VLiveWorker) Handle(ctx context.Context, handler *http.ServeMux) error 
 			if err != nil {
 				return errors.Wrapf(err, "open file %v", targetFileName)
 			}
-			defer targetFile.Close()
+			defer func() {
+				if err := targetFile.Close(); err != nil && r0 == nil {
+					r0 = errors.Wrapf(err, "close file %v", targetFileName)
+				}
+			}()
 
 			sourceFile, err := os.Open(fileAbsPath)
 			if err != nil {
 				return errors.Wrapf(err, "open file %v", fileAbsPath)
 			}
-			defer sourceFile.Close()
+			defer func() {
+				if err := sourceFile.Close(); err != nil {
+					logger.Wf(ctx, "close file %v, err=%v", fileAbsPath, err)
+				}
+			}()
 
 			// TODO: FIXME: Cleanup the file if error.
 			if _, err = io.Copy(targetFile, sourceFile); err != nil {
@@ -461,7 +469,7 @@ func (v *VLiveWorker) Handle(ctx context.Context, handler *http.ServeMux) error 
 	ep = "/terraform/v1/ffmpeg/vlive/upload/"
 	logger.Tf(ctx, "Handle %v", ep)
 	handler.HandleFunc(ep, func(w http.ResponseWriter, r *http.Request) {
-		if err := func(ctx context.Context) error {
+		if err := func(ctx context.Context) (r0 error) {
 			filename := r.URL.Path[len("/terraform/v1/ffmpeg/vlive/upload/"):]
 			if strings.Contains(filename, "..") || strings.ContainsAny(filename, `/\`) {
 				return errors.Errorf("invalid filename %v", filename)
@@ -508,7 +516,11 @@ func (v *VLiveWorker) Handle(ctx context.Context, handler *http.ServeMux) error 
 			if err != nil {
 				return errors.Wrapf(err, "open file %v", targetFileName)
 			}
-			defer targetFile.Close()
+			defer func() {
+				if err := targetFile.Close(); err != nil && r0 == nil {
+					r0 = errors.Wrapf(err, "close file %v", targetFileName)
+				}
+			}()
 
 			// See https://github.com/rfielding/uploader/blob/master/uploader.go#L170
 			mr, err := r.MultipartReader()
