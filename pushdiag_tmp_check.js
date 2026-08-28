@@ -1407,6 +1407,7 @@ function renderRtcHealth(v, a, cp, rtt, dropRate) {
   el.innerHTML = flags.join('');
 }
 
+
 async function startRtcAnalysis() {
   stopRtcAnalysis();
   resetRtcState();

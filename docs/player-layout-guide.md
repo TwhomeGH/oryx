@@ -18,6 +18,7 @@ platform/containers/www/
 │   ├── rtc_publisher.html      ← WebRTC 推流（SRS SDK）
 │   ├── pushdiag.html           ← 推流診斷工具（FLV + WebRTC 兩種模式）
 │   └── js/
+│       ├── players.js          ← 播放器控制 JS
 │       ├── srs.sdk.js          ← WebRTC SDK（已修復安全問題）
 │       ├── srs.page.js         ← 頁面初始化（query string → 預設 URL，純 vanilla JS）
 │       ├── winlin.utility.js   ← 工具函數（已修復 prototype pollution）
@@ -231,8 +232,80 @@ pushdiag 用到的一組診斷專用類別，全部在 `player.css` 的 `/* Diag
 
 ---
 
+
+### 6.4 HTML JavaScript 腳本
+
+### 原則
+分離結構與行為：HTML 專注於內容與結構，JavaScript 專注於互動與邏輯。
+
+避免內嵌大量程式碼：不要在 `<script>` 標籤內直接撰寫大段 JS，否則會造成維護困難、排版混亂。
+
+### 統一管理
+像 CSS 樣式表一樣，將 JavaScript 程式碼獨立成外部檔案，集中管理。
+
+### 建議做法
+
+使用外部檔案 將程式碼放在 .js 檔案中。
+
+在 HTML 中透過
+
+```html
+<script src="js/players.js"></script>
+```
+
+引入 JS 腳本
+
+### 建立專用目錄，例如：
+
+JS腳本存放目錄 `/www/players/js/`
+
+> 目前大多主要JS組件集中管理於此
+
+將不同模組或功能拆分成獨立檔案，避免單一檔案過於龐大。
+
+
+### 快取與效能
+
+外部 JS 檔案可被瀏覽器快取，減少重複下載，提高載入速度。
+
+維護性與可讀性
+
+**HTML** 檔案只保留 `<script src>` 引用，排版乾淨。
+
+**JavaScript** 程式碼集中在外部檔案，方便版本控制與多人協作。
+
+### 範例
+```html
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>播放器範例</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <video id="videoEl" controls></video>
+  <!-- 引入外部 JS -->
+  <script src="players.js"></script>
+</body>
+</html>
+```
+
+```js
+// players.js
+function startPlay(r) {
+    // 播放邏輯
+}
+```
+
+#### 📌 結論
+在 HTML 設計時，建議將 JavaScript 程式碼獨立成外部檔案，並用 `<script src="...">` 引入，避免直接在 HTML 中撰寫大量 JS。這樣能提升維護性、可讀性與效能。
+
+
 ## 7. 注意事項
 
+- **建議所有JS集中管理** 不要直接塞在HTML裡使用 後續可能造成維護困難
 - **所有 player 頁面共用 `player.css`**，改一個檔案全部生效
 - **不要用 inline style**（`style="..."`），改用 CSS class
 - **工具類別**（`.hidden` `.mt-16` 等）適用於所有頁面

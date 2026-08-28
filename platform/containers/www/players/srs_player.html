@@ -9,7 +9,7 @@
 <body>
 <nav class="navbar">
     <div class="navbar-inner">
-        <a class="navbar-brand" href="https://github.com/ossrs/srs" target="_blank">SRS</a>
+        <a class="navbar-brand" href="https://github.com/ossrs/srs" target="_blank" rel="noopener">SRS</a>
         <ul class="navbar-nav">
             <li><a class="active" href="srs_player.html">Live Player</a></li>
             <li><a href="whip.html">WHIP</a></li>
@@ -41,13 +41,13 @@
         </div>
 
         <div class="player-wrapper">
-            <video id="video_player" controls playsinline></video>
+            <video id="video_player" controls webkit-playsinline></video>
             <audio id="audio_player" class="hidden" controls></audio>
         </div>
 
         <div id="share_section" class="share-link hidden mt-16">
             <span>Share:</span>
-            <a id="link_url" href="#" target="_blank"></a>
+            <a id="link_url"  title="share_section" href="#" target="_blank"></a>
         </div>
     </div>
 
@@ -71,217 +71,6 @@
 <script src="https://cdn.jsdelivr.net/npm/dashjs@4.7.4/dist/dash.all.min.js"></script>
 <script src="js/winlin.utility.js"></script>
 <script src="js/srs.page.js"></script>
-<script>
-(function () {
-    'use strict';
-
-    var PREVIEW_VIDEO = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
-    var isPreview = window.location.protocol === 'file:';
-    var flvPlayer = null, tsPlayer = null, hlsPlayer = null, dashPlayer = null;
-    var videoEl = document.getElementById('video_player');
-    var audioEl = document.getElementById('audio_player');
-    var urlInput = document.getElementById('txt_url');
-    var shareSection = document.getElementById('share_section');
-    var linkUrl = document.getElementById('link_url');
-    var errorAlert = document.getElementById('error_alert');
-    var errorMsg = document.getElementById('error_msg');
-    var infoAlert = document.getElementById('info_alert');
-    var previewBanner = document.getElementById('preview_banner');
-
-    if (isPreview) {
-        previewBanner.textContent = 'Running locally — using placeholder video for layout testing.';
-        previewBanner.classList.remove('hidden');
-        infoAlert.classList.add('hidden');
-        videoEl.classList.remove('hidden');
-        audioEl.classList.add('hidden');
-        if (typeof Hls !== 'undefined' && Hls.isSupported()) {
-            hlsPlayer = new Hls({ enableWorker: true });
-            hlsPlayer.loadSource(PREVIEW_VIDEO);
-            hlsPlayer.attachMedia(videoEl);
-        } else {
-            videoEl.src = PREVIEW_VIDEO;
-        }
-    }
-
-    function stopPlayers() {
-        [flvPlayer, tsPlayer, hlsPlayer, dashPlayer].forEach(function (p) {
-            if (p) try { p.destroy(); } catch (e) { /* ignore */ }
-        });
-        flvPlayer = tsPlayer = hlsPlayer = dashPlayer = null;
-    }
-
-    function showError(msg) {
-        stopPlayers();
-        errorMsg.textContent = msg;
-        errorAlert.classList.remove('hidden');
-        infoAlert.classList.add('hidden');
-        videoEl.classList.add('hidden');
-        audioEl.classList.add('hidden');
-        shareSection.classList.add('hidden');
-    }
-
-    function showVideo() {
-        errorAlert.classList.add('hidden');
-        infoAlert.classList.remove('hidden');
-        videoEl.classList.remove('hidden');
-        audioEl.classList.add('hidden');
-    }
-
-    function showAudio() {
-        errorAlert.classList.add('hidden');
-        infoAlert.classList.remove('hidden');
-        videoEl.classList.add('hidden');
-        audioEl.classList.remove('hidden');
-    }
-
-    function buildShareUrl(r) {
-        var q = parse_query_string();
-        // host/pathname keep slashes (encodeURI); query values are fully
-        // encoded (encodeURIComponent) so user input can't break out of the
-        // URL into a javascript: scheme or an attribute boundary.
-        var url = window.location.protocol + '//' + encodeURI(q.host || '') + encodeURI(q.pathname || '')
-            + '?autostart=true'
-            + '&app=' + encodeURIComponent(r.app) + '&stream=' + encodeURIComponent(r.stream)
-            + '&server=' + encodeURIComponent(r.server) + '&port=' + encodeURIComponent(r.port);
-        if (r.vhost !== '__defaultVhost__') url += '&vhost=' + encodeURIComponent(r.vhost);
-        if (r.schema !== 'rtmp') url += '&schema=' + encodeURIComponent(r.schema);
-        return url;
-    }
-
-    function sanitizeUrl(url) {
-        try {
-            var u = new URL(url, window.location.origin);
-            if (u.protocol === 'http:' || u.protocol === 'https:') {
-                return u.href;
-            }
-        } catch (e) {
-            // ignore invalid URL
-        }
-        return 'about:blank';
-    }
-
-    function startPlay(r) {
-        stopPlayers();
-        if (!r) return;
-        r.url = sanitizeUrl(r.url);
-
-        // Audio files
-        if (r.stream.indexOf('.mp3') > 0 || r.stream.indexOf('.aac') > 0) {
-            audioEl.src = r.url;
-            showAudio();
-            return;
-        }
-
-        // MP4 files
-        if (r.stream.indexOf('.mp4') > 0) {
-            videoEl.src = r.url;
-            showVideo();
-            return;
-        }
-
-        // HTTP-TS
-        if (r.stream.indexOf('.ts') > 0) {
-            if (!mpegts || !mpegts.getFeatureList().mseLivePlayback) {
-                return showError('HTTP-TS is not supported in this browser.');
-            }
-            showVideo();
-            tsPlayer = mpegts.createPlayer({ type: 'mpegts', url: r.url, isLive: true, enableStashBuffer: false });
-            tsPlayer.attachMediaElement(videoEl);
-            tsPlayer.load();
-            tsPlayer.play();
-            return;
-        }
-
-        // HLS
-        if (r.stream.indexOf('.m3u8') > 0) {
-            if (typeof Hls === 'undefined' || !Hls.isSupported()) {
-                if (videoEl.canPlayType('application/vnd.apple.mpegURL')) {
-                    videoEl.src = r.url;
-                    showVideo();
-                    return;
-                }
-                return showError('HLS is not supported in this browser.');
-            }
-            showVideo();
-            hlsPlayer = new Hls({
-                enableWorker: true,
-                lowLatencyMode: true,
-                liveSyncDurationCount: 2,
-                liveMaxLatencyDurationCount: 10,
-                maxBufferLength: 8,
-                maxMaxBufferLength: 10,
-                maxLiveSyncPlaybackRate: 1.2,
-                liveDurationInfinity: true
-            });
-            hlsPlayer.loadSource(r.url);
-            hlsPlayer.attachMedia(videoEl);
-            videoEl.play();
-            return;
-        }
-
-        // MPEG-DASH
-        if (r.stream.indexOf('.mpd') > 0) {
-            showVideo();
-            dashPlayer = dashjs.MediaPlayer().create();
-            dashPlayer.initialize(videoEl, r.url, true);
-            return;
-        }
-
-        // HTTP-FLV (default)
-        var isFlv = r.stream.indexOf('.flv') > 0;
-        isFlv = isFlv || (r.stream && r.url.indexOf('http') === 0);
-        if (isFlv) {
-            if (!mpegts || !mpegts.getFeatureList().mseLivePlayback) {
-                return showError('HTTP-FLV is not supported in this browser.');
-            }
-            showVideo();
-            flvPlayer = mpegts.createPlayer({
-                type: 'flv', url: r.url,
-                isLive: true, enableStashBuffer: false, liveSync: true
-            });
-            flvPlayer.attachMediaElement(videoEl);
-            flvPlayer.load();
-            flvPlayer.play();
-            return;
-        }
-
-        showError('Not supported URL: ' + r.url);
-    }
-
-    function applyUrlChange() {
-        var r = parse_rtmp_url(urlInput.value);
-        if (r.schema === 'rtmp') {
-            showError('RTMP is not supported. Use HTTP-FLV or HLS instead.');
-            return null;
-        }
-        linkUrl.href = buildShareUrl(r);
-        linkUrl.textContent = buildShareUrl(r);
-        shareSection.classList.remove('hidden');
-        return r;
-    }
-
-    document.getElementById('btn_play').addEventListener('click', function () {
-        videoEl.muted = false;
-        audioEl.muted = false;
-        var r = applyUrlChange();
-        if (r) startPlay(r);
-    });
-
-    // Initialize
-    if (!isPreview) {
-        var query = parse_query_string();
-        urlInput.value = build_default_flv_url();
-
-        if (query.autostart === 'true') {
-            videoEl.muted = true;
-            var r = applyUrlChange();
-            if (r) startPlay(r);
-        } else {
-            videoEl.classList.add('hidden');
-            audioEl.classList.add('hidden');
-        }
-    }
-})();
-</script>
+<script src="js/players.js"></script>
 </body>
 </html>
