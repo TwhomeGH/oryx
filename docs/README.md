@@ -4,6 +4,9 @@
 
 ## 索引
 
+- [部署指南](deploy-guide.md) — 部署入口：快速開始、埠對照、`/data` 目錄、環境變數，及部署相關文件一覽。
+- [功能列表](features.md) — 已實現與規劃中的功能清單。
+- [FAQ 與教學資源](faq-tutorials.md) — 常見問題與各類使用場景的教學連結。
 - [PR 急救指南](pr-hygiene.md) — 分支改到亂七八糟時的重整手法（rebase -i/fixup/squash）＋通用交互工具 clean-commits.ps1。
 - [硬體編碼（GPU 轉碼）配置指南](hardware-encoding.md) — compose 透通配置、組件頁卡片判讀表與排錯。
 - [教學：如何撿起（Cherry-Pick）上游的 PR 並合併](cherry-pick-pr-guide.md) — 從上游 ossrs/oryx 挑選未合併的 PR，逐步套用到本 fork 的完整流程與衝突處理。
