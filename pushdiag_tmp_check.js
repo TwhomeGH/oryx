@@ -1430,7 +1430,7 @@ async function startRtcAnalysis() {
     if (document.getElementById('rtcVideoOnly').checked) options.videoOnly = true;
     if (document.getElementById('rtcAudioOnly').checked) options.audioOnly = true;
 
-    var session = await Promise.race([
+    await Promise.race([
       rtcState.sdk.play(url, options),
       new Promise(function (_, reject) {
         setTimeout(function () { reject(new Error('連線逾時 (10s)')); }, 10000);
