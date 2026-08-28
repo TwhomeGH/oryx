@@ -16,6 +16,7 @@
 - [串流查詢 API：單流精確查詢](streams-query-api.md) — streams/query 支援 vhost/app/stream 參數，精確查詢單路串流狀態。
 - [AI 服務擴展性指南](ai-model-config.md) — 接上本地 LLM（Ollama/LM Studio）或第三方 OpenAI 相容服務，自訂 ASR/聊天模型。
 - [前端組件與頁面維護指南](frontend-guide.md) — 頁面骨架、排版慣例、i18n、能力探測卡片模式、Vite 特殊事項與常見炸點。
+- [虛擬直播（vLive）前後端接口指南](vlive-frontend-api-guide.md) — vLive 後端接口一覽、`/secret` 的 update/delete 語義、前端新增/刪除平台的擴展方式。
 - [播放器頁面排版與 CSS 修改指南](player-layout-guide.md) — player.css 架構、本地預覽模式、常見排版修改範例。
 - [本地整合測試教學](local-test.md) — 在本機跑 CI 同款整合測試的完整流程、偵錯旗標與常見問題排解。
 - [API 認證架構與 Status Code 說明](api-auth-architecture.md) — middleware 認證流程、HTTP status code 對應邏輯、init/login 端點的無 auth 設計。

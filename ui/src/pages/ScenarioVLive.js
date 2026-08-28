@@ -14,7 +14,6 @@ import {useTranslation} from "react-i18next";
 import {SecretInput} from "../components/SecretInput";
 import {SrsErrorBoundary} from "../components/SrsErrorBoundary";
 import ChooseVideoSource, {VLiveFileFormatInfo} from "../components/VideoSourceSelector";
-import {SrsEnvContext} from "../components/SrsEnvContext";
 
 export default function ScenarioVLive() {
   const [init, setInit] = React.useState();
@@ -58,7 +57,6 @@ function ScenarioVLiveImpl({defaultActiveKey, defaultSecrets}) {
   const language = useSrsLanguage();
   const {t} = useTranslation();
   const handleError = useErrorHandler();
-  const env = React.useContext(SrsEnvContext)[0];
 
   const [vLives, setVLives] = React.useState();
   const [submiting, setSubmiting] = React.useState();
@@ -103,26 +101,18 @@ function ScenarioVLiveImpl({defaultActiveKey, defaultSecrets}) {
       e?.locale?.generate && e.locale.generate(e);
     });
 
-    // Generate more virtual live configures.
-    while (confs.length < env.vLiveLimit) {
-      const rindex = index++;
-      const rid = Math.random().toString(16).slice(-6);
-
-      // Load the configured virtual live from defaults.
-      const existsConf = Object.values(defaultSecrets).find(e => e.platform.indexOf(`vlive-${rindex}-`) === 0);
-      if (existsConf) {
-        confs.push(existsConf);
-      } else {
-        confs.push({
-          platform: `vlive-${rindex}-${rid}`, enabled: false, index: String(rindex), allowCustom: false,
-          server: null, secret: null, custom: true, label: `VLive #${rindex}`, files: [],
-        });
-      }
-    }
+    // Load existing custom virtual live configures from defaults.
+    // No empty slots are pre-created; user adds them on demand with the Add button.
+    const customs = Object.values(defaultSecrets)
+      .filter(e => e.platform.indexOf('vlive-') === 0)
+      .sort((a, b) => a.platform.localeCompare(b.platform));
+    customs.forEach((e) => {
+      confs.push({ ...e, index: String(index++), allowCustom: false });
+    });
 
     setConfigs(confs);
     console.log(`VLive: Init configs ${JSON.stringify(confs)}`);
-  }, [env, defaultSecrets, setConfigs, language, t]);
+  }, [defaultSecrets, setConfigs, language, t]);
 
   React.useEffect(() => {
     const refreshStreams = () => {
@@ -191,6 +181,34 @@ function ScenarioVLiveImpl({defaultActiveKey, defaultSecrets}) {
       new Promise(resolve => setTimeout(resolve, 3000)).then(() => setSubmiting(false));
     }
   }, [t, handleError, setSubmiting]);
+
+  // Append a new empty custom virtual live config, persisted when user starts it.
+  const addVLive = React.useCallback(() => {
+    const customs = configs.filter(e => e.platform.indexOf('vlive-') === 0);
+    if (customs.length >= 10) return alert(t('vle.limit'));
+
+    const rid = Math.random().toString(16).slice(-6);
+    const rindex = configs.length ? Math.max(...configs.map(e => Number(e.index) || 0)) + 1 : 1;
+    setConfigs([...configs, {
+      platform: `vlive-${Date.now().toString(36)}-${rid}`, enabled: false, index: String(rindex), allowCustom: false,
+      server: null, secret: null, custom: true, label: `${t('vle.defaultLabel')} ${rindex}`, files: [],
+    }]);
+  }, [configs, t]);
+
+  // Delete the custom virtual live config from server, then remove it from UI.
+  const removeVLive = React.useCallback((e, conf) => {
+    e.preventDefault();
+    if (!window.confirm(t('vle.removeConfirm'))) return;
+
+    axios.post('/terraform/v1/ffmpeg/vlive/secret', {
+      action: 'delete', platform: conf.platform,
+    }, {
+      headers: Token.loadBearerHeader(),
+    }).then(res => {
+      setConfigs(configs.filter(x => x.platform !== conf.platform));
+      alert(t('vle.deleted'));
+    }).catch(handleError);
+  }, [configs, t, handleError]);
 
   return (
     <Accordion defaultActiveKey={defaultActiveKey}>
@@ -278,12 +296,20 @@ function ScenarioVLiveImpl({defaultActiveKey, defaultSecrets}) {
                 >
                   {conf.enabled ? t('plat.com.stop') : t('plat.com.start')}
                 </Button> &nbsp;
+                {conf.platform.indexOf('vlive-') === 0 && (
+                  <Button variant="danger" disabled={submiting} onClick={(e) => removeVLive(e, conf)}>
+                    {t('vle.remove')}
+                  </Button>
+                )} &nbsp;
                 <Form.Text> * {t('forward.tip')}</Form.Text>
               </Form>
             </Accordion.Body>
           </Accordion.Item>
         );
       })}
+      <div className="text-end my-2 me-2">
+        <Button variant="outline-primary" onClick={addVLive}>{t('vle.add')}</Button>
+      </div>
       <Accordion.Item eventKey="99">
         <Accordion.Header>{t('plat.com.status')}</Accordion.Header>
         <Accordion.Body>

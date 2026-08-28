@@ -667,7 +667,13 @@
       "vle": {
         "tip": "将文件转直播流",
         "source2": "该直播就是将视频源(文件/流)转换成直播流",
-        "s3": "没有流。请开启直播间后，等待大约30秒左右，列表会自动更新"
+        "s3": "没有流。请开启直播间后，等待大约30秒左右，列表会自动更新",
+        "add": "新增虚拟直播",
+        "remove": "删除",
+        "removeConfirm": "确认删除该虚拟直播配置？删除后不可恢复。",
+        "defaultLabel": "自定义虚拟直播",
+        "limit": "已达到虚拟直播数量上限",
+        "deleted": "删除成功"
       },
       "dubb": {
         "title": "视频翻译",
@@ -846,7 +852,13 @@
       "vle": {
         "s3": "There is no stream. Please start the live event and wait for about 30 seconds, the list will update automatically.",
         "tip": "Convert file to live stream",
-        "source2": "Virtual live streaming is the process of converting a video source (file) into a live stream."
+        "source2": "Virtual live streaming is the process of converting a video source (file) into a live stream.",
+        "add": "Add virtual live",
+        "remove": "Remove",
+        "removeConfirm": "Remove this virtual live config? This cannot be undone.",
+        "defaultLabel": "Custom virtual live",
+        "limit": "Reached the limit of virtual live streams",
+        "deleted": "Removed successfully"
       },
       "forward": {
         "s3": "No stream. Please turn on the broadcast and push the stream, then wait for about 30 seconds, and the broadcast list will automatically update.",
