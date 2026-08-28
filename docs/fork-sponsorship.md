@@ -50,7 +50,17 @@
 
 - **About → Website**：目前指向原 SRS 官網（`ossrs.io`）。若希望本 fork 的 GitHub 首頁不誤導用戶，
   可改為留空，或指到本 fork 的文檔 / 維護者個人頁。
-- **About → Description**：可補充「Community-maintained fork of ossrs/oryx」字樣，與上游區分。
+- **About → Description**：可補充 fork 定位字樣，與上游區分。可直接複製下列任一版本：
+
+  ```
+  Oryx（原 SRS Stack）：开源视频解决方案，支持直播与 WebRTC，云端或自托管。本仓库是 ossrs/oryx 的社区独立维护分支。
+  ```
+
+  ```
+  Oryx（SRS Stack）是一体化、开箱即用、开源的视频解决方案，用于在云端或自托管下搭建在线视频服务（直播与 WebRTC）。本仓库是 ossrs/oryx 的社区独立维护分支，持续套用上游 PR 并独立演进。
+  ```
+
+  > 關鍵點：**「社区独立维护分支」必須明確寫出**，避免被當成官方 ossrs/oryx。
 - **Funding 按鈕**：由 `.github/FUNDING.yml` 自動產生，已指向本 fork 的 Twitch 管道。
 
 > 這些是「讓 GitHub 首頁清楚標示本 fork 獨立定位」的最後一步，建議有空時手動調整。
