@@ -1022,7 +1022,7 @@ func (v *RecordM3u8Stream) serveMessage(ctx context.Context, msg *SrsOnHlsObject
 	return nil
 }
 
-func (v *RecordM3u8Stream) finishM3u8(ctx context.Context) error {
+func (v *RecordM3u8Stream) finishM3u8(ctx context.Context) (ret error) {
 	contentType, m3u8Body, duration, err := buildVodM3u8ForLocal(ctx, v.artifact.Files, false, "")
 	if err != nil {
 		return errors.Wrapf(err, "build vod")
@@ -1032,7 +1032,11 @@ func (v *RecordM3u8Stream) finishM3u8(ctx context.Context) error {
 	if f, err := os.OpenFile(hls, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644); err != nil {
 		return errors.Wrapf(err, "open file %v", hls)
 	} else {
-		defer f.Close()
+		defer func() {
+			if err := f.Close(); err != nil && ret == nil {
+				ret = errors.Wrapf(err, "close file %v", hls)
+			}
+		}()
 		if _, err = f.Write([]byte(m3u8Body)); err != nil {
 			return errors.Wrapf(err, "write hls %v to %v", m3u8Body, hls)
 		}

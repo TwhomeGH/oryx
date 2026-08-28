@@ -854,7 +854,7 @@ func (v *StageSubscriber) completeRobotAudioMessage(ctx context.Context, sreq *S
 	}
 
 	// Copy the ttsFile to copyFile.
-	if err := func() error {
+	if err := func() (r0 error) {
 		if copyFile == "" {
 			return nil
 		}
@@ -868,13 +868,21 @@ func (v *StageSubscriber) completeRobotAudioMessage(ctx context.Context, sreq *S
 		if err != nil {
 			return errors.Errorf("open %v for reading", segment.ttsFile)
 		}
-		defer src.Close()
+		defer func() {
+			if err := src.Close(); err != nil {
+				logger.Wf(ctx, "close %v, err=%v", segment.ttsFile, err)
+			}
+		}()
 
 		dst, err := os.OpenFile(copyFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 		if err != nil {
 			return errors.Errorf("open %v for writing", copyFile)
 		}
-		defer dst.Close()
+		defer func() {
+			if err := dst.Close(); err != nil && r0 == nil {
+				r0 = errors.Errorf("close %v for writing", copyFile)
+			}
+		}()
 
 		if _, err = io.Copy(dst, src); err != nil {
 			return errors.Errorf("copy file content")

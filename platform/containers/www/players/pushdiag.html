@@ -954,7 +954,10 @@ function infoRow(k, v) {
 
 // ── 健康診斷 ──
 function badge(cls, text) {
-  return '<span class="badge ' + cls + '">' + text + '</span> ';
+  // Escape any HTML metacharacters in the text so user/stats-derived values
+  // can never inject markup (CodeQL js/xss-through-dom).
+  var esc = String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  return '<span class="badge ' + cls + '">' + esc + '</span> ';
 }
 
 function renderHealth() {
@@ -1757,7 +1760,7 @@ function renderRtcHealth(v, a, cp, rtt, dropRate) {
   var flags = [];
 
   var conn = document.getElementById('rtcConnState').textContent;
-  if (conn === 'connected' || conn === 'connected') flags.push(badge('badge-ok', '已連線'));
+  if (conn === 'connected' || conn === 'completed') flags.push(badge('badge-ok', '已連線'));
   else if (conn === 'checking' || conn === 'connecting') flags.push(badge('badge-warn', 'ICE 檢查中'));
   else if (conn !== '—') flags.push(badge('badge-err', 'ICE ' + conn));
 

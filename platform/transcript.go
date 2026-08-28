@@ -1673,7 +1673,7 @@ func (v *TranscriptTask) DriveLiveQueue(ctx context.Context) error {
 	return nil
 }
 
-func (v *TranscriptTask) DriveAsrQueue(ctx context.Context) error {
+func (v *TranscriptTask) DriveAsrQueue(ctx context.Context) (r0 error) {
 	// Ignore if not enabled.
 	if !v.config.All {
 		return nil
@@ -1781,7 +1781,11 @@ func (v *TranscriptTask) DriveAsrQueue(ctx context.Context) error {
 	if f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644); err != nil {
 		return errors.Wrapf(err, "open file %v", fileName)
 	} else {
-		defer f.Close()
+		defer func() {
+			if err := f.Close(); err != nil && r0 == nil {
+				r0 = errors.Wrapf(err, "close file %v", fileName)
+			}
+		}()
 		if _, err = f.Write([]byte(srt.String())); err != nil {
 			return errors.Wrapf(err, "write file %v with %v", fileName, srt.String())
 		}

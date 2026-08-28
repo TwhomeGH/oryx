@@ -171,3 +171,36 @@ defer func() {
 - `go build` 編譯通過
 - `gofmt` 格式檢查乾淨
 - 行為不變：正常情況下 Close 不會失敗，程式邏輯與原本完全一致；只有真的 Close 失敗時才會多回傳一個錯誤（而非默默吞掉）
+
+---
+
+## 第五批：雜項掃描清理（2026-08 補）
+
+CodeQL 後續掃描又報了一批，逐一核對後分三類處理：
+
+### 1. 已修、重掃消失（無需動作）
+
+- `utils.go` Reflected XSS（#270/#269）：第四批已用 `safePort()` 整數化修復
+- `srs_player.html` DOM XSS（#267-265）：`sanitizeUrl()` 已修
+- `pushdiag_tmp_check.js`（#250/249/258/254/253）：臨時檔，已刪除
+
+### 2. 本次修復
+
+| Alert | 位置 | 問題 | 修復 |
+|---|---|---|---|
+| #248 | `pushdiag.html` 1795 | `innerHTML = flags.join()`，getStats 數值可能注入 | `badge()` 加入 HTML 跳脫（`&<>"'` → entity） |
+| #257 | `pushdiag.html` 1760 | `conn === 'connected' \|\| conn === 'connected'`（identical operands，筆誤） | 改為 `connected \|\| completed` |
+| #205 | `transcript.go` 1784 | `DriveAsrQueue` 寫 .srt 後 `defer f.Close()` 忽略錯誤 | 命名回傳值 `(r0 error)` + deferred Close 捕獲 |
+| #204 | `dvr-local-disk.go` 1035 | `finishM3u8` 寫 m3u8 後忽略 Close 錯誤 | 命名回傳值 `(ret error)`（內部已有 r0 變數故用 ret）+ deferred Close 捕獲 |
+| #203 | `ai-talk.go` 877 | `io.Copy` 後忽略 dst.Close 錯誤 | 命名回傳值 `(r0 error)` + deferred Close 捕獲；src 唯讀用 `logger.Wf` |
+
+### 3. CodeQL 誤報（保留，不改）
+
+| Alert | 位置 | 原因 |
+|---|---|---|
+| #263-259 | 5 個 player 頁的 `if (isPreview)` | preview mode 設計：file:// 協定時載入佔位影片，非 preview 走正常流程，兩分支互斥但都需要 |
+| #252/251 | `pushdiag.html` 527/741 | 合法的 fallback/分支互斥邏輯（非 high profile 時 chroma 固定 1） |
+| #27 | `service.go` 518 | goroutine stack trace 只綁 `127.0.0.1:22022`（本機 debug server），不對外暴露 |
+
+> **經驗：** CodeQL 的 `js/xss-through-dom` 對「統計數字 → innerHTML」會保守報錯。最乾淨的解法是**統一跳脫**（如 badge()），而非逐個加 sanitize。
+> `go/unhandled-writable-file-close` 的修法已在第四批詳述，本批只是把相同模式套到其餘 3 個檔案。
