@@ -194,12 +194,12 @@ CodeQL 後續掃描又報了一批，逐一核對後分三類處理：
 | #204 | `dvr-local-disk.go` 1035 | `finishM3u8` 寫 m3u8 後忽略 Close 錯誤 | 命名回傳值 `(ret error)`（內部已有 r0 變數故用 ret）+ deferred Close 捕獲 |
 | #203 | `ai-talk.go` 877 | `io.Copy` 後忽略 dst.Close 錯誤 | 命名回傳值 `(r0 error)` + deferred Close 捕獲；src 唯讀用 `logger.Wf` |
 
-### 3. CodeQL 誤報（保留，不改）
+### 3. CodeQL 誤報或已加固（保留）
 
-| Alert | 位置 | 原因 |
+| Alert | 位置 | 處理 |
 |---|---|---|
-| #252/251 | `pushdiag.html` 527/741 | 合法的 fallback/分支互斥邏輯（非 high profile 時 chroma 固定 1） |
-| #27 | `service.go` 518 | goroutine stack trace 只綁 `127.0.0.1:22022`（本機 debug server），不對外暴露 |
+| #252/251 | `pushdiag.html` 527/741 | 誤報：合法的 fallback/分支互斥邏輯（非 high profile 時 chroma 固定 1），保留 |
+| #27 | `service.go` 512-528 | **已加固**：`/terraform/v1/debug/goroutines` 原本只綁 `127.0.0.1:22022`（loopback），第六批又加了 `Authenticate` 驗證（需 `Authorization: Bearer <SRS_PLATFORM_SECRET>`），即使誤綁到非 loopback 也不洩漏 stack trace |
 
 > **經驗：** CodeQL 的 `js/xss-through-dom` 對「統計數字 → innerHTML」會保守報錯。最乾淨的解法是**統一跳脫**（如 badge()），而非逐個加 sanitize。
 > `go/unhandled-writable-file-close` 的修法已在第四批詳述，本批只是把相同模式套到其餘 3 個檔案。

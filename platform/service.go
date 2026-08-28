@@ -513,6 +513,15 @@ func handleDebuggingGoroutines(ctx context.Context, handler *http.ServeMux) {
 	ep := "/terraform/v1/debug/goroutines"
 	logger.Tf(ctx, "Handle %v", ep)
 	handler.HandleFunc(ep, func(w http.ResponseWriter, r *http.Request) {
+		// Only accessible with the platform API secret, so even if this
+		// debug server is bound beyond loopback it cannot leak goroutine
+		// stack traces (which contain file paths and memory details) to
+		// external users.
+		if err := Authenticate(ctx, envApiSecret(), "", r.Header); err != nil {
+			ohttp.WriteError(ctx, w, r, err)
+			return
+		}
+
 		buf := make([]byte, 1<<16)
 		stacklen := runtime.Stack(buf, true)
 		fmt.Fprintf(w, "%s", buf[:stacklen])
