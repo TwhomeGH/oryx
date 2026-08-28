@@ -1,5 +1,10 @@
-
 /* Dark mode: let native form controls and scrollbars follow the theme. */
 [data-bs-theme='dark'] {
   color-scheme: dark;
+}
+
+/* Dark mode: the sun icon (switch to light) uses a warm yellow, so it reads
+   as "sun" and is distinct from the gray moon shown in light mode. */
+[data-bs-theme='dark'] .btn-outline-secondary .bi-sun {
+  color: #ffc107;
 }
