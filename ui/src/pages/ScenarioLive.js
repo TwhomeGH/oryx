@@ -5,6 +5,8 @@
 //
 import React from "react";
 import {Accordion} from "react-bootstrap";
+
+import { CodeSecret } from "../components/CodeSecret";
 import {TutorialsButton, useTutorials} from "../components/TutorialsButton";
 import SrsQRCode from "../components/SrsQRCode";
 import * as Icon from 'react-bootstrap-icons';
@@ -149,7 +151,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
                   </div>
                 </li>
                 <li>
-                  {t('live.obs.key')} <code>{rtmpStreamKey}</code> &nbsp;
+                  {t('live.obs.key')} <CodeSecret value={rtmpStreamKey}></CodeSecret> &nbsp;
                   <div role='button' style={{display: 'inline-block'}} title={t('helper.switchStream')}>
                     <Icon.ArrowRepeat size={20} onClick={updateStreamName}/>
                   </div> &nbsp;

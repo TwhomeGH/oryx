@@ -16,6 +16,7 @@ import {SrsEnvContext} from "../components/SrsEnvContext";
 import * as Icon from "react-bootstrap-icons";
 import PopoverConfirm from "../components/PopoverConfirm";
 import {OpenAISecretSettings} from "../components/OpenAISettings";
+import {CodeSecret} from "../components/CodeSecret";
 
 export default function ScenarioLiveRoom() {
   const [searchParams] = useSearchParams();
@@ -374,7 +375,7 @@ function LiveRoomStreamer({room}) {
             </div>
           </div>
           <div>
-            {t('live.obs.key')} <code>{rtmpStreamKey}</code> &nbsp;
+            {t('live.obs.key')} <CodeSecret value={rtmpStreamKey}></CodeSecret> &nbsp;
             <div role='button' style={{display: 'inline-block'}} title={t('helper.copy')}>
               <Icon.Clipboard size={20} onClick={(e) => copyToClipboard(e, rtmpStreamKey)} />
             </div>
