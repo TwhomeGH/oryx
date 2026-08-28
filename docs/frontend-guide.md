@@ -126,6 +126,32 @@ provider / asr / overlay / webvtt。新增分區＝加一個 `{configItem === 'x
 - **更新翻譯檔後跑測試**：`npm test` 會驗證 localeLoader 載入數量正確
 - 語言切換器在 `src/components/LanguageSwitch.js`，從 `localeLoader` 的 `locales` 動態渲染（純文字，無國旗 icon）
 
+### 7.1 翻譯維護規範
+
+> 維護者母語是中文，對其他語言可能不熟。若你發現翻譯錯誤、用詞不當，或想新增語言支持，遵循以下流程。
+
+**翻譯品質原則：**
+- **每種語言都對照 `locale_zh.json` 當基準** — zh 是最準的（維護者母語），改 key 先改 zh，再同步其他語言
+- **一致性優先**：技術名詞（如「推流」「轉碼」「碼率」）全站統一，不要同義詞混用
+- **不要逐字直譯**：意譯優先，符合該語言的習慣用語（例如日文「推流」常用「配信」）
+- **URL / 技術格式不要改**：`/terraform/...`、`https://...`、`gpt-4o`、`rtmp://` 等保持原樣，只翻譯顯示文字
+
+**發現翻譯錯誤時的處理：**
+1. 打開對應 `resources/locale_<lang>.json`，找到錯誤 key
+2. 對照 `locale_zh.json` 同名 key 確認原意
+3. 直接修正該 key 的翻譯（不需要動 zh）
+4. 若有疑問（原文本身含糊），開一個 issue 或直接問維護者
+
+**新增語言支持（三步）：**
+1. 複製 `locale_zh.json` 成 `locale_<code>.json`
+2. 改 `meta.code`（如 `ja`）與 `meta.name`（如 `日本語`）
+3. 逐 key 翻譯 `translation` 區塊；翻譯不全的 key 會顯示 key 名（fallback），可先翻常用區塊再補
+
+**已知翻譯現況（2026-08）：**
+- `en`：與 zh 同時維護，結構同步
+- `ja`：698 key 全量翻譯（2026-08 加入）。若發現用詞不自然，歡迎指正修正
+- **注意**：`zh` 是維護者母語、最可信的基準。`ja` 由 AI 初譯 + 人工審查，仍可能有中文語感的殘留（例如誤把「内網/公網」直接搬進日文，正確是「プライベートIP/パブリックIP」）。發現這類問題時直接修該 key 即可，不需動 zh。
+
 > **歷史：** 舊版是單一 `locale.json`（zh/en 塞一起）+ LanguageSwitch 寫死兩組。2026-08 重構成多檔動態載入，並移除 `country-flag-icons` 依賴（語言切換不應與國家旗幟綁定）。
 
 ## 8. 資料流：query / apply / check 三兄弟

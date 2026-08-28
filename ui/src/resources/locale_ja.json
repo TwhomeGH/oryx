@@ -137,13 +137,13 @@
         "check": "ネットワーク接続の確認は",
         "connectivity": "https://ossrs.net/lts/en-us/docs/v5/doc/webrtc#connection-failures",
         "title": "WebRTC: WHIPウェブ配信",
-        "whep": "内網または公網IPで管理画面にアクセスしてください。WHEPはlocalhostアクセスをサポートしません。",
+        "whep": "プライベートIPまたはパブリックIPで管理画面にアクセスしてください。WHEPはlocalhostアクセスをサポートしません。",
         "https": "HTTPSで管理画面にアクセスしてください。自己署名証明書の場合は「詳細設定」をクリックして続行してください",
         "tip": "ページを開いて配信：",
         "tip2": "先にFFmpeg/OBSの配信を停止してください。",
         "wp": "WordPressページで配信：",
         "sc": "WordPressショートコード",
-        "nolo": "OryxはlocalhostのWHIP配信をサポートしません。内網または公網IPでアクセスしてください"
+        "nolo": "OryxはlocalhostのWHIP配信をサポートしません。プライベートIPまたはパブリックIPでアクセスしてください"
       },
       "rtc2": {
         "title": "WebRTC: WHIP OBS"
@@ -745,7 +745,7 @@
       "base2": "AIサービスにアクセスするアドレスを入力。OpenAIのアドレスまたはプロキシアドレスを設定できます",
       "model": "ASR モデル名（任意）",
       "model2": "空にすると whisper-1 を使用します。OpenAI形式互換のローカル/サードパーティサービスはカスタムモデルを指定できます。例",
-      "model3": "対応",
+      "model3": "対応例：",
       "chatModel": "チャットモデル名（任意）",
       "chatModel2": "空にすると gpt-3.5-turbo を使用します。接続テスト用。OpenAI形式互換のサービスはカスタムモデルを指定できます。例",
       "org": "組織ID",
