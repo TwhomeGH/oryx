@@ -107,3 +107,67 @@ line = strings.ReplaceAll(line, " 8000 ", fmt.Sprintf(" %v ", port))
 - 環境變數用於回應內容時，需驗證只含安全字元
 - JavaScript 中避免 `obj[userInput] = value` 模式，需驗證 key 安全性
 - URL 解析優先使用 `new URL()` API
+
+---
+
+## 第四批：可寫檔案關閉時未處理錯誤（go/unhandled-writable-file-close）
+
+### 這到底在修什麼？
+
+**用白話講：** 程式把資料寫進檔案後，最後一步是「關閉檔案」。這個「關閉」動作也可能失敗（例如硬碟滿了、權限變了、I/O 中斷）— 失敗代表**資料可能沒有真正存進磁碟**。如果程式不管關閉的錯誤，就等於**資料可能悄悄遺失，但沒人知道**。
+
+**為什麼重要：** 寫入（`Write`/`io.Copy`）成功不代表資料真的落盤了 — 作業系統會先放在記憶體緩衝區，直到 `Close()` 或 `Sync()` 時才真正寫入。所以 `Close()` 的錯誤是「資料是否真的保存」的最後一道防線。
+
+### CodeQL 報了哪些地方？
+
+| 位置 | 檔案 | 寫入內容 | 遺失風險 |
+|---|---|---|---|
+| `nginxGenerateConfig` 4 處 | `utils.go` | Nginx / SRS 設定檔 | 低（小文字檔，但設定錯誤會影響服務） |
+| `reloadNginx` 1 處 | `utils.go` | Nginx reload 信號檔 | 低（但失敗 = Nginx 沒重新載入） |
+| vLive 檔案複製 | `virtual-live-stream.go` | 上傳的大檔案（io.Copy） | **高**（大檔案最易受 I/O 中斷影響） |
+| vLive multipart 上傳 | `virtual-live-stream.go` | 上傳的大檔案 | **高** |
+| vLive 來源檔（誤報） | `virtual-live-stream.go` | 唯讀開啟（os.Open） | 無（唯讀不會遺失資料） |
+
+### 怎麼修的？兩種模式
+
+**1. 能回傳錯誤的地方（HTTP handler 的閉包）→ 用命名回傳值捕獲：**
+
+```go
+// 原本：Close 錯誤被忽略
+defer f.Close()
+
+// 修正後：Close 錯誤會被回傳給呼叫端
+func() (r0 error) {           // ← 命名回傳值 r0
+    f, _ := os.OpenFile(...)
+    defer func() {
+        if err := f.Close(); err != nil && r0 == nil {
+            r0 = errors.Wrapf(err, "close file %v", fileName)  // ← Close 失敗→回傳
+        }
+    }()
+    ...
+}
+```
+
+關鍵設計：`err != nil && r0 == nil` — **只有當前面的錯誤還是 nil（寫入成功）時，才用 Close 錯誤取代**。如果寫入本身就失敗了（r0 已非 nil），就保留原本的錯誤，不覆蓋。
+
+**2. 無法回傳錯誤的地方 → 記錄日誌：**
+
+```go
+defer func() {
+    if err := f.Close(); err != nil {
+        logger.Wf(ctx, "close file %v, err=%v", fileName, err)  // ← 至少留下記錄
+    }
+}()
+```
+
+（例如 `Config.String()` 這種回傳 `string` 的函數，沒地方放 error，就記 log。）
+
+### 為什麼不直接 `defer f.Close()` 就好？
+
+這是 Go 社群常見但**不嚴謹**的寫法。CodeQL 把它當成潛在 bug：對**小檔案**（設定檔）風險確實低，但對**大檔案傳輸**（vLive 上傳），Close 失敗可能代表整個上傳的檔案損壞。統一補上錯誤處理是更穩健的設計。
+
+### 驗證
+
+- `go build` 編譯通過
+- `gofmt` 格式檢查乾淨
+- 行為不變：正常情況下 Close 不會失敗，程式邏輯與原本完全一致；只有真的 Close 失敗時才會多回傳一個錯誤（而非默默吞掉）
