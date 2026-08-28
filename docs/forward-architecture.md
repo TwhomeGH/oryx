@@ -12,7 +12,7 @@
 前端入口：`ui/src/pages/ScenarioForward.js`。
 
 > 注意：UI 上「视频编码器 * 暂时只支持软件编码器」這句文案屬於**轉碼場景**
-> （`ScenarioTranscode.js` + `locale.json:271-286`），與 forward 無關——forward 不碰編碼器。
+> （`ScenarioTranscode.js` + `locale_zh.json`/`locale_en.json` 的 transcode 區塊），與 forward 無關——forward 不碰編碼器。
 
 ---
 

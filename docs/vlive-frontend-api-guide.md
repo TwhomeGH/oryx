@@ -84,11 +84,11 @@ customs.forEach(e => confs.push({...e, index: String(index++), allowCustom: fals
 ### 新增一個內建平台（開發者）
 1. 後端：`allowedPlatforms` 加平台名（`virtual-live-stream.go`），並補 `locale` 設定
 2. 前端：`ScenarioVLiveImpl` 的 `confs` 陣列開頭加一個物件（仿 wx/bilibili/kuaishou）
-3. i18n：`locale.json` 的 `plat.<name>.title/link/link2` 加中英文
+3. i18n：`locale_zh.json` / `locale_en.json`（`resources/` 下每語言一檔）的 `plat.<name>.title/link/link2` 加中英文
 
 ### 新增動作（如「暫停」）
 1. 後端：`allowedActions` 加 `"pause"`，在 `/secret` 的 `if action == "update"` 鏈加分支
-2. 前端：`updateSecrets` 的 action 參數傳新值；按鈕文案在 `locale.json` 的 `plat.com.*` 或 `vle.*` 加
+2. 前端：`updateSecrets` 的 action 參數傳新值；按鈕文案在 `locale_zh.json`/`locale_en.json` 的 `plat.com.*` 或 `vle.*` 加
 
 ## 5. i18n 文案位置
 

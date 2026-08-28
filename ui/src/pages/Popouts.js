@@ -12,7 +12,7 @@ import axios from "axios";
 import {Locale, Token} from "../utils";
 import {AITalkAssistantPanel, AITalkChatOnlyPanel} from "../components/AITalk";
 import {useTranslation} from "react-i18next";
-import resources from "../resources/locale";
+import {resources} from "../localeLoader";
 import {AITalkDictationPanel} from "../components/AIDictation";
 
 export default function Popouts() {

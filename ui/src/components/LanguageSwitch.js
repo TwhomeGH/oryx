@@ -5,11 +5,10 @@
 //
 import React from 'react';
 import {Dropdown, Navbar} from "react-bootstrap";
-import Flags from "country-flag-icons/react/3x2";
 import {Locale} from "../utils";
 import {useLocation, useNavigate} from "react-router-dom";
 import {useTranslation} from "react-i18next";
-import resources from "../resources/locale";
+import {resources, locales as localeOptions} from "../localeLoader";
 
 export default function LanguageSwitch() {
   const [locale, setLocale] = React.useState();
@@ -40,10 +39,9 @@ export default function LanguageSwitch() {
   }, [location, i18n, locale]);
 
   React.useEffect(() => {
-    setLocales([
-      {lang: 'zh', text: '简体中文', icon: Flags.CN},
-      {lang: 'en', text: 'English', icon: Flags.US},
-    ]);
+    // Languages are dynamically discovered from resources/locale_*.json via
+    // the localeLoader; adding a new file automatically adds it here.
+    setLocales(localeOptions);
   }, []);
 
   const onChangeLocale = React.useCallback((lang) => {
@@ -56,10 +54,10 @@ export default function LanguageSwitch() {
     <Dropdown>
       <Dropdown.Toggle variant='text'>
         {locales.map((e, index) => {
-          if (e.lang !== locale) return <React.Fragment key={index} />;
+          if (e.code !== locale) return <React.Fragment key={index} />;
           return (
             <React.Fragment key={index}>
-              <e.icon width={16} /> &nbsp; <Navbar.Text>{e.text}</Navbar.Text>
+              <Navbar.Text>{e.name}</Navbar.Text>
             </React.Fragment>
           );
         })}
@@ -69,9 +67,9 @@ export default function LanguageSwitch() {
           return (
             <Dropdown.Item
               key={index}
-              onClick={() => onChangeLocale(e.lang)}
+              onClick={() => onChangeLocale(e.code)}
             >
-              <e.icon width={16} /> &nbsp; <Navbar.Text>{e.text}</Navbar.Text>
+              <Navbar.Text>{e.name}</Navbar.Text>
             </Dropdown.Item>
           );
         })}

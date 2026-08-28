@@ -19,7 +19,7 @@ ui/
     ├── App.js              # 所有路由（<Route path="routers-xxx">）
     ├── Navigator.js        # 頂部選單（eventKey 清單＋主題切換）
     ├── utils.js            # Token、Locale、Tools 等共用工具
-    ├── resources/          # locale.json（雙語字典）與圖片、預設 md
+    ├── resources/          # locale_zh.json / locale_en.json（每語言一檔）與圖片、預設 md
     ├── components/         # 跨頁面共用元件（SrsQRCode、SecretInput、ThemeSwitch…）
     └── pages/              # 一個路由一個檔案
         └── SrsConsole.js   # SRS 控制台（Overview/Vhosts/Streams/Clients/Configs）
@@ -106,12 +106,26 @@ ScenarioTranscript.js 等頁用 `configItem` state 控制 Card.Body 分區顯示
 provider / asr / overlay / webvtt。新增分區＝加一個 `{configItem === 'xxx' && <Card.Body>}` 
 ＋導覽連結。
 
-## 7. 多語系（locale.json）
+## 7. 多語系（拆分成多檔，自動掃描）
 
-- 結構：頂層 `{"zh": {...}, "en": {...}}`，各語言內再分功能區塊
+結構：每個語言一個檔 `resources/locale_<code>.json`（2026-08 起，取代舊的單一 `locale.json`）：
+
+```json
+// ui/src/resources/locale_zh.json
+{
+  "meta": { "code": "zh", "name": "简体中文" },
+  "translation": { ...功能區塊... }
+}
+```
+
+- **載入方式**：`src/localeLoader.js` 用 `import.meta.glob("./resources/locale_*.json", {eager: true})` 自動掃描資料夾 → 組出 i18next 的 `resources` 與語言列表 → `i18n.js` / `App.js` / `setupTests.js` / `LanguageSwitch.js` / `Popouts.js` 都從它取用。
+- **新增語言 = 放一個檔**：在 `resources/` 加 `locale_ja.json`（含 `meta.code/name`），下拉選單自動出現，**不用改任何程式碼**。`meta.code` 決定 URL 的語言前綴（如 `/mgmt/ja/`）。
 - 取值：`t('transcript.trans0')`；巢狀可用 `t('transcript.codec.balanced')`
-- **加 key 必須中英同加**，否則另一語言顯示 key 名
-- JSON 寫錯整站掛：改完跑 `node -e "JSON.parse(require('fs').readFileSync('src/resources/locale.json'))"`
+- **加 key 必須每種語言都加**，否則某語言顯示 key 名（i18next fallback）
+- **更新翻譯檔後跑測試**：`npm test` 會驗證 localeLoader 載入數量正確
+- 語言切換器在 `src/components/LanguageSwitch.js`，從 `localeLoader` 的 `locales` 動態渲染（純文字，無國旗 icon）
+
+> **歷史：** 舊版是單一 `locale.json`（zh/en 塞一起）+ LanguageSwitch 寫死兩組。2026-08 重構成多檔動態載入，並移除 `country-flag-icons` 依賴（語言切換不應與國家旗幟綁定）。
 
 ## 8. 資料流：query / apply / check 三兄弟
 

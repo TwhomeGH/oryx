@@ -33,7 +33,7 @@ import SrsConsole from "./pages/SrsConsole";
 import Contact from "./pages/Contact";
 import {ErrorBoundary, useErrorHandler} from 'react-error-boundary';
 import {SrsErrorBoundary} from "./components/SrsErrorBoundary";
-import resources from "./resources/locale.json";
+import {resources} from "./localeLoader";
 import {SrsEnvContext} from "./components/SrsEnvContext";
 import Popouts from "./pages/Popouts";
 
