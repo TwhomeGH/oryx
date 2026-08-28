@@ -119,6 +119,7 @@ provider / asr / overlay / webvtt。新增分區＝加一個 `{configItem === 'x
 ```
 
 - **載入方式**：`src/localeLoader.js` 用 `import.meta.glob("./resources/locale_*.json", {eager: true})` 自動掃描資料夾 → 組出 i18next 的 `resources` 與語言列表 → `i18n.js` / `App.js` / `setupTests.js` / `LanguageSwitch.js` / `Popouts.js` 都從它取用。
+- **目前語言**：`locale_zh.json`（簡中）、`locale_en.json`（英文）、`locale_ja.json`（日文，2026-08 新增，698 key 全翻譯）
 - **新增語言 = 放一個檔**：在 `resources/` 加 `locale_ja.json`（含 `meta.code/name`），下拉選單自動出現，**不用改任何程式碼**。`meta.code` 決定 URL 的語言前綴（如 `/mgmt/ja/`）。
 - 取值：`t('transcript.trans0')`；巢狀可用 `t('transcript.codec.balanced')`
 - **加 key 必須每種語言都加**，否則某語言顯示 key 名（i18next fallback）
