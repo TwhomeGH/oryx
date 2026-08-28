@@ -23,6 +23,7 @@
     "recharts": "^2.1.8",
     "remark-gfm": "^3.0.1",
     "semver": "^7.3.5",
+    "styled-components": "^6.5.3",
     "uuid": "^8.3.2"
   },
   "devDependencies": {

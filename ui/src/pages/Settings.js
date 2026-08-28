@@ -4,17 +4,21 @@
 // SPDX-License-Identifier: MIT
 //
 import React from "react";
-import {Accordion, Container, Form, Button, Tabs, Tab, Spinner, Stack, Badge, Table} from "react-bootstrap";
-import {Clipboard, Token} from "../utils";
+import { Accordion, Container, Form, Button, Tabs, Tab, Spinner, Stack, Badge, Table } from "react-bootstrap";
+import { Clipboard, Token } from "../utils";
 import axios from "axios";
-import {useSearchParams} from "react-router-dom";
-import {SrsErrorBoundary} from "../components/SrsErrorBoundary";
-import {useErrorHandler} from "react-error-boundary";
-import {useTranslation} from "react-i18next";
-import {TutorialsButton, useTutorials} from "../components/TutorialsButton";
+
+import { useSearchParams } from "react-router-dom";
+import { SecretInput } from "../components/SecretInput";
+import TipText from "../components/TipText";
+
+import { SrsErrorBoundary } from "../components/SrsErrorBoundary";
+import { useErrorHandler } from "react-error-boundary";
+import { useTranslation } from "react-i18next";
+import { TutorialsButton, useTutorials } from "../components/TutorialsButton";
 import moment from "moment";
 import PopoverConfirm from "../components/PopoverConfirm";
-import {OpenAISecretSettings} from "../components/OpenAISettings";
+import { OpenAISecretSettings } from "../components/OpenAISettings";
 
 export default function Systems() {
   return (
@@ -42,13 +46,13 @@ function SystemsImpl() {
   </>);
 }
 
-function SettingsImpl2({defaultActiveTab}) {
+function SettingsImpl2({ defaultActiveTab }) {
   const [activeTab, setActiveTab] = React.useState(defaultActiveTab);
   const setSearchParams = useSearchParams()[1];
-  const {t} = useTranslation();
+  const { t } = useTranslation();
 
   const onSelectTab = React.useCallback((k) => {
-    setSearchParams({'tab': k});
+    setSearchParams({ 'tab': k });
     setActiveTab(k);
   }, [setSearchParams]);
 
@@ -92,7 +96,7 @@ function SettingsImpl2({defaultActiveTab}) {
             <SettingCallback />
           </Tab>
           <Tab eventKey="api" title="OpenAPI">
-            <SettingOpenApi {...{copyToClipboard}}/>
+            <SettingOpenApi {...{ copyToClipboard }} />
           </Tab>
         </Tabs>
       </Container>
@@ -104,7 +108,7 @@ function SettingHighPerformanceHLS() {
   const [noHlsCtx, setNoHlsCtx] = React.useState();
   const [hlsLL, setHlsLL] = React.useState();
   const handleError = useErrorHandler();
-  const {t} = useTranslation();
+  const { t } = useTranslation();
 
   React.useEffect(() => {
     axios.post('/terraform/v1/mgmt/hphls/query', {
@@ -151,7 +155,7 @@ function SettingHighPerformanceHLS() {
   }, [handleError, hlsLL, t]);
 
   return (
-    <Accordion defaultActiveKey={['0','1']} alwaysOpen>
+    <Accordion defaultActiveKey={['0', '1']} alwaysOpen>
       <Accordion.Item eventKey="0">
         <Accordion.Header>{t('settings.nginxHlsTitle')}</Accordion.Header>
         <Accordion.Body>
@@ -182,10 +186,10 @@ function SettingHighPerformanceHLS() {
   );
 }
 
-function SettingOpenApi({copyToClipboard}) {
+function SettingOpenApi({ copyToClipboard }) {
   const [apiSecret, setAPISecret] = React.useState();
   const handleError = useErrorHandler();
-  const {t} = useTranslation();
+  const { t } = useTranslation();
 
   React.useEffect(() => {
     axios.post('/terraform/v1/mgmt/secret/query', {
@@ -244,7 +248,7 @@ $.ajax({
             <Form.Group className="mb-3">
               <Form.Label>ApiSecret</Form.Label>
               <Form.Text> * {t('openapi.secretTip')}</Form.Text>
-              <Form.Control as="input" type='input' rows={1} defaultValue={apiSecret} readOnly={true}/>
+              <Form.Control as="input" type='input' rows={1} defaultValue={apiSecret} readOnly={true} />
             </Form.Group>
             <Button variant="primary" type="submit" onClick={(e) => copyApiSecret(e, apiSecret)}>
               {t('openapi.secretCopy')}
@@ -305,13 +309,13 @@ function SettingCallback() {
   if (!activeKey) return <></>;
   return <SettingCallbackImpl {...{
     activeKey, defaultEnabled: config?.all, defaultConf: config
-  }}/>;
+  }} />;
 }
 
-function SettingCallbackImpl({activeKey, defaultEnabled, defaultConf}) {
+function SettingCallbackImpl({ activeKey, defaultEnabled, defaultConf }) {
   const defaultUrl = `${window.location.protocol}//${window.location.host}/terraform/v1/mgmt/hooks/example?fail=false`;
   const handleError = useErrorHandler();
-  const {t} = useTranslation();
+  const { t } = useTranslation();
   const [target, setTarget] = React.useState(defaultConf.target || defaultUrl);
   const [opaque, setOpaque] = React.useState(defaultConf.opaque);
   const [allEvents, setAllEvents] = React.useState(defaultEnabled);
@@ -372,26 +376,26 @@ function SettingCallbackImpl({activeKey, defaultEnabled, defaultConf}) {
             <Form.Label>{t('cb.target')}</Form.Label>
             <Form.Text>* {t('cb.target2')}</Form.Text>
             <Form.Control as="input" placeholder='For example: http://your-server/callback' defaultValue={target}
-                          onChange={(e) => setTarget(e.target.value)} />
+              onChange={(e) => setTarget(e.target.value)} />
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>{t('cb.opaque')}</Form.Label>
             <Form.Text>* {t('cb.opaque2')}</Form.Text>
             <Form.Control as="input" placeholder='For example: authentication secret for hooks' defaultValue={opaque}
-                          onChange={(e) => setOpaque(e.target.value)} />
+              onChange={(e) => setOpaque(e.target.value)} />
           </Form.Group>
           <Form.Group className="mb-3" controlId="formCbAllCheckbox">
             <Form.Label>{t('cb.event')}</Form.Label>
             <Form.Text>
               * {t('cb.event2')}: &nbsp;
-              <a href={t('helper.doc')+'#http-callback-on_publish'} target='_blank' rel='noreferrer'>publish,</a> &nbsp;
-              <a href={t('helper.doc')+'#http-callback-on_unpublish'} target='_blank' rel='noreferrer'>unpublish,</a> &nbsp;
-              <a href={t('helper.doc')+'#http-callback-on_record_begin'} target='_blank' rel='noreferrer'>on_record_begin,</a> &nbsp;
-              <a href={t('helper.doc')+'#http-callback-on_record_end'} target='_blank' rel='noreferrer'>on_record_end,</a> &nbsp;
-              <a href={t('helper.doc')+'#http-callback-on_ocr'} target='_blank' rel='noreferrer'>on_ocr</a> &nbsp;
+              <a href={t('helper.doc') + '#http-callback-on_publish'} target='_blank' rel='noreferrer'>publish,</a> &nbsp;
+              <a href={t('helper.doc') + '#http-callback-on_unpublish'} target='_blank' rel='noreferrer'>unpublish,</a> &nbsp;
+              <a href={t('helper.doc') + '#http-callback-on_record_begin'} target='_blank' rel='noreferrer'>on_record_begin,</a> &nbsp;
+              <a href={t('helper.doc') + '#http-callback-on_record_end'} target='_blank' rel='noreferrer'>on_record_end,</a> &nbsp;
+              <a href={t('helper.doc') + '#http-callback-on_ocr'} target='_blank' rel='noreferrer'>on_ocr</a> &nbsp;
             </Form.Text>
             <Form.Check type="checkbox" defaultChecked={allEvents} label={t('cb.event3')}
-                        onChange={(e) => setAllEvents(!allEvents)} />
+              onChange={(e) => setAllEvents(!allEvents)} />
           </Form.Group>
           <Button variant="primary" type="submit" onClick={(e) => onUpdateCallback(e)}>
             {t('settings.footerSubmit')}
@@ -426,7 +430,7 @@ function SettingCallbackImpl({activeKey, defaultEnabled, defaultConf}) {
 
 function SettingStreams() {
   const handleError = useErrorHandler();
-  const {t} = useTranslation();
+  const { t } = useTranslation();
   const [streams, setStreams] = React.useState();
   const [refresh, setRefresh] = React.useState(false);
 
@@ -437,7 +441,7 @@ function SettingStreams() {
     }).then(res => {
       if (res.data.data?.streams?.length) {
         setStreams(res.data.data.streams.map((e) => {
-          return {...e, update: moment(e.update)};
+          return { ...e, update: moment(e.update) };
         }));
       } else {
         setStreams(null);
@@ -465,14 +469,14 @@ function SettingStreams() {
           {!streams && "No streams"}
           {streams && <Table striped bordered hover>
             <thead>
-            <tr>
-              <th>#</th>
-              <th>URL</th>
-              <th>Server</th>
-              <th>Client</th>
-              <th>Updated</th>
-              <th>Actions</th>
-            </tr>
+              <tr>
+                <th>#</th>
+                <th>URL</th>
+                <th>Server</th>
+                <th>Client</th>
+                <th>Updated</th>
+                <th>Actions</th>
+              </tr>
             </thead>
             <tbody>
               {streams && streams.map((stream, index) => {
@@ -483,7 +487,7 @@ function SettingStreams() {
                   <td>{stream.client_id}</td>
                   <td>{stream.update.format('YYYY-MM-DD HH:mm:ss')}</td>
                   <td>
-                    <PopoverConfirm placement='top' trigger={ <a href='#!'>{t('helper.kickoff')}</a> } onClick={() => removeStream(stream)}>
+                    <PopoverConfirm placement='top' trigger={<a href='#!'>{t('helper.kickoff')}</a>} onClick={() => removeStream(stream)}>
                       <p>{t('settings.kickoff')}</p>
                     </PopoverConfirm>
                   </td>
@@ -498,7 +502,7 @@ function SettingStreams() {
 }
 
 function SettingLLM() {
-  const {t} = useTranslation();
+  const { t } = useTranslation();
   const handleError = useErrorHandler();
 
   const [aiSecretKey, setAiSecretKey] = React.useState();
@@ -554,7 +558,7 @@ function SettingLLM() {
 
 function SettingLimits() {
   const handleError = useErrorHandler();
-  const {t} = useTranslation();
+  const { t } = useTranslation();
   const [vLiveBitrate, setVLiveBitrate] = React.useState();
   const [ipCameraBitrate, setIpCameraBitrate] = React.useState();
 
@@ -590,12 +594,12 @@ function SettingLimits() {
             <Form.Group className="mb-3">
               <Form.Label>{t('settings.limitsVLive')}</Form.Label>
               <Form.Text> * in Kbps</Form.Text>
-              <Form.Control as="input" defaultValue={vLiveBitrate} onChange={(e) => setVLiveBitrate(e.target.value)}/>
+              <Form.Control as="input" defaultValue={vLiveBitrate} onChange={(e) => setVLiveBitrate(e.target.value)} />
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label>{t('settings.limitsCamera')}</Form.Label>
               <Form.Text> * in Kbps</Form.Text>
-              <Form.Control as="input" defaultValue={ipCameraBitrate} onChange={(e) => setIpCameraBitrate(e.target.value)}/>
+              <Form.Control as="input" defaultValue={ipCameraBitrate} onChange={(e) => setIpCameraBitrate(e.target.value)} />
             </Form.Group>
             <Button variant="primary" type="submit" onClick={(e) => updateLimits(e)}>
               {t('helper.submit')}
@@ -611,7 +615,7 @@ function SettingBeian() {
   const [beian, setBeian] = React.useState();
   const [siteTitle, setSiteTitle] = React.useState();
   const handleError = useErrorHandler();
-  const {t} = useTranslation();
+  const { t } = useTranslation();
 
   React.useEffect(() => {
     axios.get('/terraform/v1/mgmt/beian/query')
@@ -656,7 +660,7 @@ function SettingBeian() {
           <Form>
             <Form.Group className="mb-3">
               <Form.Label>{t('settings.footerIcp')}</Form.Label>
-              <Form.Control as="input" defaultValue={beian} placeholder={t('settings.footerHolder')} onChange={(e) => setBeian(e.target.value)}/>
+              <Form.Control as="input" defaultValue={beian} placeholder={t('settings.footerHolder')} onChange={(e) => setBeian(e.target.value)} />
             </Form.Group>
             <Button variant="primary" type="submit" onClick={(e) => updateBeian(e)}>
               {t('settings.footerSubmit')}
@@ -670,7 +674,7 @@ function SettingBeian() {
           <Form>
             <Form.Group className="mb-3">
               <Form.Label>{t('settings.headerIcp')}</Form.Label>
-              <Form.Control as="input" defaultValue={siteTitle} placeholder={t('settings.headerHolder')} onChange={(e) => setSiteTitle(e.target.value)}/>
+              <Form.Control as="input" defaultValue={siteTitle} placeholder={t('settings.headerHolder')} onChange={(e) => setSiteTitle(e.target.value)} />
             </Form.Group>
             <Button variant="primary" type="submit" onClick={(e) => updateSiteTitle(e)}>
               {t('settings.headerSubmit')}
@@ -688,7 +692,7 @@ function SettingAuth() {
   const [noAuth, setNoAuth] = React.useState();
   const [searchParams] = useSearchParams();
   const handleError = useErrorHandler();
-  const {t} = useTranslation();
+  const { t } = useTranslation();
 
   React.useEffect(() => {
     const allowNoAuth = searchParams.get('allow-noauth') === 'true';
@@ -740,16 +744,22 @@ function SettingAuth() {
       <Accordion.Item eventKey="0">
         <Accordion.Header>{t('settings.authTitle')}</Accordion.Header>
         <Accordion.Body>
-          <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>{t('settings.authSecret')}</Form.Label>
-              <Form.Text> * {t('settings.authSecretTip')}</Form.Text>
-              <Form.Control as="input" defaultValue={secret} onChange={(e) => setSecret(e.target.value)}/>
-            </Form.Group>
-            <Button variant="primary" type="submit" onClick={(e) => updateSecret(e, true)}>
+
+          <Form onSubmit={(e) => updateSecret(e, true)}>
+            <div className="mb-3">
+              <span>{t('settings.authSecret')}</span>
+              <TipText> {t('settings.authSecretTip')}</TipText>
+              <SecretInput
+                value={secret}
+                onChange={(val) => setSecret(val)}
+              />
+
+            </div>
+            <Button variant="primary" type="submit">
               {t('settings.authSubmit')}
-            </Button> &nbsp;
+            </Button>
           </Form>
+
         </Accordion.Body>
       </Accordion.Item>
       {allowNoAuth && <>
@@ -789,13 +799,13 @@ function SettingHttps() {
   return !loading ? <SettingHttpsImpl config={config} /> : <></>;
 }
 
-function SettingHttpsImpl({config}) {
+function SettingHttpsImpl({ config }) {
   const [key, setKey] = React.useState(config.key);
   const [crt, setCrt] = React.useState(config.crt);
   const [domain, setDomain] = React.useState(config.domain);
   const [operating, setOperating] = React.useState(false);
   const handleError = useErrorHandler();
-  const {t} = useTranslation();
+  const { t } = useTranslation();
 
   const domainRegex = React.useMemo(() => {
     return /^(?=.{1,253})(?:(?!-)[A-Za-z0-9-]{1,63}(?<!-)\.?)+[A-Za-z]{2,6}$/;
@@ -809,10 +819,10 @@ function SettingHttpsImpl({config}) {
 
   const sslTutorials = useTutorials({
     bilibili: React.useRef([
-      {author: '程晓龙', id: 'BV1tZ4y1R7qp'},
+      { author: '程晓龙', id: 'BV1tZ4y1R7qp' },
     ]),
     medium: React.useRef([
-      {id: 'cb618777639f'},
+      { id: 'cb618777639f' },
     ])
   });
 
@@ -888,7 +898,7 @@ function SettingHttpsImpl({config}) {
               {t('settings.letsDomainSubmit')}
             </Button> &nbsp;
             <TutorialsButton prefixLine={true} tutorials={sslTutorials} /> &nbsp;
-            {operating && <Spinner animation="border" variant="success" style={{verticalAlign: 'middle'}} />}
+            {operating && <Spinner animation="border" variant="success" style={{ verticalAlign: 'middle' }} />}
           </Form>
         </Accordion.Body>
       </Accordion.Item>
@@ -910,7 +920,7 @@ function SettingHttpsImpl({config}) {
               {t('settings.sslFileSubmit')}
             </Button> &nbsp;
             <TutorialsButton prefixLine={true} tutorials={sslTutorials} /> &nbsp;
-            {operating && <Spinner animation="border" variant="success" style={{verticalAlign: 'middle'}} />}
+            {operating && <Spinner animation="border" variant="success" style={{ verticalAlign: 'middle' }} />}
           </Form>
         </Accordion.Body>
       </Accordion.Item>
@@ -920,8 +930,8 @@ function SettingHttpsImpl({config}) {
 
 function RunOpenAPI(props) {
   const [showResult, setShowResult] = React.useState();
-  const {t} = useTranslation();
-  const {apiSecret, api, data} = props;
+  const { t } = useTranslation();
+  const { apiSecret, api, data } = props;
 
   const onClick = React.useCallback((e) => {
     e.preventDefault();
@@ -956,7 +966,7 @@ function RunOpenAPI(props) {
         </Form.Group>
       }
       <Form.Group className="mb-3">
-        { showResult && <SrsErrorBoundary><OpenAPIResult {...props} /></SrsErrorBoundary> }
+        {showResult && <SrsErrorBoundary><OpenAPIResult {...props} /></SrsErrorBoundary>}
       </Form.Group>
       <Button variant="primary" type="submit" onClick={(e) => onClick(e)}>
         {showResult ? 'Reset' : 'Try it out'}
@@ -965,7 +975,7 @@ function RunOpenAPI(props) {
   );
 }
 
-function OpenAPIResult({apiSecret, api, data}) {
+function OpenAPIResult({ apiSecret, api, data }) {
   const [openAPIRes, setOpenAPIRes] = React.useState();
   const handleError = useErrorHandler();
 
@@ -984,7 +994,7 @@ function OpenAPIResult({apiSecret, api, data}) {
     <>
       <Form.Label>Response</Form.Label>
       <pre>
-      {JSON.stringify(openAPIRes, null, 2)}
+        {JSON.stringify(openAPIRes, null, 2)}
       </pre>
     </>
   );
