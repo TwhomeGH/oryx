@@ -4,6 +4,7 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\dev-server.ps1               # 平台自動偵測，開場景頁
 #   powershell -ExecutionPolicy Bypass -File scripts\dev-server.ps1 -Platform http://127.0.0.1:882  # Docker 映射端口
 #   powershell -ExecutionPolicy Bypass -File scripts\dev-server.ps1 -Port 4000    # 自訂 dev server 端口
+#   powershell -ExecutionPolicy Bypass -File scripts\dev-server.ps1 -Page console # 開啟控制台頁（等同舊 dev-console.ps1）
 #   powershell -ExecutionPolicy Bypass -File scripts\dev-server.ps1 -Page settings # 開啟系統配置頁
 #   powershell -ExecutionPolicy Bypass -File scripts\dev-server.ps1 -Page "scenario?tab=vlive" # 開啟虛擬直播頁
 #   powershell -ExecutionPolicy Bypass -File scripts\dev-server.ps1 -NoBrowser    # 不自動開瀏覽器
@@ -51,7 +52,7 @@ if (-not (Test-Path (Join-Path $uiDir "node_modules\vite"))) {
     Pop-Location
 }
 
-# 頁面路由對照表。
+# 頁面路由對照表。新增頁面時記得在這裡加一行。
 $pageMap = @{
     "scenario"   = "/mgmt/zh/routers-scenario"
     "settings"   = "/mgmt/zh/routers-settings"

@@ -196,32 +196,24 @@ npm run test                        # vitest
 
 ### 13.1 本地調試預覽
 
-console 需要連到真實平台後端才有資料。兩種方式：
+前端要連到真實平台後端才有資料。兩種方式：
 
 **方式一：一鍵腳本（推薦）**
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\dev-console.ps1
+powershell -ExecutionPolicy Bypass -File scripts\dev-server.ps1                # 預設開場景頁
+powershell -ExecutionPolicy Bypass -File scripts\dev-server.ps1 -Page console  # 開控制台
+powershell -ExecutionPolicy Bypass -File scripts\dev-server.ps1 -Page "scenario?tab=vlive"  # 開虛擬直播頁
+powershell -ExecutionPolicy Bypass -File scripts\dev-server.ps1 -Page settings # 系統配置
+powershell -ExecutionPolicy Bypass -File scripts\dev-server.ps1 -Page players  # 播放器目錄
 ```
 
 - 自動偵測平台端口（先試原生 `127.0.0.1:2022`，再試 Docker 映射 `882`）
 - 自動安裝缺漏的 UI 依賴（esbuild/rollup native module）
-- 啟動 Vite dev server 並自動開瀏覽器到 `http://localhost:3000/mgmt/zh/routers-console`
-- 可加參數：`-Platform http://127.0.0.1:882` 指定平台、`-Port 4000` 改端口、`-NoBrowser` 不開瀏覽器
-
-**通用版 dev server 工具（不限 console）：**
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\dev-server.ps1
-powershell -ExecutionPolicy Bypass -File scripts\dev-server.ps1 -Page scenario?tab=vlive   # 直接開虛擬直播頁
-powershell -ExecutionPolicy Bypass -File scripts\dev-server.ps1 -Page settings             # 系統配置
-powershell -ExecutionPolicy Bypass -File scripts\dev-server.ps1 -Page players              # 播放器目錄
-```
-
-- 與 `dev-console.ps1` 相同：自動偵測平台、自動裝依賴、自動開瀏覽器
-- 差別：`-Page` 參數控制開啟哪個頁面（`scenario`/`settings`/`console`/`components`/`contact`/`players`），預設場景頁
-- 頁面需指定 tab 時用 `-Page "scenario?tab=vlive"` 這種帶 query 的寫法
-- 新增頁面時記得在 `dev-server.ps1` 的 `$pageMap` 對照表加一行
+- 啟動 Vite dev server（port 3000）並自動開瀏覽器到指定頁面
+- `-Page` 可選：`scenario`（預設）/`settings`/`console`/`components`/`contact`/`players`；場景頁可帶 tab（如 `scenario?tab=vlive`）
+- 其他參數：`-Platform http://127.0.0.1:882` 指定平台、`-Port 4000` 改端口、`-NoBrowser` 不開瀏覽器
+- 新增頁面時記得在 `scripts\dev-server.ps1` 的 `$pageMap` 對照表加一行
 
 **方式二：手動**
 
