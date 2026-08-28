@@ -49,15 +49,13 @@ docker run --restart always -d --name oryx \
 
 ## 赞助
 
-想获得额外协助？成为 SRS 的赞助者或支持者，我们将提供所需支持：
+**本 fork 与上游 [ossrs/oryx](https://github.com/ossrs/oryx) 是独立项目，赞助渠道完全分开。**
 
-- Backer：每月 $5，Discord 在线文字聊天支持
-- Sponsor：每月 $100，每月 1 次 1 小时在线会议支持
+- **支持本 fork 的维护与开发**：Twitch 频道 <https://www.twitch.tv/coffeelatte0709/about>（订阅／打赏／bits 皆可）
+- **支持原项目 SRS**：原项目 [OpenCollective](https://opencollective.com/srs-server)
 
-请访问 [OpenCollective](https://opencollective.com/srs-server) 成为支持者或赞助者，
-并在 [Discord](https://discord.gg/bQUPDRqy79) 直接联系我们。
-
-我们期望建立一个非营利的开源社区，帮助全球开发者搭建属于自己的高质量直播与 RTC 平台。
+> 赞助原项目不会直接资助本 fork 的维护。若希望本 fork 持续改进，请使用上方 Twitch 管道。
+> 详细说明见 [Fork 定位与赞助管道](docs/fork-sponsorship.md)。
 
 ## 许可证
 

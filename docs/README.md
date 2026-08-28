@@ -5,6 +5,7 @@
 ## 索引
 
 - [部署指南](deploy-guide.md) — 部署入口：快速開始、埠對照、`/data` 目錄、環境變數，及部署相關文件一覽。
+- [Fork 定位與贊助管道](fork-sponsorship.md) — 本 fork 與上游的關係、贊助該給誰（本 fork vs 原 SRS）、兩者的定位差異。
 - [功能列表](features.md) — 已實現與規劃中的功能清單。
 - [FAQ 與教學資源](faq-tutorials.md) — 常見問題與各類使用場景的教學連結。
 - [PR 急救指南](pr-hygiene.md) — 分支改到亂七八糟時的重整手法（rebase -i/fixup/squash）＋通用交互工具 clean-commits.ps1。

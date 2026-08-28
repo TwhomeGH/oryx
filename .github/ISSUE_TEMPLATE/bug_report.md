@@ -7,13 +7,13 @@ assignees: ''
 
 ---
 
-!!! Before submitting a new bug report, make sure you have asked the [AI](https://github.com/ossrs/srs/blob/develop/skills/internal-docs-for-srs/references/cpp-docs/doc/getting-started-ai.md) about your issue, because we have set up the project with documentation for AI covering questions, usage, bugs, features, and workflows.
+!!! Before submitting a new bug report, please check the [docs](https://github.com/TwhomeGH/oryx/tree/main/docs) first, and search existing [Issues](https://github.com/TwhomeGH/oryx/issues) to avoid duplicates.
 
 **Describe the bug**
 A clear and concise description of what the bug is.
 
 **Version**
-Describe your Oryx version here.
+Describe your Oryx version here. (可以在管理界面「关于」页查看)
 
 **To Reproduce**
 Steps to reproduce the behavior:

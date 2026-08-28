@@ -1,13 +1,19 @@
-# These are supported funding model platforms
+# Supported funding model platforms
+#
+# 本 fork（TwhomeGH/oryx）是独立社区维护项目，与原项目 ossrs/oryx 的赞助渠道完全分开。
+# 赞助本 fork 请使用下方 custom 的 Twitch 频道（订阅/打赏/bits 都支持）。
+# 若想赞助原项目 SRS，请前往原项目的 OpenCollective（https://opencollective.com/srs-server）。
+#
+# 完整说明见 docs/fork-sponsorship.md
 
-github: # Replace with up to 4 GitHub Sponsors-enabled usernames e.g., [user1, user2]
-patreon: # Replace with a single Patreon username
-open_collective: srs-server # Replace with a single Open Collective username
-ko_fi: # Replace with a single Ko-fi username
-tidelift: # Replace with a single Tidelift platform-name/package-name e.g., npm/babel
-community_bridge: # Replace with a single Community Bridge project-name e.g., cloud-foundry
-liberapay: # Replace with a single Liberapay username
-issuehunt: # Replace with a single IssueHunt username
-otechie: # Replace with a single Otechie username
-lfx_crowdfunding: # Replace with a single LFX Crowdfunding project-name e.g., cloud-foundry
-custom: # Replace with up to 4 custom sponsorship URLs e.g., ['link1', 'link2']
+github: # GitHub Sponsors 用户名（如有自己的 Sponsors 页可填，例如 [TwhomeGH]）
+patreon: # Patreon 用户名
+open_collective: # 注意：本 fork 不使用原项目 srs-server 的 OpenCollective
+ko_fi: # Ko-fi 用户名
+tidelift: # Tidelift 平台/包名
+community_bridge: # Community Bridge 项目名
+liberapay: # Liberapay 用户名
+issuehunt: # IssueHunt 用户名
+otechie: # Otechie 用户名
+lfx_crowdfunding: # LFX Crowdfunding 项目名
+custom: ["https://www.twitch.tv/coffeelatte0709/about"]

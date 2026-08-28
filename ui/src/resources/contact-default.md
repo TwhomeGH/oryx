@@ -29,6 +29,14 @@
 
 - 直播／Discord 群：<https://www.twitch.tv/coffeelatte0709/about>
 
+## 贊助與支持
+
+> ⚠️ 本 fork 與原項目 [ossrs/oryx](https://github.com/ossrs/oryx) 是獨立項目，**贊助管道完全分開**。
+> 想支持本 fork 的維護，請使用下方管道；想支持原 SRS 則前往其 [OpenCollective](https://opencollective.com/srs-server)。
+
+- 支持本 fork：<https://www.twitch.tv/coffeelatte0709/about>（訂閱／打賞／bits）
+- 詳細說明見 [Fork 定位與贊助管道](https://github.com/TwhomeGH/oryx/blob/main/docs/fork-sponsorship.md)
+
 ## 自訂此頁面
 
 這是預設內容。在資料卷中建立 `contact.md` 即可替換本頁：
