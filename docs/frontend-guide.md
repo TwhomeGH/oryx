@@ -270,3 +270,5 @@ npm start
 **關鍵：`SRS_PLATFORM` 環境變數** — vite.config.mjs 的 dev proxy 預設指向 `127.0.0.1:2022`（原生端口）。若平台跑在 Docker（如 host `882→容器 2022`），`2022` 在 host 不可達，必須用 `SRS_PLATFORM` 指到映射端口，否則 `/api` `/terraform` 請求會 404。
 
 **提醒：** dev 模式 `%PUBLIC_URL%` 由 vite.config.mjs 的 `transformIndexHtml` hook 替換（build 模式走 `transform` hook），兩者都已處理，直接 `npm start` 即可。
+
+> 完整的前端調試/測試流程（Playwright E2E、無後端調試、常見排錯）見 [前端本地調試與測試指南](ui-debugging.md)。
