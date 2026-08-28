@@ -108,19 +108,19 @@
     }
 
     videoEl.classList.add('hidden');
-    if (!isPreview) {
-        var query = parse_query_string();
-        srs_init_rtc('#txt_url', query);
+    // Not preview mode: we already returned above when isPreview is true,
+    // so the normal (non-preview) initialization always runs here.
+    var query = parse_query_string();
+    srs_init_rtc('#txt_url', query);
 
-        document.getElementById('btn_play').addEventListener('click', function () {
-            videoEl.muted = false;
-            startPlay();
-        });
+    document.getElementById('btn_play').addEventListener('click', function () {
+        videoEl.muted = false;
+        startPlay();
+    });
 
-        if (query.autostart === 'true') {
-            videoEl.muted = true;
-            window.addEventListener('load', function () { startPlay(); });
-        }
+    if (query.autostart === 'true') {
+        videoEl.muted = true;
+        window.addEventListener('load', function () { startPlay(); });
     }
 })();
 </script>

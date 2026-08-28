@@ -198,9 +198,33 @@ CodeQL 後續掃描又報了一批，逐一核對後分三類處理：
 
 | Alert | 位置 | 原因 |
 |---|---|---|
-| #263-259 | 5 個 player 頁的 `if (isPreview)` | preview mode 設計：file:// 協定時載入佔位影片，非 preview 走正常流程，兩分支互斥但都需要 |
 | #252/251 | `pushdiag.html` 527/741 | 合法的 fallback/分支互斥邏輯（非 high profile 時 chroma 固定 1） |
 | #27 | `service.go` 518 | goroutine stack trace 只綁 `127.0.0.1:22022`（本機 debug server），不對外暴露 |
 
 > **經驗：** CodeQL 的 `js/xss-through-dom` 對「統計數字 → innerHTML」會保守報錯。最乾淨的解法是**統一跳脫**（如 badge()），而非逐個加 sanitize。
 > `go/unhandled-writable-file-close` 的修法已在第四批詳述，本批只是把相同模式套到其餘 3 個檔案。
+
+---
+
+## 第六批：preview mode 冗餘條件清理（#263-259）
+
+5 個 player 頁的 `if (isPreview)` 被 CodeQL 報為「useless conditional」（This negation always evaluates to true）。
+
+**根本原因：** 每個頁面都是這個模式：
+
+```js
+if (isPreview) {
+    ...載入佔位影片...
+    return;        // ← 早退
+}
+...
+if (!isPreview) {  // ← 冗餘！早退後 isPreview 恆為 false
+    ...初始化...
+}
+```
+
+頂部的 `if (isPreview) { ...; return; }` 已經把 preview 情況處理完並早退，執行到後面的程式碼時 `isPreview` 必然為 false，所以 `if (!isPreview)` 是多餘包覆（CodeQL 的判斷正確）。
+
+**修復：** 直接移除 `if (!isPreview)` 包覆，後面的初始化程式碼必然執行。檔案：`whep.html`、`whip.html`、`rtc_player.html`、`rtc_publisher.html`、`tools/player.html`。
+
+**驗證：** 語法全 OK；HTTP 模式下非 preview 初始化正常（URL 自動填入、按鈕存在、banner 隱藏）。preview（file://）模式邏輯不變（早退仍在）。

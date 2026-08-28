@@ -146,14 +146,13 @@
         if (e.key === 'Enter') document.getElementById('btn_play').click();
     });
 
-    // Auto-play from query string
-    if (!isPreview) {
-        var q = new URLSearchParams(location.search);
-        var resource = q.get('url');
-        if (resource) {
-            urlInput.value = resource;
-            play(resource);
-        }
+    // Auto-play from query string (not preview mode: we already returned above
+    // when isPreview is true, so this always runs here).
+    var q = new URLSearchParams(location.search);
+    var resource = q.get('url');
+    if (resource) {
+        urlInput.value = resource;
+        play(resource);
     }
 })();
 </script>
