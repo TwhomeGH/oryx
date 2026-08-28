@@ -461,7 +461,7 @@ function SrsClients({handleError}) {
             <th>ID</th>
             <th>IP</th>
             <th>{t('console.vhosts')}</th>
-            <th>{t('console.stream')}</th>
+            <th>{t('console.streams')}</th>
             <th>{t('console.type')}</th>
             <th>{t('console.duration')}</th>
             <th>URL</th>
