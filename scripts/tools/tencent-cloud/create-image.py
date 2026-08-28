@@ -39,7 +39,7 @@ while True:
     if len(info) != 1:
         raise Exception(f"Image {image_id} not found")
 
-    if info[0]['ImageState'] is 'NORMAL':
+    if info[0]['ImageState'] == 'NORMAL':
         break
 
     print(f"Image {image_id} state is {info[0]['ImageState']}, wait 5 seconds")

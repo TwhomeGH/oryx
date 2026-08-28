@@ -133,7 +133,7 @@ class oryx_main:
 
     # If not set site_created.
     def createSrsSite(self, args):
-        if 'domain' not in args or args.domain is '':
+        if 'domain' not in args or args.domain == '':
             self.__trace(f"Error: Empty Oryx domain.")
             return public.returnMsg(False, 'invalid domain')
 
@@ -196,7 +196,7 @@ class oryx_main:
     def __discover_path(self, general_path):
         real_path = None
         ok = public.ExecShell('ls {} >/dev/null 2>&1 && echo -n ok'.format(general_path))[0]
-        if ok is 'ok':
+        if ok == 'ok':
             real_path = public.ExecShell('ls {}'.format(general_path))[0]
         if real_path is not None:
             real_path = real_path.strip()

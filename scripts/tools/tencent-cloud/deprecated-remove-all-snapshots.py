@@ -32,7 +32,7 @@ for region in regions:
         images = snapshort['Images']
         print(f"Snapshot {snapshot_id}, Images={len(images)}, DiskId={snapshort['DiskId']}")
 
-        if len(images) is 0:
+        if len(images) == 0:
             tools.delete_snapshot_and_image(region, snapshot_id)
             print(f"Snapshot {snapshot_id}, Images={len(images)}, Deleted")
             time.sleep(1)
