@@ -8,7 +8,7 @@ import {useErrorHandler} from "react-error-boundary";
 import {MediaSource, Tools} from "../utils";
 import {useTranslation} from "react-i18next";
 import moment from "moment";
-import {Button, Col, Form, Row, ListGroup} from "react-bootstrap";
+import {Button, Col, Form, InputGroup, Row, ListGroup} from "react-bootstrap";
 import axios from "axios";
 
 export default function FileUploader({onFilesUploaded}) {
@@ -116,7 +116,6 @@ export default function FileUploader({onFilesUploaded}) {
 function FilePicker({accept, multiple, disabled, onChange}) {
   const {t} = useTranslation();
   const [filesToUpload, setFilesToUpload] = React.useState([]);
-  const [hover, setHover] = React.useState(false);
 
   const onUploadFile = React.useCallback((e) => {
     const files = [];
@@ -127,25 +126,15 @@ function FilePicker({accept, multiple, disabled, onChange}) {
 
   const filePickerId = `file-picker-${Math.random().toString(16).slice(-6)}`;
   return <>
-    <label htmlFor={filePickerId} style={{
-      cursor: 'pointer',
-      padding: '7px 12px 7px 12px',
-      backgroundColor: hover ? '#d9d9d9' : '#e9e9e9',
-      borderBottomLeftRadius: '5px',
-      borderTopLeftRadius: '5px'
-    }} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
-      {t('fp.label')}
-    </label>
-    <label htmlFor={filePickerId} style={{
-      cursor: 'pointer',
-      padding: '6px 130px 6px 10px',
-      backgroundColor: '#fefefe',
-      border: '1px solid #e0e0e0',
-      borderBottomRightRadius: '5px',
-      borderTopRightRadius: '5px'
-    }} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
-      {filesToUpload?.length ? filesToUpload.map(f => f.name).join(', ') : t('fp.nofile')}
-    </label>
+    <InputGroup>
+      <InputGroup.Text as="label" htmlFor={filePickerId} style={{cursor: 'pointer'}}>
+        {t('fp.label')}
+      </InputGroup.Text>
+      <Form.Control
+        readOnly
+        value={filesToUpload?.length ? filesToUpload.map(f => f.name).join(', ') : t('fp.nofile')}
+      />
+    </InputGroup>
     <Form.Control style={{display: 'none'}} id={filePickerId} type="file" accept={accept}
                   multiple={multiple} disabled={disabled} onChange={onUploadFile}/>
   </>;
