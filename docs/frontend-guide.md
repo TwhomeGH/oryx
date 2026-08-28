@@ -209,6 +209,20 @@ powershell -ExecutionPolicy Bypass -File scripts\dev-console.ps1
 - 啟動 Vite dev server 並自動開瀏覽器到 `http://localhost:3000/mgmt/zh/routers-console`
 - 可加參數：`-Platform http://127.0.0.1:882` 指定平台、`-Port 4000` 改端口、`-NoBrowser` 不開瀏覽器
 
+**通用版 dev server 工具（不限 console）：**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\dev-server.ps1
+powershell -ExecutionPolicy Bypass -File scripts\dev-server.ps1 -Page scenario?tab=vlive   # 直接開虛擬直播頁
+powershell -ExecutionPolicy Bypass -File scripts\dev-server.ps1 -Page settings             # 系統配置
+powershell -ExecutionPolicy Bypass -File scripts\dev-server.ps1 -Page players              # 播放器目錄
+```
+
+- 與 `dev-console.ps1` 相同：自動偵測平台、自動裝依賴、自動開瀏覽器
+- 差別：`-Page` 參數控制開啟哪個頁面（`scenario`/`settings`/`console`/`components`/`contact`/`players`），預設場景頁
+- 頁面需指定 tab 時用 `-Page "scenario?tab=vlive"` 這種帶 query 的寫法
+- 新增頁面時記得在 `dev-server.ps1` 的 `$pageMap` 對照表加一行
+
 **方式二：手動**
 
 ```powershell
