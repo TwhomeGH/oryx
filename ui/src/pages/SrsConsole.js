@@ -386,7 +386,7 @@ function SrsStreams({handleError}) {
             <th>ID</th>
             <th>{t('console.name')}</th>
             <th>URL</th>
-            <th>{t('console.vhost')}</th>
+            <th>{t('console.vhosts')}</th>
             <th>{t('console.status')}</th>
             <th>{t('console.clients')}</th>
             <th>{t('console.in')}</th>
@@ -460,7 +460,7 @@ function SrsClients({handleError}) {
           <tr>
             <th>ID</th>
             <th>IP</th>
-            <th>{t('console.vhost')}</th>
+            <th>{t('console.vhosts')}</th>
             <th>{t('console.stream')}</th>
             <th>{t('console.type')}</th>
             <th>{t('console.duration')}</th>
