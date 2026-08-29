@@ -371,7 +371,9 @@ function SrsStreams({handleError}) {
   }, [handleError]);
 
   const preview = React.useCallback((s) => {
-    const query = `vhost=${encodeURIComponent(s.ownerName)}&app=${encodeURIComponent(s.app)}&stream=${encodeURIComponent(s.name)}.flv&server=${window.location.hostname}&autostart=true`;
+    const schema = window.location.protocol.replace(':', '');
+    const port = window.location.port || (schema === 'https' ? '443' : '80');
+    const query = `schema=${schema}&port=${port}&vhost=${encodeURIComponent(s.ownerName)}&app=${encodeURIComponent(s.app)}&stream=${encodeURIComponent(s.name)}.flv&server=${window.location.hostname}&autostart=true`;
     window.open(`/players/srs_player.html?${query}`, '_blank');
   }, []);
 

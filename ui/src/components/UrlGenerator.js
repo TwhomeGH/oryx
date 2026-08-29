@@ -49,12 +49,6 @@ export function buildUrls(defaultUrl, secret, env) {
     urls.srtPlayUrl = `srt://${defaultHostname}${srtPort}?streamid=#!::r=${defaultApp}/${defaultStream},latency=20,m=request`;
   }
 
-  // Build console url.
-  if (true) {
-    urls.cnConsole = `/routers-console`;
-    urls.enConsole = `/routers-console`;
-  }
-
   // The player url.
   if (true) {
     const secretQuery = secret ? `?secret=${secret.publish}` : '';
@@ -65,10 +59,11 @@ export function buildUrls(defaultUrl, secret, env) {
     urls.m3u8Url = `${schema}://${defaultHostname}${httpUrlPort}/${defaultApp}/${defaultStream}.m3u8`;
     urls.rtcUrl = `webrtc://${defaultHostname}${httpUrlPort}/${defaultApp}/${defaultStream}`;
     urls.rtcPublishUrl = `webrtc://${defaultHostname}${httpUrlPort}/${defaultApp}/${defaultStream}${secretQuery}`;
-    // /tools/player.html?url=http://localhost:3000/live/livestream.m3u8
-    urls.flvPlayer = `/tools/player.html?url=${schema}://${defaultHostname}${httpUrlPort}/${defaultApp}/${defaultStream}.flv`;
-    urls.hlsPlayer = `/tools/player.html?url=${schema}://${defaultHostname}${httpUrlPort}/${defaultApp}/${defaultStream}.m3u8`;
-    urls.rtcPlayer = `/players/whep.html?schema=${schema}&port=${httpPort}&api=${httpPort}&autostart=true&stream=${defaultStream}`;
+    // The unified player page (FLV/HLS/DASH) at /players/srs_player.html,
+    // driven by structured params (schema/server/port/app/stream/autostart).
+    urls.flvPlayer = `/players/srs_player.html?schema=${schema}&port=${httpPort}&server=${encodeURIComponent(defaultHostname)}&app=${encodeURIComponent(defaultApp)}&stream=${encodeURIComponent(defaultStream)}.flv&autostart=true`;
+    urls.hlsPlayer = `/players/srs_player.html?schema=${schema}&port=${httpPort}&server=${encodeURIComponent(defaultHostname)}&app=${encodeURIComponent(defaultApp)}&stream=${encodeURIComponent(defaultStream)}.m3u8&autostart=true`;
+    urls.rtcPlayer = `/players/whep.html?schema=${schema}&port=${httpPort}&api=${httpPort}&autostart=true&app=${encodeURIComponent(defaultApp)}&stream=${encodeURIComponent(defaultStream)}`;
   }
 
   // For WebRTC url.
@@ -105,8 +100,6 @@ export default function useUrls() {
   const [m3u8Url, setM3u8Url] = React.useState();
   const [rtcUrl, setRtcUrl] = React.useState();
   const [rtcPublishUrl, setRtcPublishUrl] = React.useState();
-  const [cnConsole, setCnConsole] = React.useState();
-  const [enConsole, setEnConsole] = React.useState();
   const [flvPlayer, setFlvPlayer] = React.useState();
   const [hlsPlayer, setHlsPlayer] = React.useState();
   const [rtcPlayer, setRtcPlayer] = React.useState();
@@ -167,12 +160,6 @@ export default function useUrls() {
       setSrtPlayUrl(urls.srtPlayUrl);
     }
 
-    // Build console url.
-    if (true) {
-      setCnConsole(urls.cnConsole);
-      setEnConsole(urls.enConsole);
-    }
-
     // The player url.
     if (true) {
       setFlvUrl(urls.flvUrl);
@@ -217,8 +204,6 @@ export default function useUrls() {
     rtcUrl,
     rtcPublishUrl,
     // Web URLs.
-    cnConsole,
-    enConsole,
     flvPlayer,
     hlsPlayer,
     rtcPlayer,

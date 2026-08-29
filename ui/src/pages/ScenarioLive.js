@@ -41,10 +41,14 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
   const [searchParams] = useSearchParams();
   const {t} = useTranslation();
   const {
-    flvPlayer, rtmpServer, flvUrl, rtmpStreamKey, hlsPlayer, m3u8Url, rtcUrl, rtcPlayer, cnConsole, enConsole, rtcPublisher,
+    flvPlayer, rtmpServer, flvUrl, rtmpStreamKey, hlsPlayer, m3u8Url, rtcUrl, rtcPlayer, rtcPublisher,
     srtPublishUrl, srtPlayUrl, rtcPublishUrl, updateStreamName, whipUrl, whepUrl,
   } = urls;
   const env = React.useContext(SrsEnvContext)[0];
+
+  // The console is a React route under ${PUBLIC_URL}/${locale}/routers-console;
+  // resolve the locale from the current language so future locales work too.
+  const consoleUrl = `${window.PUBLIC_URL || ''}/${language}/routers-console`;
 
   const rtmpPublishUrl = `${rtmpServer}${rtmpStreamKey}`;
   const ffmpegPublishCli = `ffmpeg -re -i ~/git/srs/trunk/doc/source.flv -c copy -f flv ${rtmpPublishUrl}`;
@@ -221,7 +225,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
             </li>
             <li>
               {t('live.share.console')} &nbsp;
-              <a id="console" href={language === 'zh' ? cnConsole : enConsole}>{t('helper.link')}</a>
+              <a id="console" href={consoleUrl}>{t('helper.link')}</a>
             </li>
           </ol>
         </Accordion.Body>
@@ -318,7 +322,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
             </li>
             <li>
               {t('live.share.console')} &nbsp;
-              <a id="console" href={language === 'zh' ? cnConsole : enConsole}>{t('helper.link')}</a>
+              <a id="console" href={consoleUrl}>{t('helper.link')}</a>
             </li>
           </ol>
         </Accordion.Body>
@@ -440,7 +444,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
             </li>
             <li>
               {t('live.share.console')} &nbsp;
-              <a id="console" href={language === 'zh' ? cnConsole : enConsole}>{t('helper.link')}</a>
+              <a id="console" href={consoleUrl}>{t('helper.link')}</a>
             </li>
           </ol>
         </Accordion.Body>
@@ -567,7 +571,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
             </li>
             <li>
               {t('live.share.console')} &nbsp;
-              <a id="console" href={language === 'zh' ? cnConsole : enConsole}>{t('helper.link')}</a>
+              <a id="console" href={consoleUrl}>{t('helper.link')}</a>
             </li>
           </ol>
         </Accordion.Body>
@@ -674,7 +678,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
               </li>
               <li>
                 {t('live.share.console')} &nbsp;
-                <a id="console" href={language === 'zh' ? cnConsole : enConsole}>{t('helper.link')}</a>
+                <a id="console" href={consoleUrl}>{t('helper.link')}</a>
               </li>
             </React.Fragment>}
           </ol>
@@ -763,7 +767,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
             </li>
             <li>
               {t('live.share.console')} &nbsp;
-              <a id="console" href={language === 'zh' ? cnConsole : enConsole}>{t('helper.link')}</a>
+              <a id="console" href={consoleUrl}>{t('helper.link')}</a>
             </li>
           </ol>
         </Accordion.Body>

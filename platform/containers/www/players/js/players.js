@@ -96,11 +96,20 @@ function safePlay(el, url, type = 'video') {
 /** 初始化播放器並加錯誤處理 */
 function initPlayer(player, el, url, type = 'generic') {
     try {
-        player.attachMediaElement(el);
-        player.load();
-        player.play().catch(err => {
-            showError(`${type} play failed: ${err.message}`);
-        });
+        // mpegts.js (flv/ts) uses attachMediaElement/load/play; hls.js and
+        // dash.js attach+load the source in startPlay, so here we only start
+        // playback on the media element.
+        if (typeof player.attachMediaElement === 'function') {
+            player.attachMediaElement(el);
+            player.load();
+            player.play().catch(err => {
+                showError(`${type} play failed: ${err.message}`);
+            });
+        } else {
+            el.play().catch(err => {
+                showError(`${type} play failed: ${err.message}`);
+            });
+        }
 
         // 綁定錯誤事件
         if (type === 'hls' && player.on) {
