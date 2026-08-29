@@ -14,8 +14,11 @@ export function OpenAISecretSettings({baseURL, setBaseURL, secretKey, setSecretK
   const testConnection = React.useCallback(() => {
     if (!baseURL) return alert(`Invalid base url ${baseURL}`);
 
-    const urlPattern = new RegExp('^(http|https)://.+(/v1)$');
-    if (!urlPattern.test(baseURL)) return alert(`Invalid BaseUrl ${baseURL}, should be http(s)://your-server/v1`);
+    // Accept any http(s) base URL. Some OpenAI-compatible services use paths
+    // other than /v1 (e.g. Ollama, proxies with a prefix), so we only validate
+    // the scheme here and let the backend / browser surface real connection errors.
+    const urlPattern = new RegExp('^(http|https)://.+');
+    if (!urlPattern.test(baseURL)) return alert(`Invalid BaseUrl ${baseURL}, should be http(s)://your-server`);
 
     setChecking(true);
 

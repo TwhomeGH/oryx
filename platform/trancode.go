@@ -229,6 +229,10 @@ type TranscodeConfig struct {
 	VideoProfile string `json:"vprofile"`
 	// The video preset, for example, veryfast.
 	VideoPreset string `json:"vpreset"`
+	// The custom video codec parameters. When set, they override the fixed
+	// -vcodec/-profile/-preset/-tune/-bf arguments, so hardware encoders
+	// (e.g. h264_nvenc) can pass their own flags (like -preset:p p4).
+	CodecCustom string `json:"codecCustom"`
 	// The audio channels.
 	AudioChannels int `json:"achannels"`
 	// The RTMP server url, for example, rtmp://localhost/live
@@ -238,9 +242,9 @@ type TranscodeConfig struct {
 }
 
 func (v TranscodeConfig) String() string {
-	return fmt.Sprintf("all=%v, vcodec=%v, acodec=%v, vbitrate=%v, abitrate=%v, achannels=%v, vprofile=%v, vpreset=%v, server=%v, secret=%v",
+	return fmt.Sprintf("all=%v, vcodec=%v, acodec=%v, vbitrate=%v, abitrate=%v, achannels=%v, vprofile=%v, vpreset=%v, codecCustom=%v, server=%v, secret=%v",
 		v.All, v.VideoCodec, v.AudioCodec, v.VideoBitrate, v.AudioBitrate, v.AudioChannels, v.VideoProfile,
-		v.VideoPreset, v.Server, v.Secret,
+		v.VideoPreset, v.CodecCustom, v.Server, v.Secret,
 	)
 }
 
@@ -460,15 +464,25 @@ func (v *TranscodeTask) doTranscode(ctx context.Context, input *SrsStream) error
 	} else {
 		args = append(args, "-i", inputURL)
 	}
-	args = append(args,
-		"-vcodec", v.config.VideoCodec,
-		"-profile:v", v.config.VideoProfile,
-		"-preset:v", v.config.VideoPreset,
-		"-tune", "zerolatency", // Low latency mode.
-		"-b:v", fmt.Sprintf("%vk", v.config.VideoBitrate),
-		"-r", "25", "-g", "50", // Set gop to 2s.
-		"-bf", "0", // Disable B frame for WebRTC.
-		"-acodec", v.config.AudioCodec,
+	// If codecCustom is set, use it verbatim (e.g. "-c:v h264_nvenc -preset:p p4
+	// -tune ll -b:v 2M -maxrate 4M -bufsize 4M") instead of the fixed video
+	// arguments, so hardware encoders get their own flags. The bitrate is not
+	// part of codecCustom so it always follows the UI bitrate setting.
+	if v.config.CodecCustom != "" {
+		args = append(args, strings.Fields(v.config.CodecCustom)...)
+		args = append(args, "-b:v", fmt.Sprintf("%vk", v.config.VideoBitrate))
+	} else {
+		args = append(args,
+			"-vcodec", v.config.VideoCodec,
+			"-profile:v", v.config.VideoProfile,
+			"-preset:v", v.config.VideoPreset,
+			"-tune", "zerolatency", // Low latency mode.
+			"-b:v", fmt.Sprintf("%vk", v.config.VideoBitrate),
+			"-r", "25", "-g", "50", // Set gop to 2s.
+			"-bf", "0", // Disable B frame for WebRTC.
+		)
+	}
+	args = append(args, "-acodec", v.config.AudioCodec,
 		"-b:a", fmt.Sprintf("%vk", v.config.AudioBitrate),
 	)
 	if v.config.AudioChannels > 0 {

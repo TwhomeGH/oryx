@@ -276,7 +276,7 @@
         "abitrate": "音频码率",
         "abitrate2": "Kbps, 指定转码输出的音频的码率",
         "vcodec": "视频编码器",
-        "vcodec2": "暂时只支持软件编码器",
+        "vcodec2": "选择编码器，硬件编码需要服务器支持对应的 GPU",
         "vcodec3": "软件编码器(x264)",
         "vprofile": "视频编码配置",
         "vprofile2": "决定了编码的基础配置，和视频编码预设集一起决定了CPU消耗和视频质量",
@@ -299,7 +299,17 @@
         "server": "推流地址",
         "server2": "转码流输出的地址，可以是Oryx或其他直播流平台的地址",
         "key": "推流密钥",
-        "key2": "转码流输出的流密钥，可以是Oryx或其他直播流平台的流密钥"
+        "key2": "转码流输出的流密钥，可以是Oryx或其他直播流平台的流密钥",
+        "vcodecHref": "https://ffmpeg.org/ffmpeg-codecs.html",
+        "codec": {
+          "libx264": "H.264 软件编码 (libx264)",
+          "nvenc": "NVIDIA 硬件编码 (NVENC)",
+          "qsv": "Intel 硬件编码 (QSV)",
+          "vaapi": "VAAPI 硬件编码",
+          "amf": "AMD 硬件编码 (AMF)",
+          "custom": "自定义（专家）"
+        },
+        "codecCustom": "自定义参数（专家）"
       },
       "status": {
         "header": "转码状态",

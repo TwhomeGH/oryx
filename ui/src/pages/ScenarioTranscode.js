@@ -45,13 +45,40 @@ function ScenarioTranscodeImpl({activeKey, urls, defaultEnabled, defaultConf}) {
   const [transcodeEnabled, setTranscodeEnabled] = React.useState(defaultEnabled);
   const [vbitrate, setVbitrate] = React.useState(defaultConf.vbitrate || 1200);
   const [abitrate, setAbitrate] = React.useState(defaultConf.abitrate || 64);
-  const [vcodec, setVcodec] = React.useState(defaultConf.vcodec || 'libx264');
+  const vcodec = defaultConf.vcodec || 'libx264';
   const [vprofile, setVprofile] = React.useState(defaultConf.vprofile || 'baseline');
   const [vpreset, setVpreset] = React.useState(defaultConf.vpreset || 'faster');
+  const [codecCustom, setCodecCustom] = React.useState(defaultConf.codecCustom || '');
   const [acodec, setAcodec] = React.useState(defaultConf.acodec || 'aac');
   const [achannels, setAchannels] = React.useState(defaultConf.achannels || 0);
   const [server, setServer] = React.useState(defaultConf.server || urls.rtmpServer);
   const [secret, setSecret] = React.useState((defaultConf.server || defaultConf.secret) ? defaultConf.secret : urls.transcodeStreamKey);
+
+  // Encoding presets; hardware options are enabled only when the server-side
+  // capability probe confirms the encoder actually works on this machine.
+  const CODEC_PRESETS = [
+    {key: 'libx264',      need: 'libx264',    value: ''},
+    {key: 'nvenc',        need: 'h264_nvenc', value: '-c:v h264_nvenc -preset:p p4 -tune ll -maxrate 4M -bufsize 4M'},
+    {key: 'qsv',          need: 'h264_qsv',   value: '-c:v h264_qsv -preset veryfast -maxrate 4M -bufsize 4M'},
+    {key: 'vaapi',        need: 'h264_vaapi', value: '-c:v h264_vaapi -maxrate 4M -bufsize 4M'},
+    {key: 'amf',          need: 'h264_amf',   value: '-c:v h264_amf -quality quality -maxrate 4M -bufsize 4M'},
+  ];
+  const [codecPreset, setCodecPreset] = React.useState(() => {
+    const hit = CODEC_PRESETS.find(p => p.value === (defaultConf.codecCustom || ''));
+    return hit ? hit.key : 'custom';
+  });
+
+  // FFmpeg encoder capabilities, to enable/disable hardware presets.
+  const [ffCaps, setFfCaps] = React.useState();
+  React.useEffect(() => {
+    axios.post('/terraform/v1/mgmt/ffmpeg/capabilities', {}, {
+      headers: Token.loadBearerHeader(),
+    }).then(res => {
+      setFfCaps(res.data.data);
+    }).catch(e => {
+      console.log('ignore error during ffmpeg capabilities', e);
+    });
+  }, []);
 
   const [task, setTask] = React.useState();
   const [taskInputUrls, setTaskInputUrls] = React.useState();
@@ -96,25 +123,27 @@ function ScenarioTranscodeImpl({activeKey, urls, defaultEnabled, defaultConf}) {
   const updateTranscodeStatus = React.useCallback((enabled, success) => {
     if (!vbitrate || vbitrate < 100 || vbitrate > 100*1000) return alert(`Invalid vbitrate ${vbitrate}, should be in [100, 100000] Kbps`);
     if (!abitrate || abitrate < 10 || abitrate > 1000) return alert(`Invalid abitrate ${abitrate}, should be in [10, 1000] Kbps`);
-    if (!vcodec || vcodec !== 'libx264') return alert(`Invalid vcodec ${vcodec}, should be libx264`);
-    if (!vprofile || !['baseline', 'main', 'high'].includes(vprofile)) return alert(`Invalid vprofile ${vprofile}, should be in [baseline, main, high]`);
-    if (!vpreset || !['ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium', 'slow'].includes(vpreset)) return alert(`Invalid vpreset ${vpreset}, should be in [ultrafast, superfast, veryfast, faster, fast, medium, slow]`);
+    if (codecPreset === 'libx264') {
+      if (!vcodec || vcodec !== 'libx264') return alert(`Invalid vcodec ${vcodec}, should be libx264`);
+      if (!vprofile || !['baseline', 'main', 'high'].includes(vprofile)) return alert(`Invalid vprofile ${vprofile}, should be in [baseline, main, high]`);
+      if (!vpreset || !['ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium', 'slow'].includes(vpreset)) return alert(`Invalid vpreset ${vpreset}, should be in [ultrafast, superfast, veryfast, faster, fast, medium, slow]`);
+    }
     if (!acodec || acodec !== 'aac') return alert(`Invalid acodec ${acodec}, should be aac`);
     if (achannels === undefined || achannels === null || achannels === '') return alert(`Invalid achannels ${achannels}, should not empty`);
     if (![0, 1, 2].includes(achannels)) return alert(`Invalid achannels ${achannels}, should be in [0, 1, 2]`);
     if (!server && !secret) return alert(`Invalid server ${server} and key ${secret}`);
 
     axios.post('/terraform/v1/ffmpeg/transcode/apply', {
-      all: enabled, vcodec, acodec, vbitrate, abitrate, achannels: achannels, vprofile, vpreset,
+      all: enabled, vcodec, acodec, vbitrate, abitrate, achannels: achannels, vprofile, vpreset, codecCustom,
       server, secret,
     }, {
       headers: Token.loadBearerHeader(),
     }).then(res => {
       alert(t('helper.setOk'));
-      console.log(`Transcode: Apply patterns ok, all=${enabled}, vbitrate=${vbitrate}, abitrate=${abitrate}, vcodec=${vcodec}, vprofile=${vprofile}, vpreset=${vpreset}, acodec=${acodec}, server=${server}, secret=${secret}`);
+      console.log(`Transcode: Apply patterns ok, all=${enabled}, vbitrate=${vbitrate}, abitrate=${abitrate}, vcodec=${vcodec}, vprofile=${vprofile}, vpreset=${vpreset}, codecCustom=${codecCustom}, acodec=${acodec}, server=${server}, secret=${secret}`);
       success && success();
     }).catch(handleError);
-  }, [handleError, t, vbitrate, abitrate, achannels, vcodec, vprofile, vpreset, acodec, server, secret]);
+  }, [handleError, t, vbitrate, abitrate, achannels, vcodec, vprofile, vpreset, codecCustom, codecPreset, acodec, server, secret]);
 
   return (
     <Accordion defaultActiveKey={[activeKey]}>
@@ -180,13 +209,38 @@ function ScenarioTranscodeImpl({activeKey, urls, defaultEnabled, defaultConf}) {
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label>{t('transcode.config.vcodec')}</Form.Label>
-              <Form.Text> * {t('transcode.config.vcodec2')}</Form.Text>
-              <Form.Select defaultValue={vcodec} onChange={(e) => setVcodec(e.target.value)}>
-                <option value="">--{t('helper.noSelect')}--</option>
-                <option value="libx264">{t('transcode.config.vcodec3')}</option>
+              <Form.Text> * {t('transcode.config.vcodec2')}. &nbsp;
+                {t('helper.see')} <a href={t('transcode.config.vcodecHref')} target='_blank' rel='noreferrer'>FFmpeg: video codec</a>.
+              </Form.Text>
+              <Form.Select value={codecPreset} onChange={(e) => {
+                const key = e.target.value;
+                setCodecPreset(key);
+                const preset = CODEC_PRESETS.find(p => p.key === key);
+                if (preset) setCodecCustom(preset.value);
+              }}>
+                {CODEC_PRESETS.map(p => {
+                  const enc = (ffCaps?.encoders || []).find(c => c.name === p.need);
+                  const ok = !ffCaps || !enc || enc.ok;
+                  return (
+                    <option key={p.key} value={p.key} disabled={!ok}>
+                      {t(`transcode.config.codec.${p.key}`)}{!ok ? ` (${t('transcript.codecNeedGpu')})` : ''}
+                    </option>
+                  );
+                })}
+                <option value="custom">{t('transcode.config.codecCustom')}</option>
               </Form.Select>
+              {codecPreset === 'custom' ? (
+                <Form.Control className="mt-2" as="input" defaultValue={codecCustom}
+                  placeholder="-c:v h264_nvenc -preset:p p4 -tune ll"
+                  onChange={(e) => setCodecCustom(e.target.value)} />
+              ) : (
+                <Form.Text className="d-block mt-2 text-muted">
+                  {codecCustom || '-c:v ' + vcodec + ' -profile:v ' + vprofile + ' -preset:v ' + vpreset + ' -tune zerolatency -bf 0'}
+                  {' -b:v ' + vbitrate + 'k'}
+                </Form.Text>
+              )}
             </Form.Group>
-            <Form.Group className="mb-3">
+            {codecPreset === 'libx264' && <Form.Group className="mb-3">
               <Form.Label>{t('transcode.config.vprofile')}</Form.Label>
               <Form.Text> * {t('transcode.config.vprofile2')}</Form.Text>
               <Form.Select defaultValue={vprofile} onChange={(e) => setVprofile(e.target.value)}>
@@ -195,8 +249,8 @@ function ScenarioTranscodeImpl({activeKey, urls, defaultEnabled, defaultConf}) {
                 <option value="main">{t('transcode.config.vprofile4')}</option>
                 <option value="high">{t('transcode.config.vprofile5')}</option>
               </Form.Select>
-            </Form.Group>
-            <Form.Group className="mb-3">
+            </Form.Group>}
+            {codecPreset === 'libx264' && <Form.Group className="mb-3">
               <Form.Label>{t('transcode.config.vpreset')}</Form.Label>
               <Form.Text> * {t('transcode.config.vpreset2')}</Form.Text>
               <Form.Select defaultValue={vpreset} onChange={(e) => setVpreset(e.target.value)}>
@@ -209,7 +263,7 @@ function ScenarioTranscodeImpl({activeKey, urls, defaultEnabled, defaultConf}) {
                 <option value="medium">Medium</option>
                 <option value="slow">Slow({t('transcode.config.vpreset5')})</option>
               </Form.Select>
-            </Form.Group>
+            </Form.Group>}
             <Form.Group className="mb-3">
               <Form.Label>{t('transcode.config.acodec')}</Form.Label>
               <Form.Text> * {t('transcode.config.acodec2')}</Form.Text>

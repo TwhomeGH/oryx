@@ -180,6 +180,17 @@ provider / asr / overlay / webvtt。新增分區＝加一個 `{configItem === 'x
 樣板（probe 函式回傳 `{name, ok, detail}` 陣列）。**重探測的按鈕要有**，
 且避免自動輪詢（每次探測都會 spawn 進程）。
 
+### 9.1 能力探測應用於表單（ScenarioTranscode 範例）
+
+不只是組件頁，**表單下拉也可以用能力探測啟用/禁用選項**。轉碼頁（ScenarioTranscode.js）的「视频编码器」下拉即是一例：
+
+- `CODEC_PRESETS` 列出編碼器（libx264 / nvenc / qsv / vaapi / amf），每個含 `need`（FFmpeg encoder 名）
+- 前端 `POST /terraform/v1/mgmt/ffmpeg/capabilities` 取得 `ffCaps.encoders`，找不到或 `ok=false` 的選項 `disabled`
+- 選了硬體 preset（如 nvenc）時：**顯示實際 codec 參數**（唯讀 `-c:v h264_nvenc ...`），並隱藏不適用的 profile/preset 下拉
+- 「自定义（专家）」選項顯示可編輯輸入框，直接填 FFmpeg 參數
+
+**後端對應：** trancode.go 的 `TranscodeConfig.CodecCustom` — 非空時用 `strings.Fields(codecCustom)` 取代固定 `-vcodec/-profile/-preset/-tune/-bf` 參數，讓硬體編碼器傳自己的旗標（如 `-preset:p p4`）。bitrate 不屬於 codecCustom，統一由 UI 的 `-b:v <bitrate>k` 控制。
+
 ## 10. Vite 特殊事項
 
 | 主題 | 說明 |

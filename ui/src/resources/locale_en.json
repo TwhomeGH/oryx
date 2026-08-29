@@ -449,13 +449,23 @@
         "vprofile2": "Sets basic encoding settings, influenced by preset, affecting CPU usage and video quality.",
         "vprofile": "Video Encoder Profile",
         "vcodec3": "Software(x264)",
-        "vcodec2": "Currently only supports software encoders",
+        "vcodec2": "Choose an encoder; hardware encoders need the server GPU to support them",
         "vcodec": "Video Encoder",
         "abitrate2": "Kbps, the output audio bitrate for transcoding",
         "abitrate": "Audio Bitrate",
         "vbitrate2": "Kbps, the output video bitrate for transcoding",
         "vbitrate": "Video Bitrate",
-        "header": "Transcode Config"
+        "header": "Transcode Config",
+        "vcodecHref": "https://ffmpeg.org/ffmpeg-codecs.html",
+        "codec": {
+          "libx264": "H.264 software (libx264)",
+          "nvenc": "NVIDIA hardware (NVENC)",
+          "qsv": "Intel hardware (QSV)",
+          "vaapi": "VAAPI hardware",
+          "amf": "AMD hardware (AMF)",
+          "custom": "Custom (expert)"
+        },
+        "codecCustom": "Custom parameters (expert)"
       }
     },
     "setup": {
