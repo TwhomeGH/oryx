@@ -95,9 +95,9 @@ type AsrBadWordConfig struct {
 
 ## 4. 命名與擴展準則
 
-1. **Key 一律用 `SRS_` 前綴的大寫常數**，集中在 `platform/utils.go` 的 const 區塊，並在 §2 表格補一行。
+1. **Key 一律用 `SRS_` 前綴的大寫常數**，集中在 `platform/utils.go` 的 const 區塊，並在「第 2 節 Key 總覽」對應分組的表格補一行。
 2. 設定用 `*_CONFIG`、任務用 `*_TASK`，成對出現。
 3. Hash 的 field 是業務主鍵；「全域單例」型設定用 `global`。
 4. 值能 JSON 就 JSON（方便除錯/遷移），別拆欄位存多個 key。
 5. 刪除時用 `HDel` + `redis.Nil` 容錯；`*_TASK` 常與 worker goroutine 綁定，刪 config 後記得停任務。
-6. **不要**重複造輪子——先查 §2 是否已有語意相同的 key。
+6. **不要**重複造輪子——先查第 2 節「Key 總覽」是否已有語意相同的 key。
