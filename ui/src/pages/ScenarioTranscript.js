@@ -377,12 +377,12 @@ function ScenarioTranscriptImpl({activeKey, defaultEnabled, defaultConf, default
               </Card.Body>}
               {configItem === 'asr' && <Card.Body>
                 <Form.Group className="mb-3">
-                  <Form.Label>{t('transcript.lang')}</Form.Label>
+                  <Form.Label htmlFor="transcript-target-language">{t('transcript.lang')}</Form.Label>
                   <Form.Text> * {t('transcript.lang2')}. &nbsp;
                     {t('helper.eg')} <code>en, zh, fr, de, ja, ru </code>, ... &nbsp;
                     {t('helper.see')} <a href='https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes' target='_blank' rel='noreferrer'>ISO-639-1</a>.
                   </Form.Text>
-                  <Form.Control as="input" defaultValue={targetLanguage} onChange={(e) => setTargetLanguage(e.target.value)} />
+                  <Form.Control id="transcript-target-language" as="input" defaultValue={targetLanguage} onChange={(e) => setTargetLanguage(e.target.value)} />
                 </Form.Group>
               </Card.Body>}
               {configItem === 'overlay' && <Card.Body>
@@ -392,18 +392,18 @@ function ScenarioTranscriptImpl({activeKey, defaultEnabled, defaultConf, default
                   </Form.Group>
                 </Form.Group>
                 <Form.Group className="mb-3">
-                  <Form.Label>{t('transcript.fstyle')}</Form.Label>
+                  <Form.Label htmlFor="transcript-force-style">{t('transcript.fstyle')}</Form.Label>
                   <Form.Text> * {t('transcript.fstyle2')}. &nbsp;
                     {t('helper.see')} <a href={t('transcript.fstyle3')} target='_blank' rel='noreferrer'>FFmpeg: force_style</a>.
                   </Form.Text>
-                  <Form.Control as="input" defaultValue={forceStyle} onChange={(e) => setForceStyle(e.target.value)} />
+                  <Form.Control id="transcript-force-style" as="input" defaultValue={forceStyle} onChange={(e) => setForceStyle(e.target.value)} />
                 </Form.Group>
                 <Form.Group className="mb-3">
-                  <Form.Label>{t('transcript.trans0')}</Form.Label>
+                  <Form.Label htmlFor="transcript-codec-preset">{t('transcript.trans0')}</Form.Label>
                   <Form.Text> * {t('transcript.trans1')}. &nbsp;
                     {t('helper.see')} <a href={t('transcript.trans2')} target='_blank' rel='noreferrer'>FFmpeg: video codec</a>.
                   </Form.Text>
-                  <Form.Select value={codecPreset} onChange={(e) => {
+                  <Form.Select id="transcript-codec-preset" value={codecPreset} onChange={(e) => {
                     const key = e.target.value;
                     setCodecPreset(key);
                     const preset = CODEC_PRESETS.find(p => p.key === key);
@@ -420,9 +420,13 @@ function ScenarioTranscriptImpl({activeKey, defaultEnabled, defaultConf, default
                     })}
                     <option value="custom">{t('transcript.codecCustom')}</option>
                   </Form.Select>
-                  {codecPreset === 'custom' && (
-                    <Form.Control className="mt-2" as="input" defaultValue={videoCodecParams}
+                  {codecPreset === 'custom' ? (
+                    <Form.Control id="transcript-codec-custom" className="mt-2" as="input" defaultValue={videoCodecParams}
                       onChange={(e) => setVideoCodecParams(e.target.value)} />
+                  ) : (
+                    <Form.Text className="d-block mt-2 text-muted">
+                      {videoCodecParams}
+                    </Form.Text>
                   )}
                 </Form.Group>
               </Card.Body>}
@@ -433,18 +437,18 @@ function ScenarioTranscriptImpl({activeKey, defaultEnabled, defaultConf, default
                   </Form.Group>
                 </Form.Group>
                 <Form.Group className="mb-3">
-                  <Form.Label>{t('transcript.vttcuesettings')}</Form.Label>
+                  <Form.Label htmlFor="transcript-vtt-cue">{t('transcript.vttcuesettings')}</Form.Label>
                   <Form.Text> * {t('transcript.vttcuesettings1')}. &nbsp;
                     {t('helper.see')} <a href={t('transcript.vtthref2')} target='_blank' rel='noreferrer'>WebVTT Cues Settings</a>.
                   </Form.Text>
-                  <Form.Control as="input" defaultValue={webvttCueSetting} onChange={(e) => setWebvttCueSetting(e.target.value)} />
+                  <Form.Control id="transcript-vtt-cue" as="input" defaultValue={webvttCueSetting} onChange={(e) => setWebvttCueSetting(e.target.value)} />
                 </Form.Group>
                 <Form.Group className="mb-3">
-                  <Form.Label>{t('transcript.vttstyle')}</Form.Label>
+                  <Form.Label htmlFor="transcript-vtt-style">{t('transcript.vttstyle')}</Form.Label>
                   <Form.Text> * {t('transcript.vttstyle1')}. &nbsp;
                     {t('helper.see')} <a href={t('transcript.vtthref1')} target='_blank' rel='noreferrer'>WebVTT Cues Style</a>.
                   </Form.Text>
-                  <Form.Control as="textarea" defaultValue={webvttCueStyle} onChange={(e) => setWebvttCueStyle(e.target.value)} />
+                  <Form.Control id="transcript-vtt-style" as="textarea" defaultValue={webvttCueStyle} onChange={(e) => setWebvttCueStyle(e.target.value)} />
                 </Form.Group>
               </Card.Body>}
             </Card>
