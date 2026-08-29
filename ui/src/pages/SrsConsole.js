@@ -146,7 +146,11 @@ function fmtVideo(v) {
 
 function fmtAudio(a) {
   if (!a) return '-';
-  const ch = a.stereo ? 'stereo' : (a.channels ? `${a.channels}ch` : 'mono');
+  // SRS 7 streams API reports the channel count as "channel" (singular);
+  // keep "channels" as a fallback for older SRS versions. "stereo" is never
+  // sent by SRS, so it must not be used to decide mono/stereo.
+  const chans = a.channels !== undefined ? a.channels : a.channel;
+  const ch = chans === 2 ? 'stereo' : chans === 1 ? 'mono' : (chans ? `${chans}ch` : '?');
   return `${a.codec || ''} ${a.sample_rate || ''} ${ch} ${a.profile || ''}`.trim() || '-';
 }
 
