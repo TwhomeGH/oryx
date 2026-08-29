@@ -334,7 +334,8 @@
       "key2": "Please input the secret key for AI service provider",
       "key": "OpenAI Secret Key",
       "service": "Service Settings",
-      "title": "Transcript"
+      "title": "Transcript",
+      "codecCustom": "Custom (expert)"
     },
     "cb": {
       "res": "Last response from target",
