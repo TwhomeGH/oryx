@@ -198,7 +198,8 @@ CodeQL 後續掃描又報了一批，逐一核對後分三類處理：
 
 | Alert | 位置 | 處理 |
 |---|---|---|
-| #252/251 | `pushdiag.html` 527/741 | 誤報：合法的 fallback/分支互斥邏輯（非 high profile 時 chroma 固定 1），保留 |
+| #251 | `pushdiag.html` 527 | 誤報：合法的 fallback 邏輯（非 high profile 時 chroma 固定 1），保留 |
+| #252 | `pushdiag.html` 741 | **已修**：`avcInfo = 'AVC seq header (SPS)'` 是死賦值（row.detail 已設 'SPS/PPS'）。移除死賦值，並讓 SPS 行的 detail 顯示解析度/Profile/Level（如 `SPS/PPS 1280×720 High L3.1`） |
 | #27 | `service.go` 512-528 | **已加固**：`/terraform/v1/debug/goroutines` 原本只綁 `127.0.0.1:22022`（loopback），第六批又加了 `Authenticate` 驗證（需 `Authorization: Bearer <SRS_PLATFORM_SECRET>`），即使誤綁到非 loopback 也不洩漏 stack trace |
 
 > **經驗：** CodeQL 的 `js/xss-through-dom` 對「統計數字 → innerHTML」會保守報錯。最乾淨的解法是**統一跳脫**（如 badge()），而非逐個加 sanitize。

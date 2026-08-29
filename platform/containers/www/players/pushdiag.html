@@ -738,8 +738,11 @@ function handleTag(type, ts, data) {
         var sps = data.subarray(13, 13 + spsLen);
         state.sps = parseSPS(sps);
         state.naluLenSize = (data[9] & 0x03) + 1;
-        avcInfo = 'AVC seq header (SPS)';
         row.detail = 'SPS/PPS';
+        if (state.sps) {
+          var profileName = ({ 66: 'Baseline', 77: 'Main', 100: 'High' })[state.sps.profileIdc] || ('Profile ' + state.sps.profileIdc);
+          row.detail += ' ' + state.sps.width + '×' + state.sps.height + ' ' + profileName + ' L' + (state.sps.levelIdc / 10).toFixed(1);
+        }
       } else if (avcPacketType === 1) {
         var nalLenSize = state.naluLenSize || 4;
         var nalOff = 5 + nalLenSize;
