@@ -144,8 +144,7 @@ func (v *OCRWorker) Handle(ctx context.Context, handler *http.ServeMux) error {
 
 			// Query model detail. Note that some OpenAI-compatible servers do not
 			// implement the models API, so we only warn on failure.
-			var config openai.ClientConfig
-			config = openai.DefaultConfig(ocrConfig.AISecretKey)
+			config := openai.DefaultConfig(ocrConfig.AISecretKey)
 			config.BaseURL = ocrConfig.AIBaseURL
 
 			ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
@@ -1006,16 +1005,12 @@ func (v *OCRTask) OnTsSegment(ctx context.Context, msg *SrsOnHlsObject) error {
 		return nil
 	}
 
-	func() {
-		// We must not update the queue, when persistence goroutine is working.
-		v.lock.Lock()
-		v.lock.Unlock()
-
-		v.LiveQueue.enqueue(&OCRSegment{
-			Msg:    msg.Msg,
-			TsFile: msg.TsFile,
-		})
-	}()
+	// The OCRQueue methods (enqueue/count/first/dequeue) are all internally
+	// mutex-protected, so no extra lock is needed here.
+	v.LiveQueue.enqueue(&OCRSegment{
+		Msg:    msg.Msg,
+		TsFile: msg.TsFile,
+	})
 
 	// Notify the main loop to persistent current task.
 	v.notifyPersistence(ctx)
@@ -1222,8 +1217,7 @@ func (v *OCRTask) DriveOCRQueue(ctx context.Context) error {
 	}
 
 	// Convert the image file to text by AI.
-	var config openai.ClientConfig
-	config = openai.DefaultConfig(v.config.AISecretKey)
+	config := openai.DefaultConfig(v.config.AISecretKey)
 	config.BaseURL = v.config.AIBaseURL
 	config.OrgID = v.config.AIOrganization
 

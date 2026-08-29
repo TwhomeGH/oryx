@@ -141,8 +141,7 @@ func (v *TranscriptWorker) Handle(ctx context.Context, handler *http.ServeMux) e
 			// Query the ASR model detail. Note that some OpenAI-compatible servers
 			// (e.g., Ollama, one-api) do not implement the models API, so we only
 			// warn on failure instead of blocking the feature.
-			var config openai.ClientConfig
-			config = openai.DefaultConfig(transcriptConfig.SecretKey)
+			config := openai.DefaultConfig(transcriptConfig.SecretKey)
 			config.BaseURL = transcriptConfig.BaseURL
 
 			ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
@@ -661,12 +660,12 @@ func (v *TranscriptWorker) Handle(ctx context.Context, handler *http.ServeMux) e
 			}
 
 			var vttBody strings.Builder
-			vttBody.WriteString(fmt.Sprintf("WEBVTT\n\n"))
+			vttBody.WriteString("WEBVTT\n\n")
 			// Insert the CSS rules into the WebVTT file to set the cue style
 			// But the color setting only takes effect in Safari browser
 			if v.task.config.WebVTTCueStyle != "" {
-				vttBody.WriteString(fmt.Sprintf("%s", v.task.config.WebVTTCueStyle))
-				vttBody.WriteString(fmt.Sprintf("\n\n"))
+				vttBody.WriteString(v.task.config.WebVTTCueStyle)
+				vttBody.WriteString("\n\n")
 			}
 			for _, as := range segment.AsrText.Segments {
 				s := segment.StreamStarttime + time.Duration(as.Start*float64(time.Second))
@@ -1708,8 +1707,7 @@ func (v *TranscriptTask) DriveAsrQueue(ctx context.Context) (r0 error) {
 	}
 
 	// Convert the audio file to text by AI.
-	var config openai.ClientConfig
-	config = openai.DefaultConfig(v.config.SecretKey)
+	config := openai.DefaultConfig(v.config.SecretKey)
 	config.BaseURL = v.config.BaseURL
 	config.OrgID = v.config.Organization
 
@@ -1752,7 +1750,7 @@ func (v *TranscriptTask) DriveAsrQueue(ctx context.Context) (r0 error) {
 		return errors.Wrapf(err, "parse format %v", stdout)
 	}
 
-	if stv, err := strconv.ParseFloat(format.Format.Starttime, 10); err == nil {
+	if stv, err := strconv.ParseFloat(format.Format.Starttime, 64); err == nil {
 		segment.StreamStarttime = time.Duration(stv * float64(time.Second))
 	}
 

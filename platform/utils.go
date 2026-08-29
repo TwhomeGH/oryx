@@ -588,7 +588,7 @@ func refreshIPv4(ctx context.Context) error {
 		}
 
 		var bestMatch string
-		for name, _ := range candidates {
+		for name := range candidates {
 			if strings.HasPrefix(name, "en") || strings.HasPrefix(name, "eth") {
 				bestMatch = name
 				break
@@ -596,7 +596,7 @@ func refreshIPv4(ctx context.Context) error {
 		}
 
 		if bestMatch == "" {
-			for name, _ := range candidates {
+			for name := range candidates {
 				bestMatch = name
 				break
 			}
@@ -1633,7 +1633,7 @@ func httpAllowCORS(w http.ResponseWriter, r *http.Request) {
 }
 
 // httpCreateProxy create a reverse proxy for target URL.
-func httpCreateProxy(targetURL string) (*httputil.ReverseProxy, error) {
+func httpCreateProxy(targetURL string, modifyResponses ...func(resp *http.Response) error) (*httputil.ReverseProxy, error) {
 	target, err := url.Parse(targetURL)
 	if err != nil {
 		return nil, errors.Wrapf(err, "parse backend %v", targetURL)
@@ -1654,43 +1654,45 @@ func httpCreateProxy(targetURL string) (*httputil.ReverseProxy, error) {
 		// Not used right now.
 		resp.Header.Del("Access-Control-Request-Private-Network")
 
+		// Run optional body modifiers, e.g. rewriting the SDP port.
+		for _, modifyResponse := range modifyResponses {
+			if modifyResponse == nil {
+				continue
+			}
+			if err := modifyResponse(resp); err != nil {
+				return errors.Wrapf(err, "modify response")
+			}
+		}
+
 		return nil
 	}
 
 	return proxy, nil
 }
 
-// whxpResponseModifier is the response modifier for WHIP or WHEP proxy.
-type whxpResponseModifier struct {
-	w http.ResponseWriter
-}
-
-func (w *whxpResponseModifier) Header() http.Header {
-	return w.w.Header()
-}
-
-func (w *whxpResponseModifier) Write(b []byte) (int, error) {
-	// TODO: FIXME: Should pass the rtc port to WHIP/WHEP api, because the port maybe not the same length to 8000,
-	//  for example, 80, 443, 18000, etc, in such case, the sdp length will change.
-
-	// Convert the env port to an int with strict validation and fallback to
-	// 8000. Only a validated integer is ever written back into the SDP, so
-	// the raw env string can never be reflected (no XSS / injection surface).
+// modifySdpRtcPort rewrites the RTC candidate port in a WHIP/WHEP SDP
+// response. SDP is protocol data (Content-Type: application/sdp, never
+// HTML), and the replacement port is a validated integer from safePort().
+func modifySdpRtcPort(resp *http.Response) error {
+	// Only rewrite a successful SDP response.
+	if resp.StatusCode != http.StatusOK || !strings.Contains(resp.Header.Get("Content-Type"), "sdp") {
+		return nil
+	}
 	port := safePort()
 	if port == 8000 {
-		return w.w.Write(b)
+		return nil
 	}
 
-	// The SDP is protocol data (Content-Type: application/sdp), never HTML.
-	// Rewrite the candidate port in place with a validated integer, so no
-	// user-controlled string can ever reach the HTTP response.
-	sdp := bytes.ReplaceAll(b, []byte(" 8000 "), []byte(fmt.Sprintf(" %v ", port)))
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	sdp := bytes.ReplaceAll(body, []byte(" 8000 "), []byte(fmt.Sprintf(" %v ", port)))
+	resp.Body = io.NopCloser(bytes.NewReader(sdp))
+	resp.ContentLength = int64(len(sdp))
 
-	return w.w.Write(sdp)
-}
-
-func (w *whxpResponseModifier) WriteHeader(statusCode int) {
-	w.w.WriteHeader(statusCode)
+	return nil
 }
 
 // FFprobeFormat is the format object in ffprobe response.

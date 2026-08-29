@@ -471,7 +471,7 @@ type DvrM3u8Stream struct {
 	lock sync.Mutex
 }
 
-func (v DvrM3u8Stream) String() string {
+func (v *DvrM3u8Stream) String() string {
 	return fmt.Sprintf("url=%v, uuid=%v, done=%v, update=%v, messages=%v",
 		v.M3u8URL, v.UUID, v.Done, v.Update, len(v.Messages),
 	)

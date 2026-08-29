@@ -379,7 +379,7 @@ func handleHTTPService(ctx context.Context, handler *http.ServeMux) error {
 		return err
 	}
 
-	proxyWhxp, err := httpCreateProxy("http://" + os.Getenv("SRS_HOST") + ":1985")
+	proxyWhxp, err := httpCreateProxy("http://"+os.Getenv("SRS_HOST")+":1985", modifySdpRtcPort)
 	if err != nil {
 		return err
 	}
@@ -440,18 +440,18 @@ func handleHTTPService(ctx context.Context, handler *http.ServeMux) error {
 				starttime := time.Now()
 				if ip, err := candidateWorker.Resolve(host); err != nil {
 					logger.Ef(ctx, "Proxy %v to backend 1985, resolve %v/%v failed, cost=%v, err is %v",
-						r.URL.Path, r.Host, host, time.Now().Sub(starttime), err)
+						r.URL.Path, r.Host, host, time.Since(starttime), err)
 					ohttp.WriteError(ctx, w, r, err)
 					return
 				} else if ip != nil {
 					eip = ip.String()
 					r.URL.RawQuery += fmt.Sprintf("&eip=%v", eip)
 					logger.Tf(ctx, "Proxy %v to backend 1985, host=%v/%v, resolved ip=%v, cost=%v, query is %v",
-						r.URL.Path, r.Host, host, eip, time.Now().Sub(starttime), r.URL.RawQuery)
+						r.URL.Path, r.Host, host, eip, time.Since(starttime), r.URL.RawQuery)
 				}
 			}
 
-			proxyWhxp.ServeHTTP(&whxpResponseModifier{w}, r)
+			proxyWhxp.ServeHTTP(w, r)
 			return
 		}
 

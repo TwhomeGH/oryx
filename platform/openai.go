@@ -6,17 +6,11 @@ package main
 import "strings"
 
 func gptModelSupportSystem(model string) bool {
-	if strings.HasPrefix(model, "o1-") {
-		return false
-	}
-	return true
+	return !strings.HasPrefix(model, "o1-")
 }
 
 func gptModelSupportStream(model string) bool {
-	if strings.HasPrefix(model, "o1-") {
-		return false
-	}
-	return true
+	return !strings.HasPrefix(model, "o1-")
 }
 
 func gptModelSupportMaxTokens(model string, maxTokens int) int {

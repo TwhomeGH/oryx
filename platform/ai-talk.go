@@ -1856,6 +1856,9 @@ func handleAITalkService(ctx context.Context, handler *http.ServeMux) error {
 
 			// Do chat, get the response in stream.
 			chatTaskCtx, chatTaskCancel := context.WithCancel(context.Background())
+			// Always cancel to release the goroutine, no matter which branch
+			// we take below (merge to next conversation, chat disabled, etc).
+			defer chatTaskCancel()
 			if !mergeToNextConversation && stage.aiChatEnabled {
 				chatService := &openaiChatService{
 					conf: stage.aiConfig,

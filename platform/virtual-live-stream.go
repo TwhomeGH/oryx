@@ -542,7 +542,7 @@ func (v *VLiveWorker) Handle(ctx context.Context, handler *http.ServeMux) error 
 				if _, err := os.Stat(targetFileName); err == nil {
 					os.Remove(targetFileName)
 					logger.Wf(ctx, "remove %v, done=%v, created=%v, duration=%v, elapsed=%v",
-						targetFileName, uploadDone, created, duration, time.Now().Sub(created))
+						targetFileName, uploadDone, created, duration, time.Since(created))
 				}
 			}()
 
@@ -584,7 +584,7 @@ func (v *VLiveWorker) Handle(ctx context.Context, handler *http.ServeMux) error 
 				} else {
 					written += nn
 					logger.Tf(ctx, "vLive: Finish part for %v, nn=%v, writen=%v, cost=%v",
-						targetFileName, nn, written, time.Now().Sub(partStarttime),
+						targetFileName, nn, written, time.Since(partStarttime),
 					)
 				}
 			}
@@ -600,7 +600,7 @@ func (v *VLiveWorker) Handle(ctx context.Context, handler *http.ServeMux) error 
 			}{
 				UUID: targetUUID, Target: targetFileName,
 			})
-			logger.Tf(ctx, "vLive: Got vlive target=%v, size=%v, done=%v, cost=%v", targetFileName, written, uploadDone, time.Now().Sub(starttime))
+			logger.Tf(ctx, "vLive: Got vlive target=%v, size=%v, done=%v, cost=%v", targetFileName, written, uploadDone, time.Since(starttime))
 			return nil
 		}(logger.WithContext(ctx)); err != nil {
 			ohttp.WriteError(ctx, w, r, err)
