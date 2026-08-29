@@ -309,8 +309,6 @@
       "lang": "Language",
       "badword": "ASR Badword",
       "badword2": "Configure ASR result filter words (badcase), drop the segment when matched",
-      "badwordZh": "Chinese badwords",
-      "badwordEn": "English badwords",
       "badwordTip": "One word per line, grouped by language. Defaults include common closing/thanks phrases; add or remove freely",
       "badwordAddLang": "Add language",
       "badwordAdd": "Add",
