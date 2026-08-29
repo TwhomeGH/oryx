@@ -41,17 +41,10 @@ WORKDIR /g
 RUN export SRS_NO_LINT=1 && \
     make clean && make -j ${MAKEARGS} && make install
 
-# Use UPX to compress the binary.
-# https://serverfault.com/questions/949991/how-to-install-tzdata-on-a-ubuntu-docker-image
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update -y && apt-get install -y upx
-
-RUN echo "Before UPX for $TARGETARCH" && \
-    ls -lh /usr/local/srs/objs/srs /usr/local/oryx/platform/platform && \
-    upx --best --lzma /usr/local/srs/objs/srs && \
-    upx --best --lzma /usr/local/oryx/platform/platform && \
-    echo "After UPX for $TARGETARCH" && \
-    ls -lh /usr/local/srs/objs/srs /usr/local/oryx/platform/platform
+# UPX compression (--best --lzma) of the srs/platform binaries was removed:
+# UPX-LZMA self-extraction crashes intermittently at process startup on
+# GitHub Actions runner kernels (zero output, non-zero exit), which took down
+# the CI integration test ("Start SRS failed"). See docs/local-test.md#FAQ.
 
 # For youtube-dl, see https://github.com/ytdl-org/ytdl-nightly
 FROM ${ARCH}python:3.9-slim-bullseye AS ytdl

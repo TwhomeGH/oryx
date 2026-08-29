@@ -24,7 +24,7 @@ docker build -t oryx:local .
 ```
 
 這會在容器內依序完成：npm 安裝與 lint → 建置中文/英文 UI → 編譯 Go 平台 →
-UPX 壓縮 → 打包最終映像。
+打包最終映像。
 
 | 情境 | 預計耗時 |
 |---|---|
@@ -34,7 +34,13 @@ UPX 壓縮 → 打包最終映像。
 
 > 注意：所有原始碼是在**同一個 RUN 層**裡編譯的，所以任何 Go/UI 檔案變動
 > 都會重新觸發整個 make（含 UI）。Docker 快取主要省下的是基底映像、apt、
-> UPX、youtube-dl 那些前置層。
+> youtube-dl 那些前置層。
+
+> 2026-08：Dockerfile 已**移除 UPX 壓縮**（`upx --best --lzma` 那段）。
+> 原因：UPX-LZMA 壓縮的 `srs`/`platform` binary 在程序啟動時自解壓，
+> 在 GitHub Actions runner kernel 上會偶發 SIGSEGV（零輸出立即退出），
+> 導致 CI 整合測試偶發失敗（`Start SRS failed`）。詳細見
+> [local-test.md 常見問題](local-test.md)。
 
 ## 把本地映像套到 compose
 

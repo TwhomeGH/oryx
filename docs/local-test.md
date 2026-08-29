@@ -149,6 +149,23 @@ Windows 上 `ffmpeg`/`ffprobe` 需在 PATH 中（WinGet 安裝後自動滿足）
 - `SRS_PLATFORM_SECRET` 由平台啟動時自動生成，存於 Redis
 - 測試的 auto-init 邏輯會從 init 回應中取得 `bearer` 並更新 `*apiSecret`
 
+### CI 失敗：`Start SRS failed` / `Get SRS_PLATFORM_SECRET failed`
+
+如果 CI 的 docker.log 顯示 SRS 啟動失敗（`Run srs-server` 之後**零輸出**就退出、
+沒有 `objs/srs.pid`），但本機跑同樣映像卻正常，最可能是 **UPX 壓縮的 binary
+在 runner 上自解壓崩潰**：
+
+- 舊版 Dockerfile 會對 `srs` 和 `platform` binary 做 `upx --best --lzma` 壓縮。
+- UPX-LZMA 的 binary 在**程序啟動時自解壓**，在某些 runner kernel / memory
+  layout 下會瞬間 SIGSEGV，症狀就是「零輸出立刻退出」。
+- 這是 **flaky**：同一個 image 在 A runner 正常、B runner 崩潰，所以 CI 會
+  偶發失敗且每次掛的 job 不一定（ZH/EN 都中過）。
+- 本機（WSL2 / 本機 Docker）因為 kernel 不同，通常複製不出來。
+
+解法：Dockerfile 已移除 UPX 壓縮步驟（`upx --best --lzma` 那一段），重新 build
+映像後 binary 不再自解壓，即可消除這類偶發崩潰。若又看到類似症狀，先檢查
+Dockerfile 是否把 UPX 加回去了。
+
 ## 常見問題
 
 ### `file ffmpeg not found`
