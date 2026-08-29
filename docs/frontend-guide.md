@@ -242,6 +242,8 @@ npm run test                        # vitest
 
 **⚠️ API 回應結構不一致：** SRS HTTP API 的 summaries 包在 `data`，但 vhosts/streams/clients/raw 在頂層。`srsApi()` helper 返回完整 envelope，呼叫端自行取欄位，勿統一 unwrap。
 
+**⚠️ SRS 欄位名稱跟直覺不同：** `/api/v1/streams/` 的 audio 物件用**單數** `channel`（如 `audio.channel: 2`），且**沒有** `stereo` 欄位。`fmtAudio()` 曾誤讀複數 `channels`、並檢查不存在的 `stereo`，導致所有流都顯示成 `mono`（d3fe529 修正）。接 SRS 原生 API 時以實測 JSON 為準，別憑欄位名猜——`/api/v1/versions` 免驗證，可用來快速撈回真實結構。
+
 **輪詢：** Overview/Vhosts/Streams/Clients 每 3 秒更新（`setTimeout` 自重排，非 `setInterval`，避免重疊）。
 
 **修改提示：** 加 tab → 在 `SrsConsoleImpl` 的 `<Tabs>` 加 `<Tab>`，並在 `locale.json` 的 `console` 區塊補中英文。
