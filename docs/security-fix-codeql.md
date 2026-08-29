@@ -198,7 +198,7 @@ CodeQL 後續掃描又報了一批，逐一核對後分三類處理：
 
 | Alert | 位置 | 處理 |
 |---|---|---|
-| #251 | `pushdiag.html` 527 | 誤報：合法的 fallback 邏輯（非 high profile 時 chroma 固定 1），保留 |
+| #251 | `pushdiag.html` 527 | **已修**：SPS 的 `chroma_format_idc`（色彩格式）。原本先設預設 1 再在 High profile 分支覆蓋（CodeQL 誤判「initial value unused」）。改用三元運算子在宣告時決定（High profile 才讀 bitstream），並把結果回傳 + 在 videoInfo 面板顯示色彩格式（4:2:0/4:2:2/4:4:4） |
 | #252 | `pushdiag.html` 741 | **已修**：`avcInfo = 'AVC seq header (SPS)'` 是死賦值（row.detail 已設 'SPS/PPS'）。移除死賦值，並讓 SPS 行的 detail 顯示解析度/Profile/Level（如 `SPS/PPS 1280×720 High L3.1`） |
 | #27 | `service.go` 512-528 | **已加固**：`/terraform/v1/debug/goroutines` 原本只綁 `127.0.0.1:22022`（loopback），第六批又加了 `Authenticate` 驗證（需 `Authorization: Bearer <SRS_PLATFORM_SECRET>`），即使誤綁到非 loopback 也不洩漏 stack trace |
 

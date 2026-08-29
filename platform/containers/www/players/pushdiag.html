@@ -524,9 +524,12 @@ function parseSPS(sps) {
     br.ue();
 
     var highProfiles = [100, 110, 122, 244, 44, 83, 86, 118, 128, 138, 139, 134, 135];
-    var chromaFormatIdc = 1;
-    if (highProfiles.indexOf(profileIdc) >= 0) {
-      chromaFormatIdc = br.ue();
+    var isHighProfile = highProfiles.indexOf(profileIdc) >= 0;
+    // chroma_format_idc: default 1 (4:2:0) for non-High profiles; High profiles
+    // carry it in the bitstream, so it must be read. It feeds the scaling-list
+    // count below and is also returned for display (4:2:0/4:2:2/4:4:4).
+    var chromaFormatIdc = isHighProfile ? br.ue() : 1;
+    if (isHighProfile) {
       if (chromaFormatIdc === 3) br.readBits(1);
       br.ue(); br.ue(); br.readBits(1);
       if (br.readBits(1)) {
@@ -584,7 +587,7 @@ function parseSPS(sps) {
         if (numUnits) fps = timeScale / (2 * numUnits);
       }
     }
-    return { width: width, height: height, profileIdc: profileIdc, levelIdc: levelIdc, fps: fps };
+    return { width: width, height: height, profileIdc: profileIdc, levelIdc: levelIdc, fps: fps, chromaFormatIdc: chromaFormatIdc };
   } catch (e) {
     return null;
   }
@@ -924,6 +927,7 @@ function renderVideoCard() {
   if (state.sps) {
     rows.push(infoRow('解析度', state.sps.width + ' × ' + state.sps.height));
     rows.push(infoRow('Profile', ({ 66: 'Baseline', 77: 'Main', 100: 'High' })[state.sps.profileIdc] || state.sps.profileIdc));
+    rows.push(infoRow('色彩格式', ({ 0: '4:0:0', 1: '4:2:0', 2: '4:2:2', 3: '4:4:4' })[state.sps.chromaFormatIdc] || ('choma=' + state.sps.chromaFormatIdc)));
     rows.push(infoRow('Level', (state.sps.levelIdc / 10).toFixed(1)));
     if (state.sps.fps) rows.push(infoRow('FPS (VUI)', state.sps.fps.toFixed(2)));
   }
