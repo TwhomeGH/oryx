@@ -73,7 +73,11 @@ function build_default_flv_url() {
 
     var schema = (!query.schema) ? "http" : query.schema;
     var server = (!query.server) ? window.location.hostname : query.server;
-    var port = (!query.port) ? (schema === "http" ? 8080 : 1935) : Number(query.port);
+    // Default to the current page's port (e.g. a custom HTTP port), instead
+    // of hardcoding SRS's default 8080, so opening the page directly on any
+    // deployment points at the right server.
+    var currentPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
+    var port = (!query.port) ? Number(schema === "http" ? currentPort : 1935) : Number(query.port);
     var vhost = (!query.vhost) ? window.location.hostname : query.vhost;
     var app = (!query.app) ? "live" : query.app;
     var stream = (!query.stream) ? "livestream.flv" : query.stream;
@@ -101,7 +105,10 @@ function build_default_rtc_url(query) {
     var vhost = (!query.vhost) ? window.location.hostname : query.vhost;
     var app = (!query.app) ? "live" : query.app;
     var stream = (!query.stream) ? "livestream" : query.stream;
-    var api = query.api ? ':' + query.api : '';
+    // The /rtc/ API is proxied by the platform on the current page's port,
+    // so default to it instead of SRS's default 1985.
+    var currentPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
+    var api = query.api ? ':' + query.api : ':' + currentPort;
 
     var queries = [];
     if (server !== vhost && vhost !== "__defaultVhost__") {
@@ -125,7 +132,10 @@ function build_default_whip_whep_url(query, apiPath) {
     var vhost = (!query.vhost) ? window.location.hostname : query.vhost;
     var app = (!query.app) ? "live" : query.app;
     var stream = (!query.stream) ? "livestream" : query.stream;
-    var api = ':' + (query.api || (window.location.protocol === 'http:' ? '1985' : '1990'));
+    // The /rtc/ API is proxied by the platform on the current page's port,
+    // so default to it instead of SRS's default 1985/1990.
+    var currentPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
+    var api = ':' + (query.api || currentPort);
     var realApiPath = query.path || apiPath;
 
     var queries = [];
