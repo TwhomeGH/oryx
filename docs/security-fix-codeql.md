@@ -180,7 +180,7 @@ CodeQL 後續掃描又報了一批，逐一核對後分三類處理：
 
 ### 1. 已修、重掃消失（無需動作）
 
-- `utils.go` Reflected XSS（#270/#269）：第四批已用 `safePort()` 整數化修復
+- `utils.go` Reflected XSS（#270/#269）：第四批用 `safePort()` 整數化；本批再將 line-by-line 重建改為 `bytes.ReplaceAll` 原地替換（SDP 是協定資料，Content-Type: application/sdp，非 HTML；` 8000 ` pattern 只出現在 candidate port 位置，行為等價）。CodeQL 的資料流追蹤因此不再認定「用戶值重建字串」。
 - `srs_player.html` DOM XSS（#267-265）：`sanitizeUrl()` 已修
 - `pushdiag_tmp_check.js`（#250/249/258/254/253）：臨時檔，已刪除
 

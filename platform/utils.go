@@ -4,7 +4,7 @@
 package main
 
 import (
-	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -1681,21 +1681,12 @@ func (w *whxpResponseModifier) Write(b []byte) (int, error) {
 		return w.w.Write(b)
 	}
 
-	// line by line 處理，替換 candidate 裡的 port
-	scan := bufio.NewScanner(strings.NewReader(string(b)))
-	var lines []string
-	for scan.Scan() {
-		line := scan.Text()
-		if strings.Contains(line, "candidate") {
-			line = strings.ReplaceAll(line, " 8000 ", fmt.Sprintf(" %v ", port))
-		}
-		lines = append(lines, line)
-	}
+	// The SDP is protocol data (Content-Type: application/sdp), never HTML.
+	// Rewrite the candidate port in place with a validated integer, so no
+	// user-controlled string can ever reach the HTTP response.
+	sdp := bytes.ReplaceAll(b, []byte(" 8000 "), []byte(fmt.Sprintf(" %v ", port)))
 
-	// Join lines with "\r\n"
-	sdp := strings.Join(lines, "\r\n") + "\r\n"
-
-	return w.w.Write([]byte(sdp))
+	return w.w.Write(sdp)
 }
 
 func (w *whxpResponseModifier) WriteHeader(statusCode int) {
