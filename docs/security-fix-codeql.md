@@ -229,3 +229,72 @@ if (!isPreview) {  // ← 冗餘！早退後 isPreview 恆為 false
 **修復：** 直接移除 `if (!isPreview)` 包覆，後面的初始化程式碼必然執行。檔案：`whep.html`、`whip.html`、`rtc_player.html`、`rtc_publisher.html`、`tools/player.html`。
 
 **驗證：** 語法全 OK；HTTP 模式下非 preview 初始化正常（URL 自動填入、按鈕存在、banner 隱藏）。preview（file://）模式邏輯不變（早退仍在）。
+
+---
+
+## 第七批：近期 Go 品質與可維護性修正（2026-08）
+
+本批不是 CodeQL alert，而是配合 `GOOS=linux` 的 gopls / vet / staticcheck 分析，
+清理長期累積的 Go 品質問題，並修掉兩個潛在 bug。
+
+### 1. Reflected XSS 根治（CodeQL #272/#273）
+
+`whxpResponseModifier`（自訂 `ResponseWriter`）在 `Write()` 直接寫回上游 proxy body，
+被 `go/reflected-xss` 判定為「user-provided value 進 HTTP 回應」，前幾批的 regex /
+整數驗證都無法消除。**根治**：改用 `httputil.ReverseProxy.ModifyResponse` 在 proxy
+內部重寫 WHIP/WHEP SDP 的 RTC port（`modifySdpRtcPort`），**徹底移除自訂
+`ResponseWriter`**——被 flag 的 sink 整個消失，與 proxy1985/8080（原本就沒被報）
+的 pattern 一致。行為等價：只在成功且 Content-Type 含 `sdp` 時，用 `safePort()`
+驗證過的整數重寫 port。檔案：`platform/utils.go`、`platform/service.go`。
+
+### 2. 潛在 bug：`strconv.ParseFloat` bitSize 錯誤（staticcheck SA1030）
+
+`transcript.go` 原本 `strconv.ParseFloat(format.Format.Starttime, 10)`——`bitSize`
+**只能是 32 或 64**，傳 10 會直接 panic。改為 `64`（符合原意，float64）。
+
+### 3. 潛在 bug：空的 critical section（staticcheck SA2001）
+
+`ocr.go` 的 `OnTsSegment` 原本 `v.lock.Lock(); v.lock.Unlock()` 中間沒保護任何東西
+（queue 的方法已內建 lock），是空的鎖區段。移除多餘 lock，直接 enqueue。
+
+### 4. copylocks：value receiver 複製含 Mutex 的 struct（go vet）
+
+`RecordM3u8Stream` / `DvrM3u8Stream` / `VodM3u8Stream` 的 `String()` 用 value receiver，
+會複製含 `sync.Mutex` 的 struct。改為 pointer receiver。檔案：`dvr-local-disk.go`、
+`dvr-tencent-cos.go`、`dvr-tencent-vod.go`。
+
+### 5. context leak：`chatTaskCancel` 未在所有分支呼叫（go vet）
+
+`ai-talk.go` 的 `context.WithCancel` 若走 merge 或 chat-disabled 分支，cancel 從不呼叫。
+建立後立即 `defer chatTaskCancel()`。
+
+### 6. gopls diagnostics 清理（GOOS=linux 下 39 條 info）
+
+- **unused parameter（24 條）**：未用參數改 `_`（保留簽名）。涵蓋 `discoverSource` /
+  `discoverRegistry` / `buildVodM3u8` 系列、各 Dvr/Vod/Record `updateArtifact`/
+  `finishArtifact`/`addMessage`、`probeFFmpegDevices` / `queryLatestVersion`、
+  transcript/ocr 的 `reset`/`restart`/`clearSubtitle`、`httpAllowCORS` 等。
+- **redundant type from composite literal（7 條）**：`[]*T{&T{...}}` 簡化 `[]*T{{...}}`。
+- **unused write to field Data（1 條）**：`dubbing.go` 建立 `audio.IntBuffer` 後只用
+  `Format`，移除未讀的 `Data` 初始化。
+- **impossible condition: non-nil == nil（1 條）**：`dubbing.go` 的 `nextGroup == nil`
+  在前一行已判 nil，冗餘檢查移除。
+- **time.Now().Sub → time.Since（5 處）**：`service.go`、`virtual-live-stream.go`。
+
+### 7. 驗證方法（重要）
+
+VSCode 預設 gopls 用 Windows target，很多 Linux 才有的問題看不到。本機透過
+`.vscode/settings.json` 設定 `gopls.env.GOOS=linux`。CLI 驗證：
+
+```powershell
+cd platform
+$env:GOOS="linux"; $env:GOARCH="amd64"
+go build ./...        # 編譯
+go vet ./...          # vet
+# staticcheck（需 Go 1.26 容器）：
+docker run --rm -v "F:\oryx:/oryx" -w /oryx/platform golang:1.26 sh -c "go run honnef.co/go/tools/cmd/staticcheck@v0.8.0 ./..."
+# gopls 完整診斷（含 info 層級建議）：
+$files = Get-ChildItem *.go | ? { $_.Name -notmatch '_test|vendor' } | % { $_.FullName }
+gopls check -severity=hint $files
+```
+
