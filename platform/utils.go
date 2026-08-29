@@ -190,7 +190,7 @@ func discoverRegion(ctx context.Context) (cloud, region string, err error) {
 	return
 }
 
-func discoverSource(ctx context.Context, cloud, region string) (source string, err error) {
+func discoverSource(_ context.Context, cloud, region string) (source string, err error) {
 	switch cloud {
 	case "DEV", "BT", "BIN", "DOCKER":
 		return "gitee", nil
@@ -208,7 +208,7 @@ func discoverSource(ctx context.Context, cloud, region string) (source string, e
 	return "github", nil
 }
 
-func discoverRegistry(ctx context.Context, source string) (registry string, err error) {
+func discoverRegistry(_ context.Context, source string) (registry string, err error) {
 	if source == "github" {
 		return "docker.io", nil
 	}
@@ -302,6 +302,8 @@ const (
 	// For OCR.
 	SRS_OCR_CONFIG = "SRS_OCR_CONFIG"
 	SRS_OCR_TASK   = "SRS_OCR_TASK"
+	// For ASR badword (badcase) filtering.
+	SRS_ASR_BADWORD = "SRS_ASR_BADWORD"
 	// For SRS stream status.
 	SRS_STREAM_ACTIVE     = "SRS_STREAM_ACTIVE"
 	SRS_STREAM_SRT_ACTIVE = "SRS_STREAM_SRT_ACTIVE"
@@ -735,7 +737,7 @@ func srsGenerateConfig(ctx context.Context) error {
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Fetch the reload result, the ID which represents the reload transaction.
-	fetchReload := func(ctx context.Context) (string, error) {
+	fetchReload := func(_ context.Context) (string, error) {
 		// TODO: FIXME: Remove it after SRS merged https://github.com/ossrs/srs/pull/3768
 		return time.Now().String(), nil
 
@@ -948,7 +950,7 @@ func nginxGenerateConfig(ctx context.Context) (r0 error) {
 
 // buildVodM3u8 go generate dynamic m3u8.
 func buildVodM3u8(
-	ctx context.Context, metadata *M3u8VoDArtifact, absUrl bool, domain string, useKey bool, prefix string,
+	_ context.Context, metadata *M3u8VoDArtifact, absUrl bool, domain string, useKey bool, prefix string,
 ) (
 	contentType, m3u8Body string, duration float64, err error,
 ) {
@@ -1021,7 +1023,7 @@ func buildVodM3u8(
 
 // buildVodM3u8ForLocal go generate dynamic m3u8.
 func buildVodM3u8ForLocal(
-	ctx context.Context, tsFiles []*TsFile, useKey bool, prefix string,
+	_ context.Context, tsFiles []*TsFile, useKey bool, prefix string,
 ) (
 	contentType, m3u8Body string, duration float64, err error,
 ) {
@@ -1070,7 +1072,7 @@ func buildVodM3u8ForLocal(
 
 // buildLiveM3u8ForLocal go generate dynamic m3u8.
 func buildLiveM3u8ForLocal(
-	ctx context.Context, tsFiles []*TsFile, useKey bool, prefix string,
+	_ context.Context, tsFiles []*TsFile, useKey bool, prefix string,
 ) (
 	contentType, m3u8Body string, duration float64, err error,
 ) {
@@ -1118,7 +1120,7 @@ func buildLiveM3u8ForLocal(
 
 // buildLiveM3u8ForVariantCC go generate variant m3u8 with CC(Closed Caption).
 func buildLiveM3u8ForVariantCC(
-	ctx context.Context, bitrate int64, lang, stream, subtitles string,
+	_ context.Context, bitrate int64, lang, stream, subtitles string,
 ) (contentType, m3u8Body string, err error) {
 	m3u8 := []string{
 		"#EXTM3U",
@@ -1617,7 +1619,7 @@ func ProbeTCPServer(ctx context.Context, rawURL string, timeout time.Duration) e
 
 // httpAllowCORS allow CORS for HTTP request.
 // Note that we always enable CROS because we enable HTTP cache.
-func httpAllowCORS(w http.ResponseWriter, r *http.Request) {
+func httpAllowCORS(w http.ResponseWriter, _ *http.Request) {
 	// SRS does not need cookie or credentials, so we disable CORS credentials, and use * for CORS origin,
 	// headers, expose headers and methods.
 	w.Header().Set("Access-Control-Allow-Origin", "*")

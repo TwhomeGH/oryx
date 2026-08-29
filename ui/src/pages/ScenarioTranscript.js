@@ -103,6 +103,50 @@ function ScenarioTranscriptImpl({activeKey, defaultEnabled, defaultConf, default
 
   const [configItem, setConfigItem] = React.useState('provider');
 
+  // The ASR badword (badcase) filter lists, editable by the user.
+  // Keyed by language code (e.g. zh, en), so future locales are supported
+  // automatically — each key holds one badword per line.
+  const [badwords, setBadwords] = React.useState({});
+  const [newLang, setNewLang] = React.useState('');
+  React.useEffect(() => {
+    axios.post('/terraform/v1/ai-talk/badword/query', null, {
+      headers: Token.loadBearerHeader(),
+    }).then(res => {
+      const config = res.data.data?.config?.badwords || {};
+      const text = {};
+      Object.keys(config).forEach(k => { text[k] = (config[k] || []).join('\n'); });
+      setBadwords(text);
+      console.log(`Transcript: Query badword ok, ${JSON.stringify(config)}`);
+    }).catch(handleError);
+  }, [handleError]);
+
+  const updateBadwordLang = React.useCallback((lang, text) => {
+    setBadwords(prev => ({...prev, [lang]: text}));
+  }, []);
+
+  const removeBadwordLang = React.useCallback((lang) => {
+    setBadwords(prev => {
+      const next = {...prev};
+      delete next[lang];
+      return next;
+    });
+  }, []);
+
+  const saveBadword = React.useCallback((success) => {
+    const cleaned = {};
+    Object.keys(badwords).forEach(k => {
+      const words = badwords[k].split('\n').map(s => s.trim()).filter(Boolean);
+      if (words.length > 0) cleaned[k] = words;
+    });
+    axios.post('/terraform/v1/ai-talk/badword/update', {badwords: cleaned}, {
+      headers: Token.loadBearerHeader(),
+    }).then(res => {
+      alert(t('helper.setOk'));
+      console.log(`Transcript: Update badword ok, ${JSON.stringify(cleaned)}`);
+      success && success();
+    }).catch(handleError);
+  }, [t, handleError, badwords]);
+
   React.useEffect(() => {
     if (secretKey) return;
 
@@ -366,6 +410,9 @@ function ScenarioTranscriptImpl({activeKey, defaultEnabled, defaultConf, default
                   <Nav.Item>
                     <Nav.Link href="#webvtt" onClick={(e) => changeConfigItem(e, 'webvtt')}>{t('transcript.vtt')}</Nav.Link>
                   </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link href="#badword" onClick={(e) => changeConfigItem(e, 'badword')}>{t('transcript.badword')}</Nav.Link>
+                  </Nav.Item>
                 </Nav>
               </Card.Header>
               {configItem === 'provider' && <Card.Body>
@@ -450,6 +497,38 @@ function ScenarioTranscriptImpl({activeKey, defaultEnabled, defaultConf, default
                   </Form.Text>
                   <Form.Control id="transcript-vtt-style" as="textarea" defaultValue={webvttCueStyle} onChange={(e) => setWebvttCueStyle(e.target.value)} />
                 </Form.Group>
+              </Card.Body>}
+              {configItem === 'badword' && <Card.Body>
+                <Form.Group className="mb-3">
+                  <Form.Label>{t('transcript.badword')}</Form.Label>
+                  <Form.Text className="d-block"> * {t('transcript.badword2')}.</Form.Text>
+                  <Form.Text className="d-block text-muted"> * {t('transcript.badwordTip')}.</Form.Text>
+                </Form.Group>
+                {Object.keys(badwords).sort().map(lang => (
+                  <Form.Group className="mb-3" key={lang}>
+                    <Form.Label>
+                      <code>{lang}</code>&nbsp;
+                      <Button size="sm" variant="outline-danger" onClick={() => removeBadwordLang(lang)}>×</Button>
+                    </Form.Label>
+                    <Form.Control as="textarea" rows={6}
+                      value={badwords[lang]}
+                      onChange={(e) => updateBadwordLang(lang, e.target.value)} />
+                  </Form.Group>
+                ))}
+                <Form.Group className="mb-3">
+                  <Form.Label>{t('transcript.badwordAddLang')}</Form.Label>
+                  <div className="d-flex gap-2">
+                    <Form.Control as="input" placeholder="e.g. ja, fr, de, ru"
+                      value={newLang} onChange={(e) => setNewLang(e.target.value)} />
+                    <Button variant="outline-primary" onClick={() => {
+                      const lang = newLang.trim().toLowerCase();
+                      if (!lang) return;
+                      setBadwords(prev => prev[lang] !== undefined ? prev : {...prev, [lang]: ''});
+                      setNewLang('');
+                    }}>{t('transcript.badwordAdd')}</Button>
+                  </div>
+                </Form.Group>
+                <Button variant="primary" onClick={() => saveBadword()}>{t('transcript.badwordSave')}</Button>
               </Card.Body>}
             </Card>
             <p></p>

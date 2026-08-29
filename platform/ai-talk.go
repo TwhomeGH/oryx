@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -35,6 +36,71 @@ var aiTalkWorkDir, aiTalkExampleDir string
 type ASRResult struct {
 	Text     string
 	Duration time.Duration
+}
+
+// AsrBadWordConfig is the configurable badword (badcase) list used to filter
+// ASR results. Stored in Redis so users can extend the defaults without code
+// changes. Keyed by language code (e.g. "zh", "en"), so adding a new language
+// is just another key in the map. The zh list filters common closing/thanks
+// phrases that pollute subtitles; the en list filters single-word or
+// punctuation-only results.
+type AsrBadWordConfig struct {
+	// The badword list per language code.
+	Badwords map[string][]string `json:"badwords"`
+}
+
+func NewAsrBadWordConfig() *AsrBadWordConfig {
+	return &AsrBadWordConfig{
+		Badwords: map[string][]string{
+			"zh": {
+				"视频就拍到这里", "視頻就拍到這裡", "社群提供的字幕", "Amara.org社区", "by索兰娅",
+				"请不吝点赞", "谢谢观看", "感谢观看", "订阅我的频道", "多謝您收睇", "多谢您收听",
+				"多謝您的觀看", "多谢您的观看", "明镜与点点", "明鏡與點點", "视频就分享到这里",
+				"关 注 雪 鱼 探 店", "下次见! 再见!",
+			},
+			"en": {},
+		},
+	}
+}
+
+// Words returns the badword list for the given language code, or nil.
+func (v *AsrBadWordConfig) Words(language string) []string {
+	if v == nil || v.Badwords == nil {
+		return nil
+	}
+	return v.Badwords[language]
+}
+
+func (v *AsrBadWordConfig) String() string {
+	if v == nil || v.Badwords == nil {
+		return "nil"
+	}
+	parts := make([]string, 0, len(v.Badwords))
+	for lang, words := range v.Badwords {
+		parts = append(parts, fmt.Sprintf("%v=%v", lang, len(words)))
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, ", ")
+}
+
+func (v *AsrBadWordConfig) Load(ctx context.Context) error {
+	if b, err := rdb.HGet(ctx, SRS_ASR_BADWORD, "global").Result(); err != nil && err != redis.Nil {
+		return errors.Wrapf(err, "hget %v global", SRS_ASR_BADWORD)
+	} else if len(b) > 0 {
+		if err := json.Unmarshal([]byte(b), v); err != nil {
+			return errors.Wrapf(err, "unmarshal %v", b)
+		}
+	}
+	return nil
+}
+
+func (v *AsrBadWordConfig) Save(ctx context.Context) error {
+	if b, err := json.Marshal(v); err != nil {
+		return errors.Wrapf(err, "marshal conf %v", v)
+	} else if err := rdb.HSet(ctx, SRS_ASR_BADWORD, "global", string(b)).Err(); err != nil && err != redis.Nil {
+		return errors.Wrapf(err, "hset %v global %v", SRS_ASR_BADWORD, string(b))
+	}
+	return nil
 }
 
 type openaiASRService struct {
@@ -385,7 +451,7 @@ func (v *openaiChatService) handleSentence(
 }
 
 func (v *openaiChatService) handle(
-	ctx context.Context, stage *Stage, user *StageUser, sreq *StageRequest,
+	ctx context.Context, stage *Stage, _ *StageUser, sreq *StageRequest,
 	gptChatStream *openai.ChatCompletionStream, aiFirstResponseCancel context.CancelFunc,
 	taskCancel context.CancelFunc, onSentence func(string),
 ) error {
@@ -638,19 +704,23 @@ func (v *StageRequest) asrAudioToText(ctx context.Context, aiConfig openai.Clien
 	if asrText == "" {
 		return errors.Errorf("empty asr")
 	}
-	if asrLanguage == "zh" {
-		blocks := []string{
-			"视频就拍到这里", "視頻就拍到這裡", "社群提供的字幕", "Amara.org社区", "by索兰娅",
-			"请不吝点赞", "谢谢观看", "感谢观看", "订阅我的频道", "多謝您收睇", "多谢您收听",
-			"多謝您的觀看", "多谢您的观看", "明镜与点点", "明鏡與點點", "视频就分享到这里",
-			"关 注 雪 鱼 探 店", "下次见! 再见!",
+
+	// Load the configurable badword list; falls back to the defaults when
+	// not customized in Redis yet.
+	badword := NewAsrBadWordConfig()
+	if err := badword.Load(ctx); err != nil {
+		return errors.Wrapf(err, "load badword")
+	}
+
+	// The generic badword filter by language code; empty list means no filter.
+	for _, block := range badword.Words(asrLanguage) {
+		if strings.Contains(asrText, block) {
+			return errors.Errorf("badcase: %v", asrText)
 		}
-		for _, block := range blocks {
-			if strings.Contains(asrText, block) {
-				return errors.Errorf("badcase: %v", asrText)
-			}
-		}
-	} else if asrLanguage == "en" {
+	}
+
+	// Language-specific rules that are not simple word lists.
+	if asrLanguage == "en" {
 		if strings.ToLower(asrText) == "you" ||
 			strings.Count(asrText, ".") == len(asrText) {
 			return errors.Errorf("badcase: %v", asrText)
@@ -2050,6 +2120,46 @@ func handleAITalkService(ctx context.Context, handler *http.ServeMux) error {
 			ohttp.WriteError(ctx, w, r, err)
 		}
 	})
+
+	ep = "/terraform/v1/ai-talk/badword/query"
+	logger.Tf(ctx, "Handle %v", ep)
+	handler.Handle(ep, middlewareAuthTokenInBody(ctx, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := func() error {
+			config := NewAsrBadWordConfig()
+			if err := config.Load(ctx); err != nil {
+				return errors.Wrapf(err, "load badword")
+			}
+
+			ohttp.WriteData(ctx, w, r, &struct {
+				Config *AsrBadWordConfig `json:"config"`
+			}{Config: config})
+			logger.Tf(ctx, "ai-talk badword query ok, config=<%v>", config)
+			return nil
+		}(); err != nil {
+			ohttp.WriteError(ctx, w, r, err)
+		}
+	})))
+
+	ep = "/terraform/v1/ai-talk/badword/update"
+	logger.Tf(ctx, "Handle %v", ep)
+	handler.Handle(ep, middlewareAuthTokenInBody(ctx, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := func() error {
+			var config AsrBadWordConfig
+			if err := ParseBody(ctx, r.Body, &config); err != nil {
+				return errors.Wrapf(err, "parse body")
+			}
+
+			if err := config.Save(ctx); err != nil {
+				return errors.Wrapf(err, "save badword")
+			}
+
+			ohttp.WriteData(ctx, w, r, nil)
+			logger.Tf(ctx, "ai-talk badword update ok, config=<%v>", config.String())
+			return nil
+		}(); err != nil {
+			ohttp.WriteError(ctx, w, r, err)
+		}
+	})))
 
 	ep = "/terraform/v1/ai-talk/subscribe/start"
 	logger.Tf(ctx, "Handle %v", ep)
