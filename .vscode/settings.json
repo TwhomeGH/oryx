@@ -1,0 +1,8 @@
+{
+    "gopls": {
+        "env": {
+            "GOOS": "linux",
+            "GOARCH": "amd64"
+        }
+    }
+}
