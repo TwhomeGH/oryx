@@ -403,7 +403,7 @@ func handleHooksService(ctx context.Context, handler *http.ServeMux) error {
 						{
 							Effect: "Allow",
 							Principal: map[string][]string{
-								"qcs": []string{"qcs::cam::anyone:anyone"},
+								"qcs": {"qcs::cam::anyone:anyone"},
 							},
 							Action: []string{
 								"name/cos:HeadBucket",

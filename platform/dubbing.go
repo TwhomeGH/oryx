@@ -392,8 +392,8 @@ func handleDubbingService(ctx context.Context, handler *http.ServeMux) error {
 			defer f.Close()
 
 			// 100KHZ, each frame is 10ms.
-			buf := &audio.IntBuffer{Data: make([]int, 100000*48), Format: &audio.Format{SampleRate: 100000, NumChannels: 1}}
-			enc := wav.NewEncoder(f, buf.Format.SampleRate, 16, buf.Format.NumChannels, 1)
+			format := &audio.Format{SampleRate: 100000, NumChannels: 1}
+			enc := wav.NewEncoder(f, format.SampleRate, 16, format.NumChannels, 1)
 			defer enc.Close()
 
 			insertSilent := func(duration float64) error {
@@ -1477,7 +1477,7 @@ func (v *AudioResponse) AppendSegment(resp openai.AudioResponse, starttime float
 			UUID: uuid.NewString(),
 			// The segments in the group.
 			Segments: []*AudioSegment{
-				&AudioSegment{
+				{
 					// To identify the segments.
 					OriginalStart: starttime,
 					// ASR Segment.
@@ -1806,7 +1806,7 @@ func (v *SrsDubbingTask) Start(ctx context.Context) error {
 
 			// Find first segment of next group, ignore if no segment.
 			lastSegment, nextFirstSegment := g.LastSegment(), nextGroup.FirstSegment()
-			if lastSegment == nil || nextGroup == nil || nextFirstSegment == nil {
+			if lastSegment == nil || nextFirstSegment == nil {
 				continue
 			}
 

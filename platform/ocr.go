@@ -280,7 +280,7 @@ func (v *OCRWorker) Handle(ctx context.Context, handler *http.ServeMux) error {
 
 			segments := v.task.ocrSegments()
 			for _, segment := range segments {
-				res.Segments = append(res.Segments, []*Segment{&Segment{
+				res.Segments = append(res.Segments, []*Segment{{
 					TsID:     segment.ImageFile.TsID,
 					SeqNo:    segment.ImageFile.SeqNo,
 					URL:      segment.ImageFile.File,
@@ -845,7 +845,7 @@ func (v *OCRQueue) dequeue(segment *OCRSegment) {
 	}
 }
 
-func (v *OCRQueue) reset(ctx context.Context) error {
+func (v *OCRQueue) reset(_ context.Context) error {
 	var segments []*OCRSegment
 
 	func() {
@@ -1365,7 +1365,7 @@ func (v *OCRTask) DriveCleanupQueue(ctx context.Context) error {
 }
 
 // TODO: FIXME: Should restart task when stream unpublish.
-func (v *OCRTask) restart(ctx context.Context) error {
+func (v *OCRTask) restart(_ context.Context) error {
 	v.lock.Lock()
 	defer v.lock.Unlock()
 

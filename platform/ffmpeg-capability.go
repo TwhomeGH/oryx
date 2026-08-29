@@ -103,7 +103,7 @@ func probeFFmpegEncoder(ctx context.Context, name string) (bool, string) {
 	return err == nil, detail
 }
 
-func probeFFmpegDevices(ctx context.Context) []FFmpegDeviceCapability {
+func probeFFmpegDevices(_ context.Context) []FFmpegDeviceCapability {
 	var devices []FFmpegDeviceCapability
 
 	add := func(name, pattern string) {

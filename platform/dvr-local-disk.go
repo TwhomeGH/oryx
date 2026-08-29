@@ -788,7 +788,7 @@ func (v *RecordM3u8Stream) saveArtifact(ctx context.Context, artifact *M3u8VoDAr
 	return nil
 }
 
-func (v *RecordM3u8Stream) updateArtifact(ctx context.Context, artifact *M3u8VoDArtifact, msg *SrsOnHlsObject) {
+func (v *RecordM3u8Stream) updateArtifact(_ context.Context, artifact *M3u8VoDArtifact, msg *SrsOnHlsObject) {
 	v.lock.Lock()
 	defer v.lock.Unlock()
 
@@ -802,7 +802,7 @@ func (v *RecordM3u8Stream) updateArtifact(ctx context.Context, artifact *M3u8VoD
 	artifact.Update = time.Now().Format(time.RFC3339)
 }
 
-func (v *RecordM3u8Stream) finishArtifact(ctx context.Context, artifact *M3u8VoDArtifact) {
+func (v *RecordM3u8Stream) finishArtifact(_ context.Context, artifact *M3u8VoDArtifact) {
 	v.lock.Lock()
 	defer v.lock.Unlock()
 
@@ -810,7 +810,7 @@ func (v *RecordM3u8Stream) finishArtifact(ctx context.Context, artifact *M3u8VoD
 	artifact.Update = time.Now().Format(time.RFC3339)
 }
 
-func (v *RecordM3u8Stream) addMessage(ctx context.Context, msg *SrsOnHlsObject) {
+func (v *RecordM3u8Stream) addMessage(_ context.Context, msg *SrsOnHlsObject) {
 	v.lock.Lock()
 	defer v.lock.Unlock()
 

@@ -274,7 +274,7 @@ func (v *TranscriptWorker) Handle(ctx context.Context, handler *http.ServeMux) e
 
 			segments := v.task.liveSegments()
 			for _, segment := range segments {
-				res.Segments = append(res.Segments, []*Segment{&Segment{
+				res.Segments = append(res.Segments, []*Segment{{
 					TsID:     segment.TsFile.TsID,
 					SeqNo:    segment.TsFile.SeqNo,
 					URL:      segment.TsFile.URL,
@@ -316,7 +316,7 @@ func (v *TranscriptWorker) Handle(ctx context.Context, handler *http.ServeMux) e
 
 			segments := v.task.asrSegments()
 			for _, segment := range segments {
-				res.Segments = append(res.Segments, []*Segment{&Segment{
+				res.Segments = append(res.Segments, []*Segment{{
 					TsID:     segment.AudioFile.TsID,
 					SeqNo:    segment.AudioFile.SeqNo,
 					URL:      segment.AudioFile.File,
@@ -466,7 +466,7 @@ func (v *TranscriptWorker) Handle(ctx context.Context, handler *http.ServeMux) e
 					})
 				}
 
-				res.Segments = append(res.Segments, []*Segment{&Segment{
+				res.Segments = append(res.Segments, []*Segment{{
 					TsID:     segment.OverlayFile.TsID,
 					SeqNo:    segment.OverlayFile.SeqNo,
 					URL:      segment.OverlayFile.File,
@@ -1331,7 +1331,7 @@ func (v *TranscriptQueue) dequeue(segment *TranscriptSegment) {
 	}
 }
 
-func (v *TranscriptQueue) reset(ctx context.Context) error {
+func (v *TranscriptQueue) reset(_ context.Context) error {
 	var segments []*TranscriptSegment
 
 	func() {
@@ -1992,7 +1992,7 @@ func (v *TranscriptTask) DriveOverlayQueue(ctx context.Context) error {
 }
 
 // TODO: FIXME: Should restart task when stream unpublish.
-func (v *TranscriptTask) restart(ctx context.Context) error {
+func (v *TranscriptTask) restart(_ context.Context) error {
 	v.lock.Lock()
 	defer v.lock.Unlock()
 
@@ -2003,7 +2003,7 @@ func (v *TranscriptTask) restart(ctx context.Context) error {
 	return nil
 }
 
-func (v *TranscriptTask) clearSubtitle(ctx context.Context, tsid string) error {
+func (v *TranscriptTask) clearSubtitle(_ context.Context, tsid string) error {
 	v.lock.Lock()
 	defer v.lock.Unlock()
 

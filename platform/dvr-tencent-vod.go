@@ -625,7 +625,7 @@ func (v *VodM3u8Stream) saveArtifact(ctx context.Context, artifact *M3u8VoDArtif
 	return nil
 }
 
-func (v *VodM3u8Stream) updateArtifact(ctx context.Context, artifact *M3u8VoDArtifact, msg *SrsOnHlsObject) {
+func (v *VodM3u8Stream) updateArtifact(_ context.Context, artifact *M3u8VoDArtifact, msg *SrsOnHlsObject) {
 	v.lock.Lock()
 	defer v.lock.Unlock()
 
@@ -639,7 +639,7 @@ func (v *VodM3u8Stream) updateArtifact(ctx context.Context, artifact *M3u8VoDArt
 	artifact.Update = time.Now().Format(time.RFC3339)
 }
 
-func (v *VodM3u8Stream) finishArtifact(ctx context.Context, artifact *M3u8VoDArtifact) {
+func (v *VodM3u8Stream) finishArtifact(_ context.Context, artifact *M3u8VoDArtifact) {
 	v.lock.Lock()
 	defer v.lock.Unlock()
 
@@ -647,7 +647,7 @@ func (v *VodM3u8Stream) finishArtifact(ctx context.Context, artifact *M3u8VoDArt
 	artifact.Update = time.Now().Format(time.RFC3339)
 }
 
-func (v *VodM3u8Stream) addMessage(ctx context.Context, msg *SrsOnHlsObject) {
+func (v *VodM3u8Stream) addMessage(_ context.Context, msg *SrsOnHlsObject) {
 	v.lock.Lock()
 	defer v.lock.Unlock()
 
@@ -663,7 +663,7 @@ func (v *VodM3u8Stream) copyMessages() []*SrsOnHlsObject {
 	return append([]*SrsOnHlsObject{}, v.Messages...)
 }
 
-func (v *VodM3u8Stream) vodCommit(ctx context.Context, artifact *M3u8VoDArtifact, fileID, mediaURL string) {
+func (v *VodM3u8Stream) vodCommit(_ context.Context, artifact *M3u8VoDArtifact, fileID, mediaURL string) {
 	v.lock.Lock()
 	defer v.lock.Unlock()
 
@@ -671,7 +671,7 @@ func (v *VodM3u8Stream) vodCommit(ctx context.Context, artifact *M3u8VoDArtifact
 	artifact.MediaURL = mediaURL
 }
 
-func (v *VodM3u8Stream) vodRemux(ctx context.Context, artifact *M3u8VoDArtifact, definition uint64, taskID string) {
+func (v *VodM3u8Stream) vodRemux(_ context.Context, artifact *M3u8VoDArtifact, definition uint64, taskID string) {
 	v.lock.Lock()
 	defer v.lock.Unlock()
 
@@ -1045,7 +1045,7 @@ func (v *VodM3u8Stream) finishM3u8(ctx context.Context, cosClient *cos.Client, c
 		request.SubAppId = common.Uint64Ptr(v.vodWorker.vodAppID)
 		request.MediaProcessTask = &vod.MediaProcessTaskInput{
 			TranscodeTaskSet: []*vod.TranscodeTaskInput{
-				&vod.TranscodeTaskInput{
+				{
 					Definition: common.Uint64Ptr(uint64(definition)),
 				},
 			},
