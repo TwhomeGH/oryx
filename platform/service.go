@@ -524,7 +524,14 @@ func handleDebuggingGoroutines(ctx context.Context, handler *http.ServeMux) {
 
 		buf := make([]byte, 1<<16)
 		stacklen := runtime.Stack(buf, true)
-		fmt.Fprintf(w, "%s", buf[:stacklen])
+
+
+		// 只記錄在伺服器 log
+		logger.Tf(ctx, "stack trace:\n%s", buf[:stacklen])
+
+		// 對外回傳 generic 訊息
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+
 	})
 }
 
