@@ -66,17 +66,16 @@ services:
 docker compose up -d
 ```
 
-## 進階：比照官方流程建置
+## 進階：比照 CI 建置
 
-官方 release 是「先在主機上建好 UI，再用 `build-no-ui` 打包」，適合要多架構
-或想跟 CI 產物一致時：
+Dockerfile 的 `make -j build` 會自己從 context 的原始碼建 platform 和 UI
+（不依賴預先建好的 `ui/build`，避免快取/過時問題），所以不用先在本機建 UI：
 
 ```bash
-# 需要本機有 Node.js 18+
-cd ui && make build -j && cd ..
-
-docker build --build-arg MAKEARGS=build-no-ui -t oryx:local .
+docker build -t oryx:local .
 ```
+
+BuildKit 會依輸入內容快取，UI 沒變的重複建置很快。
 
 日常驗證用第一種就好，不必這麼麻煩。
 

@@ -14,8 +14,7 @@ FROM ${ARCH}ossrs/srs:ubuntu20 AS build
 ARG BUILDPLATFORM
 ARG TARGETPLATFORM
 ARG TARGETARCH
-ARG MAKEARGS
-RUN echo "BUILDPLATFORM: $BUILDPLATFORM, TARGETPLATFORM: $TARGETPLATFORM, TARGETARCH: $TARGETARCH, MAKEARGS: $MAKEARGS"
+RUN echo "BUILDPLATFORM: $BUILDPLATFORM, TARGETPLATFORM: $TARGETPLATFORM, TARGETARCH: $TARGETARCH"
 
 # For ui build.
 COPY --from=node /usr/local/bin /usr/local/bin
@@ -34,12 +33,13 @@ ADD Makefile /g/Makefile
 # For node to use more memory to fix: JavaScript heap out of memory
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-# By default, make all, including platform and ui, but it will take a long time,
-# so there is a MAKEARGS to build without UI, see platform.yml.
+# The UI is always built from the source in the build context (make build includes
+# make -C ui), never from a pre-built ui/build: a cached or stale pre-built bundle
+# would silently ship an outdated UI. BuildKit caches this RUN step by its inputs,
+# so repeat builds with an unchanged ui/ are a cache hit and stay fast.
 WORKDIR /g
-# We define SRS_NO_LINT to disable the lint check.
 RUN export SRS_NO_LINT=1 && \
-    make clean && make -j ${MAKEARGS} && make install
+    make clean && make -j build && make install
 
 # UPX compression (--best --lzma) of the srs/platform binaries was removed:
 # UPX-LZMA self-extraction crashes intermittently at process startup on
