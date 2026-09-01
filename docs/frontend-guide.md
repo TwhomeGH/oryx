@@ -246,6 +246,12 @@ npm run test                        # vitest
 
 **輪詢：** Overview/Vhosts/Streams/Clients 每 3 秒更新（`setTimeout` 自重排，非 `setInterval`，避免重疊）。
 
+**Streams FPS 標記：** Streams tab 會對推流中的 stream 每 10 秒最多探測一次
+`/terraform/v1/mgmt/streams/fps`，顯示實測 FPS。判斷「波動」時不要假設固定 30fps；前端會為每一路
+stream 保存自己的滾動 `baselineFps`（第一次採樣用當前 FPS，之後 `80% 舊基準 + 20% 新採樣`），
+tooltip 顯示實測 FPS、基準 FPS 與 jitter。UI 即使標記「波動」也必須保留實測 FPS，例如
+`59.9 fps [波動]`，方便判斷 60fps、50fps、25fps、24fps 等不同來源是否真的異常。
+
 **修改提示：** 加 tab → 在 `SrsConsoleImpl` 的 `<Tabs>` 加 `<Tab>`，並在 `locale.json` 的 `console` 區塊補中英文。
 
 ### 13.1 本地調試預覽

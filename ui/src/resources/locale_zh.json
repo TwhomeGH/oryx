@@ -798,7 +798,7 @@
       "noClients": "暂无客户端",
       "fps": "帧率",
       "fpsAbnormal": "波动",
-      "fpsTooltip": "实测 {{fps}} fps，帧间隔抖动约 {{jitter}}ms，仅作为参考",
+      "fpsTooltip": "实测 {{fps}} fps，基准约 {{baseline}} fps，帧间隔抖动约 {{jitter}}ms，仅作为参考",
       "fpsAbnormalAlert": "检测到 {{count}} 条流帧间隔波动较大，实际帧率见下方标记",
       "key": "键",
       "value": "值",

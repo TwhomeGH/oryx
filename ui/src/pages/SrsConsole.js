@@ -138,6 +138,22 @@ function fmtFixed(n, digits = 1) {
   return value.toFixed(digits);
 }
 
+const fpsBaselineAlpha = 0.2;
+const fpsBaselineDriftRatio = 0.2;
+
+function mergeFPSProbe(prev, next) {
+  if (!next) return prev;
+  const fps = finiteNumber(next.fps);
+  const prevBaseline = finiteNumber(prev?.baselineFps);
+  const baselineDrift = fps === null || prevBaseline === null || prevBaseline <= 0 ? 0 : Math.abs(fps - prevBaseline) / prevBaseline;
+  return {
+    ...next,
+    baselineFps: fps === null ? prevBaseline : prevBaseline === null ? fps : prevBaseline * (1 - fpsBaselineAlpha) + fps * fpsBaselineAlpha,
+    baselineDrift,
+    variable: !!next.abnormal || baselineDrift > fpsBaselineDriftRatio,
+  };
+}
+
 // The stream URL, derived from tcUrl + name.
 function buildStreamUrl(owner, stream) {
   let tcUrl = stream.tcUrl || stream.url || '';
@@ -411,7 +427,7 @@ function SrsStreams({handleError, initialFps}) {
           headers: Token.loadBearerHeader(),
         }).then(res => {
           if (cancelled) return;
-          setFps(prev => ({...prev, [s.id]: res.data.data}));
+          setFps(prev => ({...prev, [s.id]: mergeFPSProbe(prev[s.id], res.data.data)}));
         }).catch(() => {
           // Keep the previous result, the stream may just have stopped.
         });
@@ -462,8 +478,11 @@ function SrsStreams({handleError, initialFps}) {
             const streamName = String(s.name || '');
             const fpsValue = fmtFixed(fpsInfo?.fps);
             const jitterValue = fmtFixed(fpsInfo?.jitterMs);
+            const baselineValue = fmtFixed(fpsInfo?.baselineFps);
+            const fpsTitle = t('console.fpsTooltip', {fps: fpsValue, baseline: baselineValue, jitter: jitterValue});
+            const fpsVariable = fpsInfo?.variable ?? fpsInfo?.abnormal;
             return (
-            <tr key={s.id} className={fpsInfo?.abnormal ? 'table-warning' : ''}>
+            <tr key={s.id} className={fpsVariable ? 'table-warning' : ''}>
               <td><code>{s.id}</code></td>
               <td>{streamName.length > 15 ? `${streamName.slice(0, 15)}…` : streamName}</td>
               <td style={{wordBreak: 'break-all'}}><code>{buildStreamUrl(s.ownerName, s)}</code></td>
@@ -477,9 +496,9 @@ function SrsStreams({handleError, initialFps}) {
               <td>
                 {fpsInfo ? (
                   fpsValue !== '-' ? (
-                    <span title={t('console.fpsTooltip', {fps: fpsValue, jitter: jitterValue})}>
+                    <span title={fpsTitle}>
                       {fpsValue} fps
-                      {fpsInfo.abnormal && (
+                      {fpsVariable && (
                         <Badge bg="warning" text="dark" className="ms-1">
                           {t('console.fpsAbnormal')}
                         </Badge>
@@ -625,4 +644,4 @@ function SrsConfigs({handleError}) {
   );
 }
 
-export {SrsStreams, fmtBitrate, fmtBytes, fmtFixed, fmtPercent, fmtSec};
+export {SrsStreams, fmtBitrate, fmtBytes, fmtFixed, fmtPercent, fmtSec, mergeFPSProbe};
