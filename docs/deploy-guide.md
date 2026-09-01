@@ -64,4 +64,4 @@ docker run --restart always -d --name oryx \
 | 變數 | 預設 | 說明 |
 |---|---|---|
 | `MGMT_PASSWORD` | 自動生成 | 管理員密碼（也存於 `/data/config/.env`） |
-| `REACT_APP_LOCALE` | `en` | UI 預設語言：`zh` / `en` / `ja` 等。2026-09 起只 build 單一 bundle，預設語言在 runtime 由 envs 接口注入，任何值都不會讓 UI 壞 |
+| `REACT_APP_LOCALE` | `zh` | UI 預設語言：`zh` / `en` / `ja` 等。2026-09 起只 build 單一 bundle，預設語言在 runtime 由 envs 接口注入，任何值都不會讓 UI 壞 |

@@ -104,8 +104,8 @@ func doMain(ctx context.Context) error {
 	setEnvDefault("NODE_ENV", "development")
 	// For platform, HTTP server listen port.
 	setEnvDefault("PLATFORM_LISTEN", "2024")
-	// Set the default language, en or zh.
-	setEnvDefault("REACT_APP_LOCALE", "en")
+	// Set the default language, e.g. zh, en or ja.
+	setEnvDefault("REACT_APP_LOCALE", "zh")
 	// Whether enable the Go pprof.
 	setEnvDefault("GO_PPROF", "")
 
