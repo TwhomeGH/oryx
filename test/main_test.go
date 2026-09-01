@@ -383,8 +383,8 @@ func initSystemPassword(ctx context.Context) error {
 	}{
 		Password: password,
 	}, &struct {
-		Token   *string `json:"token"`
-		Bearer  *string `json:"bearer"`
+		Token  *string `json:"token"`
+		Bearer *string `json:"bearer"`
 	}{
 		Token:  new(string),
 		Bearer: &bearer,
@@ -624,7 +624,13 @@ func (v *testApi) Request(ctx context.Context, api string, data interface{}, aut
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return errors.Errorf("invalid status code %v", resp.StatusCode)
+		// Include the response body in the error, so tests can judge by the actual
+		// handler error message (e.g. a "bilibili ..." prefix for third-party failures).
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return errors.Wrapf(err, "invalid status code %v, read body", resp.StatusCode)
+		}
+		return errors.Errorf("invalid status code %v of %s", resp.StatusCode, string(b))
 	}
 
 	b, err := ioutil.ReadAll(resp.Body)
