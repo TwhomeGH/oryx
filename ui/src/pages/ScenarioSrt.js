@@ -24,14 +24,7 @@ function ScenarioSrtCn({copyToClipboard, urls}) {
   const ffplayWindows = `ffplay -fflags nobuffer -flags low_delay -i "${srtPlayUrl}"`;
   const ffplayMac = `ffplay -fflags nobuffer -flags low_delay -i '${srtPlayUrl}'`;
 
-  const srtTutorials = useTutorials({
-    bilibili: React.useRef([
-      {author: '崔国栋', id: 'BV1aS4y1G7iG'},
-      {author: '马景瑞', id: 'BV1c341177e7'},
-      {author: 'SRS', id: 'BV1Nb4y1t7ij'},
-      {author: '王大江', id: 'BV16r4y1q7ZT'},
-    ])
-  });
+  const srtTutorials = useTutorials('srt');
 
   React.useEffect(() => {
     if (!srtPublishUrl) return;

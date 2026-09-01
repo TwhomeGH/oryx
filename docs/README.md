@@ -28,3 +28,5 @@
 - [本地整合測試教學](local-test.md) — 在本機跑 CI 同款整合測試的完整流程、偵錯旗標與常見問題排解。
 - [API 認證架構與 Status Code 說明](api-auth-architecture.md) — middleware 認證流程、HTTP status code 對應邏輯、init/login 端點的無 auth 設計。
 - [CodeQL 安全漏洞修復說明](security-fix-codeql.md) — 路徑穿越與反射型 XSS 修復細節、影響端點與安全建議。
+- [B 站教學影片資訊查詢：快取與風控應對](bilibili-tutorials-cache.md) — `/mgmt/bilibili` 的頻率問題（頁面載入一次 N 發）、風控 412 成因與多層應對（快取/singleflight/串行化）。
+- [教程清單 manifest：位置與編輯指南](tutorials-manifest.md) — 教程清單放哪、怎麼加/改（免 rebuild）、擴展新平台來源與常見問題。

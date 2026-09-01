@@ -817,14 +817,7 @@ function SettingHttpsImpl({ config }) {
     setDomain(window.location.hostname);
   }, [domain, domainRegex, setDomain]);
 
-  const sslTutorials = useTutorials({
-    bilibili: React.useRef([
-      { author: '程晓龙', id: 'BV1tZ4y1R7qp' },
-    ]),
-    medium: React.useRef([
-      { id: 'cb618777639f' },
-    ])
-  });
+  const sslTutorials = useTutorials('ssl');
 
   const updateSSL = React.useCallback(async (e) => {
     e.preventDefault();

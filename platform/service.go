@@ -15,6 +15,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -348,6 +349,7 @@ func handleHTTPService(ctx context.Context, handler *http.ServeMux) error {
 	handleMgmtLogin(ctx, handler)
 	handleMgmtStatus(ctx, handler)
 	handleMgmtBilibili(ctx, handler)
+	handleMgmtTutorials(ctx, handler)
 	handleMgmtContactQuery(ctx, handler)
 	handleMgmtFFmpegCapabilities(ctx, handler)
 	handleMgmtLimitsQuery(ctx, handler)
@@ -993,6 +995,12 @@ func (v *singleflightGroup) Do(key string, fn func() (map[string]interface{}, er
 // same bvid, see handleMgmtBilibili.
 var bilibiliSingleFlight singleflightGroup
 
+// bilibiliLimiter caps the concurrent outbound requests to bilibili to one. The UI fires
+// one request per tutorial bvid on each page load (see TutorialsButton.js), so a burst of
+// N different bvids would all hit bilibili at once and trigger its risk control (HTTP 412).
+// Serializing them, together with the per-bvid cache, keeps the request count minimal.
+var bilibiliLimiter = make(chan struct{}, 1)
+
 // saveBilibiliCache stores the fetch result or failure to the redis cache, so a negative
 // result is also cached and does not trigger a new request on every query.
 func saveBilibiliCache(ctx context.Context, bvid, update string, res map[string]interface{}, errMsg string) {
@@ -1006,6 +1014,149 @@ func saveBilibiliCache(ctx context.Context, bvid, update string, res map[string]
 	} else if err = rdb.HSet(ctx, SRS_CACHE_BILIBILI, bvid, string(b)).Err(); err != nil && err != redis.Nil {
 		logger.Wf(ctx, "bilibili save cache bvid=%v, err=%v", bvid, err)
 	}
+}
+
+// queryBilibili returns the metadata of a bilibili video (title, desc, stat, etc.) with
+// a layered cache: a per-bvid redis cache (24h success, 5min failure backoff), singleflight
+// merging concurrent same-bvid calls, and a limiter serializing the outbound requests. A
+// bilibili-side failure is cached too, so a rate limit or transient issue recovers soon.
+func queryBilibili(ctx context.Context, bvid string) (map[string]interface{}, error) {
+	// The cache for the bilibili video metadata. The err field records a failure
+	// of the last request, so negative results (e.g. HTTP 412/429 or an HTML captcha
+	// page from bilibili risk control) are also cached, instead of triggering a
+	// new request on every query and being rate limited repeatedly.
+	bilibiliObj := struct {
+		Update string                 `json:"update"`
+		Res    map[string]interface{} `json:"res"`
+		Err    string                 `json:"err"`
+	}{}
+	if bilibili, err := rdb.HGet(ctx, SRS_CACHE_BILIBILI, bvid).Result(); err != nil && err != redis.Nil {
+		return nil, errors.Wrapf(err, "hget %v %v", SRS_CACHE_BILIBILI, bvid)
+	} else if bilibili != "" {
+		if err := json.Unmarshal([]byte(bilibili), &bilibiliObj); err != nil {
+			return nil, errors.Wrapf(err, "json unmarshal %v", bilibili)
+		}
+	}
+
+	// Whether the cache is still fresh. A failure (with err) uses a short TTL, so
+	// a rate limit or transient issue recovers soon; a success is cached for a day
+	// (5 minutes in development). Note that a negative result (err or res=null) is
+	// also honored until it expires, previously a res=null triggered a refetch on
+	// every query and hammered bilibili.
+	cacheExpired := true
+	if bilibiliObj.Update != "" {
+		duration := time.Duration(24*3600) * time.Second
+		if envNodeEnv() == "development" {
+			duration = time.Duration(300) * time.Second
+		}
+		if bilibiliObj.Err != "" {
+			duration = time.Duration(5*60) * time.Second
+		}
+
+		if updateAt, err := time.Parse(time.RFC3339, bilibiliObj.Update); err != nil {
+			cacheExpired = true
+		} else if !updateAt.Add(duration).Before(time.Now()) {
+			cacheExpired = false
+		}
+	}
+
+	// Serve the cached result or the cached failure, without hitting bilibili.
+	if !cacheExpired {
+		if bilibiliObj.Err != "" {
+			return nil, errors.New(bilibiliObj.Err)
+		}
+		logger.Tf(ctx, "bilibili cache hit bvid=%v, update=%v", bvid, bilibiliObj.Update)
+		return bilibiliObj.Res, nil
+	}
+
+	// Merge concurrent requests for the same bvid, so a burst of queries only
+	// hits bilibili once.
+	bilibiliRes, err := bilibiliSingleFlight.Do(bvid, func() (map[string]interface{}, error) {
+		update := time.Now().Format(time.RFC3339)
+		bilibiliURL := fmt.Sprintf("https://api.bilibili.com/x/web-interface/view?bvid=%v", bvid)
+
+		req, err := http.NewRequest("GET", bilibiliURL, nil)
+		if err != nil {
+			r0 := errors.Wrapf(err, "bilibili create request %v", bilibiliURL)
+			saveBilibiliCache(ctx, bvid, update, nil, r0.Error())
+			return nil, r0
+		}
+		// A browser-like User-Agent and Referer reduce the chance of being
+		// rejected by bilibili risk control, though a datacenter IP may still be
+		// rate limited.
+		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
+		req.Header.Set("Referer", "https://www.bilibili.com")
+		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+		req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+
+		client := &http.Client{Timeout: 10 * time.Second}
+		// Serialize the outbound requests: the UI fires one query per tutorial
+		// bvid on page load, and a burst of N different bvids hitting bilibili
+		// simultaneously would trigger its risk control (HTTP 412).
+		bilibiliLimiter <- struct{}{}
+		res, err := client.Do(req)
+		<-bilibiliLimiter
+		if err != nil {
+			r0 := errors.Wrapf(err, "bilibili get %v", bilibiliURL)
+			saveBilibiliCache(ctx, bvid, update, nil, r0.Error())
+			return nil, r0
+		}
+		defer res.Body.Close()
+
+		// bilibili risk control may respond with an HTML page (e.g. HTTP 412/429
+		// with an "enable JavaScript" captcha page) instead of a normal 200,
+		// check the status before parsing. Read the body so the actual reason
+		// (JSON error or the captcha page) is visible in the error.
+		if res.StatusCode != http.StatusOK {
+			body, err := ioutil.ReadAll(res.Body)
+			if err != nil {
+				r0 := errors.Wrapf(err, "bilibili response status %v, read body, url=%v", res.StatusCode, bilibiliURL)
+				saveBilibiliCache(ctx, bvid, update, nil, r0.Error())
+				return nil, r0
+			}
+			b := string(body)
+			if len(b) > 500 {
+				b = b[:500]
+			}
+			r0 := errors.Errorf("bilibili response status %v, body=%v, url=%v", res.StatusCode, b, bilibiliURL)
+			saveBilibiliCache(ctx, bvid, update, nil, r0.Error())
+			return nil, r0
+		}
+
+		b, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			r0 := errors.Wrapf(err, "bilibili read %v", bilibiliURL)
+			saveBilibiliCache(ctx, bvid, update, nil, r0.Error())
+			return nil, r0
+		}
+
+		// Parse the bilibili view API, the data is the video metadata. A valid
+		// response may still carry a non-zero code (e.g. -412 blocked by risk
+		// control, or -404 not found), treat it as a cached failure as well.
+		resObj := struct {
+			Code    int                     `json:"code"`
+			Message string                  `json:"message"`
+			TTL     int                     `json:"ttl"`
+			Data    *map[string]interface{} `json:"data"`
+		}{}
+		if err := json.Unmarshal(b, &resObj); err != nil {
+			r0 := errors.Errorf("bilibili invalid json response, url=%v, body=%v", bilibiliURL, string(b))
+			saveBilibiliCache(ctx, bvid, update, nil, r0.Error())
+			return nil, r0
+		}
+		if resObj.Code != 0 || resObj.Data == nil {
+			r0 := errors.Errorf("bilibili error code=%v, message=%v, url=%v", resObj.Code, resObj.Message, bilibiliURL)
+			saveBilibiliCache(ctx, bvid, update, nil, r0.Error())
+			return nil, r0
+		}
+
+		saveBilibiliCache(ctx, bvid, update, *resObj.Data, "")
+		return *resObj.Data, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return bilibiliRes, nil
 }
 
 func handleMgmtBilibili(ctx context.Context, handler *http.ServeMux) {
@@ -1026,126 +1177,132 @@ func handleMgmtBilibili(ctx context.Context, handler *http.ServeMux) {
 				return errors.New("no bvid")
 			}
 
-			// The cache for the bilibili video metadata. The err field records a failure
-			// of the last request, so negative results (e.g. HTTP 429 or an HTML captcha
-			// page from bilibili risk control) are also cached, instead of triggering a
-			// new request on every query and being rate limited repeatedly.
-			bilibiliObj := struct {
-				Update string                 `json:"update"`
-				Res    map[string]interface{} `json:"res"`
-				Err    string                 `json:"err"`
-			}{}
-			if bilibili, err := rdb.HGet(ctx, SRS_CACHE_BILIBILI, bvid).Result(); err != nil && err != redis.Nil {
-				return errors.Wrapf(err, "hget %v %v", SRS_CACHE_BILIBILI, bvid)
-			} else if bilibili != "" {
-				if err := json.Unmarshal([]byte(bilibili), &bilibiliObj); err != nil {
-					return errors.Wrapf(err, "json unmarshal %v", bilibili)
-				}
-			}
-
-			// Whether the cache is still fresh. A failure (with err) uses a short TTL, so
-			// a rate limit or transient issue recovers soon; a success is cached for a day
-			// (5 minutes in development). Note that a negative result (err or res=null) is
-			// also honored until it expires, previously a res=null triggered a refetch on
-			// every query and hammered bilibili.
-			cacheExpired := true
-			if bilibiliObj.Update != "" {
-				duration := time.Duration(24*3600) * time.Second
-				if envNodeEnv() == "development" {
-					duration = time.Duration(300) * time.Second
-				}
-				if bilibiliObj.Err != "" {
-					duration = time.Duration(5*60) * time.Second
-				}
-
-				if updateAt, err := time.Parse(time.RFC3339, bilibiliObj.Update); err != nil {
-					cacheExpired = true
-				} else if !updateAt.Add(duration).Before(time.Now()) {
-					cacheExpired = false
-				}
-			}
-
-			// Serve the cached result or the cached failure, without hitting bilibili.
-			if !cacheExpired {
-				if bilibiliObj.Err != "" {
-					return errors.New(bilibiliObj.Err)
-				}
-				ohttp.WriteData(ctx, w, r, bilibiliObj.Res)
-				logger.Tf(ctx, "bilibili cache hit bvid=%v, update=%v", bvid, bilibiliObj.Update)
-				return nil
-			}
-
-			// Merge concurrent requests for the same bvid, so a burst of queries only
-			// hits bilibili once.
-			bilibiliRes, err := bilibiliSingleFlight.Do(bvid, func() (map[string]interface{}, error) {
-				update := time.Now().Format(time.RFC3339)
-				bilibiliURL := fmt.Sprintf("https://api.bilibili.com/x/web-interface/view?bvid=%v", bvid)
-
-				req, err := http.NewRequest("GET", bilibiliURL, nil)
-				if err != nil {
-					r0 := errors.Wrapf(err, "bilibili create request %v", bilibiliURL)
-					saveBilibiliCache(ctx, bvid, update, nil, r0.Error())
-					return nil, r0
-				}
-				// A browser-like User-Agent and Referer reduce the chance of being
-				// rejected by bilibili risk control, though a datacenter IP may still be
-				// rate limited.
-				req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
-				req.Header.Set("Referer", "https://www.bilibili.com")
-
-				client := &http.Client{Timeout: 10 * time.Second}
-				res, err := client.Do(req)
-				if err != nil {
-					r0 := errors.Wrapf(err, "bilibili get %v", bilibiliURL)
-					saveBilibiliCache(ctx, bvid, update, nil, r0.Error())
-					return nil, r0
-				}
-				defer res.Body.Close()
-
-				// bilibili risk control may respond with an HTML page (HTTP 429 with a
-				// "enable JavaScript" captcha page), check the status before parsing.
-				if res.StatusCode != http.StatusOK {
-					r0 := errors.Errorf("bilibili response status %v, url=%v", res.StatusCode, bilibiliURL)
-					saveBilibiliCache(ctx, bvid, update, nil, r0.Error())
-					return nil, r0
-				}
-
-				b, err := ioutil.ReadAll(res.Body)
-				if err != nil {
-					r0 := errors.Wrapf(err, "bilibili read %v", bilibiliURL)
-					saveBilibiliCache(ctx, bvid, update, nil, r0.Error())
-					return nil, r0
-				}
-
-				// Parse the bilibili view API, the data is the video metadata. A valid
-				// response may still carry a non-zero code (e.g. -412 blocked by risk
-				// control, or -404 not found), treat it as a cached failure as well.
-				resObj := struct {
-					Code    int                     `json:"code"`
-					Message string                  `json:"message"`
-					TTL     int                     `json:"ttl"`
-					Data    *map[string]interface{} `json:"data"`
-				}{}
-				if err := json.Unmarshal(b, &resObj); err != nil {
-					r0 := errors.Errorf("bilibili invalid json response, url=%v, body=%v", bilibiliURL, string(b))
-					saveBilibiliCache(ctx, bvid, update, nil, r0.Error())
-					return nil, r0
-				}
-				if resObj.Code != 0 || resObj.Data == nil {
-					r0 := errors.Errorf("bilibili error code=%v, message=%v, url=%v", resObj.Code, resObj.Message, bilibiliURL)
-					saveBilibiliCache(ctx, bvid, update, nil, r0.Error())
-					return nil, r0
-				}
-
-				saveBilibiliCache(ctx, bvid, update, *resObj.Data, "")
-				return *resObj.Data, nil
-			})
+			res, err := queryBilibili(ctx, bvid)
 			if err != nil {
 				return err
 			}
 
-			ohttp.WriteData(ctx, w, r, bilibiliRes)
+			ohttp.WriteData(ctx, w, r, res)
 			logger.Tf(ctx, "bilibili fetch ok bvid=%v", bvid)
+			return nil
+		}(); err != nil {
+			ohttp.WriteError(ctx, w, r, err)
+		}
+	})))
+}
+
+// TutorialEntry is one entry of the tutorial manifest served by /terraform/v1/mgmt/tutorials.
+// The manifest lives at /data/tutorials.json (seeded from the image default on the first
+// boot), so the deployer can add or adjust the list without rebuilding or restarting.
+type TutorialEntry struct {
+	ID     string   `json:"id"`
+	Source string   `json:"source"` // bilibili | medium | youtube | ...
+	Author string   `json:"author"`
+	Langs  []string `json:"langs,omitempty"` // optional, e.g. ["zh"]; empty means all languages
+	Title  string   `json:"title,omitempty"`
+	Desc   string   `json:"desc,omitempty"`
+	Link   string   `json:"link,omitempty"`
+	Media  string   `json:"media,omitempty"`
+	View   int64    `json:"view,omitempty"`
+	Like   int64    `json:"like,omitempty"`
+	Share  int64    `json:"share,omitempty"`
+}
+
+// loadTutorialsManifest loads the tutorial manifest, seeding the default to /data on the
+// first boot so the deployer has an editable copy. If /data is not writable or missing, it
+// falls back to the image default so the endpoint always works.
+func loadTutorialsManifest(ctx context.Context) (map[string][]*TutorialEntry, error) {
+	userFile := path.Join(conf.Pwd, "containers/data/tutorials.json")
+	defaultFile := path.Join(conf.Pwd, "containers/conf/tutorials.json")
+
+	var content []byte
+	if b, err := ioutil.ReadFile(userFile); err == nil {
+		content = b
+	} else if os.IsNotExist(err) {
+		// Seed the default manifest to /data for the deployer to edit. If /data is not
+		// writable, still serve the default.
+		if def, err := ioutil.ReadFile(defaultFile); err != nil {
+			return nil, errors.Wrapf(err, "read default tutorials %v", defaultFile)
+		} else {
+			content = def
+			if err := os.WriteFile(userFile, def, 0644); err != nil {
+				logger.Wf(ctx, "seed tutorials to %v failed, err=%v", userFile, err)
+			} else {
+				logger.Tf(ctx, "seeded default tutorials to %v", userFile)
+			}
+		}
+	} else {
+		return nil, errors.Wrapf(err, "read tutorials %v", userFile)
+	}
+
+	var manifest map[string][]*TutorialEntry
+	if err := json.Unmarshal(content, &manifest); err != nil {
+		return nil, errors.Wrapf(err, "parse tutorials %v", userFile)
+	}
+	return manifest, nil
+}
+
+func handleMgmtTutorials(ctx context.Context, handler *http.ServeMux) {
+	ep := "/terraform/v1/mgmt/tutorials"
+	logger.Tf(ctx, "Handle %v", ep)
+	handler.Handle(ep, middlewareAuthTokenInBody(ctx, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := func() error {
+			manifest, err := loadTutorialsManifest(ctx)
+			if err != nil {
+				return errors.Wrapf(err, "load tutorials manifest")
+			}
+
+			// Resolve the bilibili entries server-side (cached), so the UI does not fire
+			// one request per bvid. A bilibili failure falls back to the static title/link
+			// embedded in the manifest if any, so the card still renders.
+			for _, entries := range manifest {
+				for _, entry := range entries {
+					if entry.Source == "bilibili" {
+						entry.Link = fmt.Sprintf("https://www.bilibili.com/video/%v", entry.ID)
+						entry.Media = "Bilibili"
+						if res, err := queryBilibili(ctx, entry.ID); err != nil {
+							logger.Wf(ctx, "tutorial bilibili %v, err=%v", entry.ID, err)
+						} else {
+							if title, ok := res["title"].(string); ok {
+								entry.Title = title
+							}
+							if desc, ok := res["desc"].(string); ok {
+								entry.Desc = desc
+							}
+							if stat, ok := res["stat"].(map[string]interface{}); ok {
+								if view, ok := stat["view"].(float64); ok {
+									entry.View = int64(view)
+								}
+								if like, ok := stat["like"].(float64); ok {
+									entry.Like = int64(like)
+								}
+								if share, ok := stat["share"].(float64); ok {
+									entry.Share = int64(share)
+								}
+							}
+						}
+					} else if entry.Media == "" && entry.Link != "" {
+						// Derive the media name for static entries (youtu.be is a YouTube
+						// video, anything else is treated as a blog post).
+						if strings.Contains(entry.Link, "youtu.be") {
+							entry.Media = "YouTube"
+						} else {
+							entry.Media = "Medium"
+						}
+					}
+				}
+
+				// Sort by view descending, so the most popular tutorial comes first;
+				// entries without a view (view=0) keep their manifest order.
+				sort.SliceStable(entries, func(i, j int) bool {
+					return entries[i].View > entries[j].View
+				})
+			}
+
+			ohttp.WriteData(ctx, w, r, &struct {
+				Tutorials map[string][]*TutorialEntry `json:"tutorials"`
+			}{manifest})
+			logger.Tf(ctx, "query tutorials ok, contexts=%v", len(manifest))
 			return nil
 		}(); err != nil {
 			ohttp.WriteError(ctx, w, r, err)

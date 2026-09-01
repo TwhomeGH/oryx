@@ -68,6 +68,7 @@ handler.Handle(ep, middlewareAuthTokenInBody(ctx, http.HandlerFunc(func(...) {
 | `/terraform/v1/mgmt/login` | 797 | 登入 |
 | `/terraform/v1/mgmt/status` | 855 | 系統狀態查詢 |
 | `/terraform/v1/mgmt/bilibili` | 892 | Bilibili 配置 |
+| `/terraform/v1/mgmt/tutorials` | service.go | 教程清單 manifest（伺服器端，/data/tutorials.json） |
 | `/terraform/v1/mgmt/envs` | 800 | 環境變數查詢 |
 | `/terraform/v1/mgmt/token` | 785 | Token 管理 |
 | `/terraform/v1/hooks/srs/*` | srs-hooks.go | SRS 回調 |

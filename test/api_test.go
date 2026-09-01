@@ -219,6 +219,50 @@ func TestApi_TutorialsQueryBilibili(t *testing.T) {
 	}
 }
 
+func TestApi_TutorialsQuery(t *testing.T) {
+	tc(t, "驗證查詢教程清單（伺服器端 manifest）")
+	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
+	defer cancel()
+
+	var r0 error
+	defer func(ctx context.Context) {
+		if err := filterTestError(ctx.Err(), r0); err != nil {
+			t.Errorf("Fail for err %+v", err)
+		} else {
+			logger.Tf(ctx, "test done")
+		}
+	}(ctx)
+
+	// The tutorial manifest is served from /data/tutorials.json regardless of the
+	// bilibili availability (bilibili entries fall back to static data), so it must
+	// always return all the expected contexts.
+	res := struct {
+		Tutorials map[string][]struct {
+			ID     string `json:"id"`
+			Source string `json:"source"`
+		} `json:"tutorials"`
+	}{}
+	if err := NewApi().WithAuth(ctx, "/terraform/v1/mgmt/tutorials", &struct{}{}, &res); err != nil {
+		r0 = err
+		return
+	}
+
+	for _, key := range []string{"live", "ssl", "recordVod", "recordCos", "srt", "all"} {
+		entries := res.Tutorials[key]
+		if len(entries) == 0 {
+			r0 = errors.Errorf("no entries for context %v", key)
+			return
+		}
+		for _, entry := range entries {
+			if entry.ID == "" || entry.Source == "" {
+				r0 = errors.Errorf("invalid entry %+v in context %v", entry, key)
+				return
+			}
+		}
+	}
+	logger.Tf(ctx, "tutorials query ok, contexts=%v", len(res.Tutorials))
+}
+
 func TestApi_SslUpdateCert(t *testing.T) {
 	tc(t, "驗證上傳與更新 HTTPS 自訂證書")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)

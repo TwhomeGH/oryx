@@ -58,11 +58,7 @@ function ScenarioRecordCosImpl({activeKey, defaultApplyAll, enabled}) {
   const handleError = useErrorHandler();
   const {t} = useTranslation();
 
-  const dvrTutorials = useTutorials({
-    bilibili: React.useRef([
-      {author: '唐为', id: 'BV14S4y1k7gr'},
-    ])
-  });
+  const dvrTutorials = useTutorials('recordCos');
 
   React.useEffect(() => {
     const refreshDvrFiles = () => {

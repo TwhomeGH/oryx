@@ -62,14 +62,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
   const rtcUrlShortCode = `[srs_player url="${rtcUrl}"]`;
   const rtc2UrlShortCode = `[srs_publisher url="${rtcPublishUrl}"]`;
 
-  const movieTutorials = useTutorials({
-    bilibili: React.useRef([
-      {author: '徐光磊', id: 'BV1RS4y1G7tb'},
-      {author: 'SRS', id: 'BV1Nb4y1t7ij'},
-      {author: '王大江', id: 'BV16r4y1q7ZT'},
-      {author: '周亮', id: 'BV1gT4y1U76d'},
-    ])
-  });
+  const movieTutorials = useTutorials('live');
 
   // Whether the hostname is localhost.
   const isLo = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
