@@ -141,13 +141,23 @@ function fmtFixed(n, digits = 1) {
 const fpsBaselineAlpha = 0.2;
 const fpsBaselineDriftRatio = 0.2;
 
+function fmtFPSIntervalRange(fps, driftRatio = fpsBaselineDriftRatio) {
+  const value = finiteNumber(fps);
+  if (value === null || value <= 0) return '-';
+  const minFPS = value * (1 + driftRatio);
+  const maxFPS = value * Math.max(0.01, 1 - driftRatio);
+  return `${fmtFixed(1000 / minFPS)}-${fmtFixed(1000 / maxFPS)}`;
+}
+
 function mergeFPSProbe(prev, next) {
   if (!next) return prev;
   const fps = finiteNumber(next.fps);
+  const jitterMs = finiteNumber(next.jitter_ms ?? next.jitterMs);
   const prevBaseline = finiteNumber(prev?.baselineFps);
   const baselineDrift = fps === null || prevBaseline === null || prevBaseline <= 0 ? 0 : Math.abs(fps - prevBaseline) / prevBaseline;
   return {
     ...next,
+    jitterMs,
     baselineFps: fps === null ? prevBaseline : prevBaseline === null ? fps : prevBaseline * (1 - fpsBaselineAlpha) + fps * fpsBaselineAlpha,
     baselineDrift,
     variable: !!next.abnormal || baselineDrift > fpsBaselineDriftRatio,
@@ -479,7 +489,10 @@ function SrsStreams({handleError, initialFps}) {
             const fpsValue = fmtFixed(fpsInfo?.fps);
             const jitterValue = fmtFixed(fpsInfo?.jitterMs);
             const baselineValue = fmtFixed(fpsInfo?.baselineFps);
-            const fpsTitle = t('console.fpsTooltip', {fps: fpsValue, baseline: baselineValue, jitter: jitterValue});
+            const intervalRange = fmtFPSIntervalRange(fpsInfo?.baselineFps);
+            const fpsTitle = t('console.fpsTooltip', {
+              fps: fpsValue, baseline: baselineValue, interval: intervalRange, jitter: jitterValue,
+            });
             const fpsVariable = fpsInfo?.variable ?? fpsInfo?.abnormal;
             return (
             <tr key={s.id} className={fpsVariable ? 'table-warning' : ''}>
@@ -644,4 +657,4 @@ function SrsConfigs({handleError}) {
   );
 }
 
-export {SrsStreams, fmtBitrate, fmtBytes, fmtFixed, fmtPercent, fmtSec, mergeFPSProbe};
+export {SrsStreams, fmtBitrate, fmtBytes, fmtFixed, fmtFPSIntervalRange, fmtPercent, fmtSec, mergeFPSProbe};

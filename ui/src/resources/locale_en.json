@@ -798,7 +798,7 @@
       "noClients": "No clients",
       "fps": "FPS",
       "fpsAbnormal": "Variable",
-      "fpsTooltip": "Measured {{fps}} fps, baseline about {{baseline}} fps, frame interval jitter about {{jitter}}ms, for reference only",
+      "fpsTooltip": "Measured {{fps}} fps, baseline about {{baseline}} fps, expected interval {{interval}}ms, jitter about {{jitter}}ms, for reference only",
       "fpsAbnormalAlert": "Detected {{count}} stream(s) with larger frame interval variation; see measured FPS below",
       "key": "Key",
       "value": "Value",

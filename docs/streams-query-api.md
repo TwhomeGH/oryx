@@ -128,5 +128,5 @@ curl -s -X POST http://localhost:2022/terraform/v1/mgmt/streams/query \
 | 端點 | 用途 |
 |---|---|
 | `/terraform/v1/mgmt/streams/query` | 查詢活躍串流（本文） |
-| `/terraform/v1/mgmt/streams/fps` | 用 ffprobe 探測單路推流的實測 FPS、jitter 與波動標記；前端會基於每路 stream 自己的滾動基準顯示 |
+| `/terraform/v1/mgmt/streams/fps` | 用 ffprobe 探測單路推流的實測 FPS、jitter 與波動標記；前端會基於每路 stream 自己的滾動基準顯示，並推算預期幀間隔區間作參考 |
 | `/terraform/v1/mgmt/streams/kickoff` | 強制斷開某路串連（本就支援 vhost/app/stream 定位） |

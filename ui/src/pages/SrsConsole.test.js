@@ -6,7 +6,7 @@
 import React from "react";
 import {render, screen, waitFor} from "@testing-library/react";
 import {describe, expect, it, vi, beforeEach} from "vitest";
-import SrsConsole, {SrsStreams, fmtBitrate, fmtBytes, fmtFixed, fmtPercent, fmtSec, mergeFPSProbe} from "./SrsConsole";
+import SrsConsole, {SrsStreams, fmtBitrate, fmtBytes, fmtFixed, fmtFPSIntervalRange, fmtPercent, fmtSec, mergeFPSProbe} from "./SrsConsole";
 import axios from "axios";
 
 vi.mock("axios");
@@ -65,6 +65,10 @@ describe("SrsConsole", () => {
     expect(fmtFixed(undefined)).toBe("-");
     expect(fmtFixed("")).toBe("-");
     expect(fmtFixed("59.940")).toBe("59.9");
+
+    expect(fmtFPSIntervalRange(undefined)).toBe("-");
+    expect(fmtFPSIntervalRange(60)).toBe("13.9-20.8");
+    expect(fmtFPSIntervalRange(25)).toBe("33.3-50.0");
   });
 
   it("shows measured fps even when frame interval variation is marked", async () => {
@@ -99,6 +103,7 @@ describe("SrsConsole", () => {
     expect(mergeFPSProbe({baselineFps: 60.0}, {fps: 58.0}).baselineFps).toBeCloseTo(59.6);
     expect(mergeFPSProbe({baselineFps: 60.0}, {fps: 58.0}).variable).toBe(false);
     expect(mergeFPSProbe({baselineFps: 60.0}, {fps: 40.0}).variable).toBe(true);
-    expect(mergeFPSProbe({baselineFps: 60.0}, {jitterMs: 7.2}).baselineFps).toBe(60.0);
+    expect(mergeFPSProbe({baselineFps: 60.0}, {jitter_ms: 7.2}).baselineFps).toBe(60.0);
+    expect(mergeFPSProbe({baselineFps: 60.0}, {jitter_ms: 7.2}).jitterMs).toBe(7.2);
   });
 });
