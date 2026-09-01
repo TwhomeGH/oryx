@@ -2224,12 +2224,38 @@ type StreamFPS struct {
 // abnormalFPSJitterCV is the coefficient of variation of the frame intervals above which
 // a stream is considered abnormal. A clean CFR source has near-zero variation (only the
 // millisecond rounding of ffprobe), while a VFR source has a large one.
-const abnormalFPSJitterCV = 0.08
+const abnormalFPSJitterCV = 0.15
+
+// abnormalFPSJitterMS avoids marking normal encoder/network timestamp noise as abnormal.
+const abnormalFPSJitterMS = 5.0
+
+func computeStreamFPS(deltas []float64) (*StreamFPS, error) {
+	if len(deltas) < 2 {
+		return nil, errors.New("no enough frames")
+	}
+
+	var mean, variance float64
+	for _, delta := range deltas {
+		mean += delta
+	}
+	mean /= float64(len(deltas))
+	for _, delta := range deltas {
+		variance += (delta - mean) * (delta - mean)
+	}
+	stddev := math.Sqrt(variance / float64(len(deltas)))
+	jitterMS := math.Round(stddev*1000*10) / 10
+
+	return &StreamFPS{
+		FPS:      math.Round(1/mean*10) / 10,
+		JitterMS: jitterMS,
+		Abnormal: mean > 0 && stddev/mean > abnormalFPSJitterCV && jitterMS > abnormalFPSJitterMS,
+	}, nil
+}
 
 // ProbeStreamFPS samples the frames of a live stream via ffprobe and computes the
 // frame-rate statistics. The abnormal flag is set when the frame intervals vary too much
-// (coefficient of variation > abnormalFPSJitterCV), which makes the fps jump around and
-// may cause playback stutter.
+// (coefficient of variation > abnormalFPSJitterCV and jitter > abnormalFPSJitterMS),
+// which makes the fps jump around and may cause playback stutter.
 func ProbeStreamFPS(ctx context.Context, app, stream string) (*StreamFPS, error) {
 	// Sample the local stream, e.g. rtmp://127.0.0.1:1935/live/livestream.
 	url := fmt.Sprintf("rtmp://127.0.0.1:1935/%v/%v", app, stream)
@@ -2265,26 +2291,11 @@ func ProbeStreamFPS(ctx context.Context, app, stream string) (*StreamFPS, error)
 		prev = pts
 	}
 
-	if len(deltas) < 2 {
-		return nil, errors.Errorf("no enough frames for %v", url)
+	fps, err := computeStreamFPS(deltas)
+	if err != nil {
+		return nil, errors.Wrapf(err, "for %v", url)
 	}
-
-	var mean, variance float64
-	for _, delta := range deltas {
-		mean += delta
-	}
-	mean /= float64(len(deltas))
-	for _, delta := range deltas {
-		variance += (delta - mean) * (delta - mean)
-	}
-	stddev := math.Sqrt(variance / float64(len(deltas)))
-
-	abnormal := mean > 0 && stddev/mean > abnormalFPSJitterCV
-	return &StreamFPS{
-		FPS:      math.Round(1/mean*10) / 10,
-		JitterMS: math.Round(stddev*1000*10) / 10,
-		Abnormal: abnormal,
-	}, nil
+	return fps, nil
 }
 
 func FFprobeFileFormat(ctx context.Context, filename string) (format *MediaFormat, video *FFprobeVideo, audio *FFprobeAudio, err error) {

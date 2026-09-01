@@ -350,10 +350,10 @@ function SrsVhosts({handleError}) {
 }
 
 // ── Streams ──
-function SrsStreams({handleError}) {
+function SrsStreams({handleError, initialFps}) {
   const {t} = useTranslation();
   const [streams, setStreams] = React.useState();
-  const [fps, setFps] = React.useState({});
+  const [fps, setFps] = React.useState(initialFps || {});
   const streamsRef = React.useRef([]);
 
   React.useEffect(() => {
@@ -476,13 +476,14 @@ function SrsStreams({handleError}) {
               <td style={{fontSize: '0.8em'}}>{fmtAudio(s.audio)}</td>
               <td>
                 {fpsInfo ? (
-                  fpsInfo.abnormal ? (
-                    <Badge bg="warning" title={t('console.fpsTooltip', {fps: fpsValue, jitter: jitterValue})}>
-                      {t('console.fpsAbnormal')}
-                    </Badge>
-                  ) : fpsValue !== '-' ? (
+                  fpsValue !== '-' ? (
                     <span title={t('console.fpsTooltip', {fps: fpsValue, jitter: jitterValue})}>
                       {fpsValue} fps
+                      {fpsInfo.abnormal && (
+                        <Badge bg="warning" text="dark" className="ms-1">
+                          {t('console.fpsAbnormal')}
+                        </Badge>
+                      )}
                     </span>
                   ) : (
                     '-'
@@ -624,4 +625,4 @@ function SrsConfigs({handleError}) {
   );
 }
 
-export {fmtBitrate, fmtBytes, fmtFixed, fmtPercent, fmtSec};
+export {SrsStreams, fmtBitrate, fmtBytes, fmtFixed, fmtPercent, fmtSec};

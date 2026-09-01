@@ -120,3 +120,38 @@ func TestUtils_ParseFFmpegLogs(t *testing.T) {
 		}
 	}
 }
+
+func TestUtils_ComputeStreamFPS(t *testing.T) {
+	t.Run("stable cfr", func(t *testing.T) {
+		fps, err := computeStreamFPS([]float64{0.0333, 0.0334, 0.0333, 0.0334})
+		if err != nil {
+			t.Fatalf("compute fps err %+v", err)
+		}
+		if fps.Abnormal {
+			t.Fatalf("stable fps should not be abnormal, got %+v", fps)
+		}
+		if fps.FPS != 30.0 {
+			t.Fatalf("invalid fps %+v", fps)
+		}
+	})
+
+	t.Run("small timestamp noise", func(t *testing.T) {
+		fps, err := computeStreamFPS([]float64{0.031, 0.036, 0.032, 0.035, 0.033})
+		if err != nil {
+			t.Fatalf("compute fps err %+v", err)
+		}
+		if fps.Abnormal {
+			t.Fatalf("small timestamp noise should not be abnormal, got %+v", fps)
+		}
+	})
+
+	t.Run("large jitter", func(t *testing.T) {
+		fps, err := computeStreamFPS([]float64{0.016, 0.050, 0.017, 0.049, 0.018})
+		if err != nil {
+			t.Fatalf("compute fps err %+v", err)
+		}
+		if !fps.Abnormal {
+			t.Fatalf("large jitter should be abnormal, got %+v", fps)
+		}
+	})
+}

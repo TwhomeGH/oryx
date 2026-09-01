@@ -4,9 +4,9 @@
 // SPDX-License-Identifier: MIT
 //
 import React from "react";
-import {render, waitFor} from "@testing-library/react";
+import {render, screen, waitFor} from "@testing-library/react";
 import {describe, expect, it, vi, beforeEach} from "vitest";
-import SrsConsole, {fmtBitrate, fmtBytes, fmtFixed, fmtPercent, fmtSec} from "./SrsConsole";
+import SrsConsole, {SrsStreams, fmtBitrate, fmtBytes, fmtFixed, fmtPercent, fmtSec} from "./SrsConsole";
 import axios from "axios";
 
 vi.mock("axios");
@@ -65,5 +65,32 @@ describe("SrsConsole", () => {
     expect(fmtFixed(undefined)).toBe("-");
     expect(fmtFixed("")).toBe("-");
     expect(fmtFixed("29.970")).toBe("30.0");
+  });
+
+  it("shows measured fps even when frame interval variation is marked", async () => {
+    axios.get.mockImplementation((url) => {
+      if (url === "/api/v1/vhosts/") {
+        return Promise.resolve({data: {code: 0, vhosts: [{id: "v1", name: "__defaultVhost__"}]}});
+      }
+      if (url === "/api/v1/streams/") {
+        return Promise.resolve({data: {code: 0, streams: [{
+          id: "s1",
+          name: "livestream",
+          app: "live",
+          vhost: "v1",
+          publish: {active: true, cid: "c1"},
+          kbps: {recv_30s: 1200, send_30s: 2400},
+          clients: 1,
+        }]}});
+      }
+      return Promise.reject(new Error(`unexpected url ${url}`));
+    });
+
+    render(<SrsStreams handleError={vi.fn()} initialFps={{
+      s1: {fps: 29.97, jitterMs: 7.2, abnormal: true},
+    }} />);
+
+    await waitFor(() => expect(screen.getByText("30.0 fps")).toBeTruthy());
+    expect(screen.getByText("console.fpsAbnormal")).toBeTruthy();
   });
 });
