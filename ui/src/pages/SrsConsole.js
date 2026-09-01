@@ -337,6 +337,8 @@ function SrsVhosts({handleError}) {
 function SrsStreams({handleError}) {
   const {t} = useTranslation();
   const [streams, setStreams] = React.useState();
+  const [fps, setFps] = React.useState({});
+  const streamsRef = React.useRef([]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -354,7 +356,9 @@ function SrsStreams({handleError}) {
           const v = vhosts.find(x => x.id === vhostId);
           return v ? v.name : vhostId;
         };
-        setStreams((sd.streams || []).map(s => ({...s, ownerName: ownerOf(s.vhost)})));
+        const mapped = (sd.streams || []).map(s => ({...s, ownerName: ownerOf(s.vhost)}));
+        streamsRef.current = mapped;
+        setStreams(mapped);
         timer = setTimeout(refresh, 3000);
       }).catch((e) => {
         if (!cancelled) handleError(e);
@@ -374,6 +378,34 @@ function SrsStreams({handleError}) {
     }).catch(handleError);
   }, [handleError]);
 
+  // Sample the fps of each publishing stream via the platform, throttled to once per
+  // 10s, so the potentially abnormal streams (variable frame rate) are marked.
+  const fpsCacheRef = React.useRef({});
+  React.useEffect(() => {
+    let cancelled = false;
+    const timer = setInterval(() => {
+      const now = Date.now();
+      (streamsRef.current || []).filter(s => s.publish?.active).forEach(s => {
+        const cachedAt = fpsCacheRef.current[s.id] || 0;
+        if (now - cachedAt < 10000) return;
+        fpsCacheRef.current[s.id] = now;
+        axios.post('/terraform/v1/mgmt/streams/fps', {
+          app: s.app, stream: s.name,
+        }, {
+          headers: Token.loadBearerHeader(),
+        }).then(res => {
+          if (cancelled) return;
+          setFps(prev => ({...prev, [s.id]: res.data.data}));
+        }).catch(() => {
+          // Keep the previous result, the stream may just have stopped.
+        });
+      });
+    }, 3000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [handleError]);
+
+  const abnormalCount = Object.values(fps).filter(f => f?.abnormal).length;
+
   const preview = React.useCallback((s) => {
     const schema = window.location.protocol.replace(':', '');
     const port = window.location.port || (schema === 'https' ? '443' : '80');
@@ -386,6 +418,11 @@ function SrsStreams({handleError}) {
   return (
     <>
       {streams.length === 0 && <Alert variant="info">{t('console.noStreams')}</Alert>}
+      {abnormalCount > 0 && (
+        <Alert variant="warning">
+          {t('console.fpsAbnormalAlert', {count: abnormalCount})}
+        </Alert>
+      )}
       <Table size="sm" striped bordered hover>
         <thead>
           <tr>
@@ -399,12 +436,15 @@ function SrsStreams({handleError}) {
             <th>{t('console.out')}</th>
             <th>{t('console.video')}</th>
             <th>{t('console.audio')}</th>
+            <th>{t('console.fps')}</th>
             <th>{t('console.manage')}</th>
           </tr>
         </thead>
         <tbody>
-          {streams.map(s => (
-            <tr key={s.id}>
+          {streams.map(s => {
+            const fpsInfo = fps[s.id];
+            return (
+            <tr key={s.id} className={fpsInfo?.abnormal ? 'table-warning' : ''}>
               <td><code>{s.id}</code></td>
               <td>{s.name.length > 15 ? `${s.name.slice(0, 15)}…` : s.name}</td>
               <td style={{wordBreak: 'break-all'}}><code>{buildStreamUrl(s.ownerName, s)}</code></td>
@@ -416,11 +456,25 @@ function SrsStreams({handleError}) {
               <td style={{fontSize: '0.8em'}}>{fmtVideo(s.video)}</td>
               <td style={{fontSize: '0.8em'}}>{fmtAudio(s.audio)}</td>
               <td>
+                {fpsInfo ? (
+                  fpsInfo.abnormal ? (
+                    <Badge bg="warning" title={t('console.fpsTooltip', {fps: fpsInfo.fps.toFixed(1), jitter: fpsInfo.jitterMs.toFixed(1)})}>
+                      ⚠️ {t('console.fpsAbnormal')}
+                    </Badge>
+                  ) : (
+                    <span title={t('console.fpsTooltip', {fps: fpsInfo.fps.toFixed(1), jitter: fpsInfo.jitterMs.toFixed(1)})}>
+                      {fpsInfo.fps.toFixed(1)} fps
+                    </span>
+                  )
+                ) : '-'}
+              </td>
+              <td>
                 <Button size="sm" variant="outline-primary" className="me-1" onClick={() => preview(s)}>{t('console.preview')}</Button>
                 <Button size="sm" variant="outline-danger" onClick={() => kickoff(s.publish?.cid)}>{t('console.kickoff')}</Button>
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </Table>
     </>

@@ -366,6 +366,7 @@ func handleHTTPService(ctx context.Context, handler *http.ServeMux) error {
 	handleMgmtLetsEncrypt(ctx, handler)
 	handleMgmtCertQuery(ctx, handler)
 	handleMgmtStreamsQuery(ctx, handler)
+	handleMgmtStreamsFPS(ctx, handler)
 	handleMgmtStreamsKickoff(ctx, handler)
 	handleMgmtUI(ctx, handler)
 
@@ -1706,6 +1707,42 @@ func handleMgmtStreamsQuery(ctx context.Context, handler *http.ServeMux) {
 
 // See SRS error code ERROR_RTMP_CLIENT_NOT_FOUND
 const ErrorRtmpClientNotFound = 2049
+
+func handleMgmtStreamsFPS(ctx context.Context, handler *http.ServeMux) {
+	ep := "/terraform/v1/mgmt/streams/fps"
+	logger.Tf(ctx, "Handle %v", ep)
+	handler.Handle(ep, middlewareAuthTokenInBody(ctx, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := func() error {
+			var app, stream string
+			if err := ParseBody(ctx, r.Body, &struct {
+				App    *string `json:"app"`
+				Stream *string `json:"stream"`
+			}{
+				App: &app, Stream: &stream,
+			}); err != nil {
+				return errors.Wrapf(err, "parse body")
+			}
+
+			if app == "" {
+				return errors.New("no app")
+			}
+			if stream == "" {
+				return errors.New("no stream")
+			}
+
+			if fps, err := ProbeStreamFPS(ctx, app, stream); err != nil {
+				return errors.Wrapf(err, "probe fps %v/%v", app, stream)
+			} else {
+				ohttp.WriteData(ctx, w, r, fps)
+				logger.Tf(ctx, "stream fps ok, app=%v, stream=%v, fps=%v, jitter=%vms, abnormal=%v",
+					app, stream, fps.FPS, fps.JitterMS, fps.Abnormal)
+				return nil
+			}
+		}(); err != nil {
+			ohttp.WriteError(ctx, w, r, err)
+		}
+	})))
+}
 
 func handleMgmtStreamsKickoff(ctx context.Context, handler *http.ServeMux) {
 	ep := "/terraform/v1/mgmt/streams/kickoff"
