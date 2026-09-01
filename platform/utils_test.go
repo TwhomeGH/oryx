@@ -36,6 +36,68 @@ func TestUtils_RebuildStreamURL(t *testing.T) {
 	}
 }
 
+func TestUtils_CheckRTMPOutputURL(t *testing.T) {
+	okSamples := []string{
+		"rtmp://localhost/live/livestream",
+		"rtmp://localhost/live/livestream?secret=xxx",
+		"rtmps://dummy1234.global-contribute.live-video.net/app/sk_1234567890abcdef",
+		"rtmp://host/app/foo/bar",
+		"rtmp://host/app/live/key?secret=abc",
+		// srt has no app/stream path, always skipped.
+		"srt://213.171.194.158:10080?streamid=#!::r=live/primary,latency=20,m=request",
+	}
+	for _, outputURL := range okSamples {
+		if err := CheckRTMPOutputURL(outputURL); err != nil {
+			t.Errorf("CheckRTMPOutputURL(%v) should pass, got %+v", outputURL, err)
+			return
+		}
+	}
+
+	invalidSamples := []string{
+		// The single path segment becomes the app name, playpath is empty.
+		"rtmps://dummy1234.global-contribute.live-video.net/sk_1234567890abcdef",
+		"rtmp://host/live",
+		// No path at all.
+		"rtmps://dummy1234.global-contribute.live-video.net",
+		"rtmp://host/",
+		// Trailing slash, empty playpath.
+		"rtmp://host/app/",
+	}
+	for _, outputURL := range invalidSamples {
+		if err := CheckRTMPOutputURL(outputURL); err == nil {
+			t.Errorf("CheckRTMPOutputURL(%v) should fail", outputURL)
+			return
+		}
+	}
+}
+
+func TestUtils_NormalizeRTMPConfig(t *testing.T) {
+	for _, e := range []struct {
+		server, secret             string
+		expectServer, expectSecret string
+	}{
+		// Full URL pasted into server, split at the first path segment.
+		{server: "rtmps://dummy1234.global-contribute.live-video.net/app/sk_1234567890abcdef",
+			expectServer: "rtmps://dummy1234.global-contribute.live-video.net/app", expectSecret: "sk_1234567890abcdef"},
+		// Query on the playpath stays with the secret.
+		{server: "rtmps://host/app/key?token=abc", expectServer: "rtmps://host/app", expectSecret: "key?token=abc"},
+		// Deeper playpath: first segment is the app, rest is the secret.
+		{server: "rtmp://host/app/foo/bar", expectServer: "rtmp://host/app", expectSecret: "foo/bar"},
+		// Server+secret already split: unchanged.
+		{server: "rtmp://host/app", secret: "key", expectServer: "rtmp://host/app", expectSecret: "key"},
+		// Single segment (no app): unchanged.
+		{server: "rtmps://host/sk_xxx", expectServer: "rtmps://host/sk_xxx", expectSecret: ""},
+		// Non-rtmp scheme: unchanged.
+		{server: "srt://host:10080?streamid=#!::r=live,latency=20", expectServer: "srt://host:10080?streamid=#!::r=live,latency=20", expectSecret: ""},
+	} {
+		if s, k := NormalizeRTMPConfig(e.server, e.secret); s != e.expectServer || k != e.expectSecret {
+			t.Errorf("NormalizeRTMPConfig(%v, %v) = (%v, %v), expect (%v, %v)",
+				e.server, e.secret, s, k, e.expectServer, e.expectSecret)
+			return
+		}
+	}
+}
+
 func TestUtils_ParseFFmpegLogs(t *testing.T) {
 	for _, e := range []struct {
 		log   string

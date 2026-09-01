@@ -101,6 +101,14 @@ ffmpeg
 - 程序管理：`exec.CommandContext` + `cmd.StderrPipe()`；
   `FFmpegHeartbeat.Polling()` 持續解析日誌判活，異常觸發 cancel → `cmd.Wait()`
 - 重啟策略：正常結束後 300ms 輪詢間隔；出錯退避 3500ms；有 PID 時額外睡 1s 防止過快重啟
+- 起 FFmpeg 前兩道快速失敗檢查：
+  1. `CheckRTMPOutputURL()`：`rtmp(s)://` 輸出必須是 `host/app/stream` 三段式（path ≥ 2 段）。
+     若 Server 沒含 app path（如 `rtmps://host` + secret=`sk_...`），ffmpeg 會把唯一一段當 app、
+     playpath 為空、以空 stream 名 publish，平台（如 AWS IVS/Kick）直接斷線 → 表面上是
+     `exit status 251`（=`AVERROR(EIO)`）。現在會先在啟動前報明確錯誤。
+  2. `ProbeTCPServer()`：對輸出位址做 TCP 探測（rtmp:1935 / rtmps:443 / srt:9710），提前失敗。
+- 更新配置時 `NormalizeRTMPConfig()` 會自動拆欄：把完整推流網址貼進 Server 欄（secret 留空），
+  自動拆成 `server=host/app` + `secret=streamkey`（RTMP 第一段 path 是 app，其餘是 playpath，query 併入 secret）。
 
 ### 已知行為限制（設計改造的切入點）
 
@@ -108,6 +116,10 @@ ffmpeg
 2. **自訂目標按需增減**：UI 改為「新增轉播目標」按鈕動態加入空槽（受 env.forwardLimit 上限），每個自訂槽有刪除按鈕（action=delete）；內建三平台不可刪。歷史遺留的英文標籤槽位可手動改名或直接刪除
 3. **選流規則簡單**：空 Stream 名時「挑最新」可能選錯來源
 4. **與 SRS 原生 forward 的取捨**：SRS 本身有協定層 forward（不經 ffmpeg、更省資源），目前未使用
+5. **自訂目標的 URL 結構**：`rtmp(s)://` 目標的 Server 欄位必須含 app path（`rtmps://host/app`），
+   secret 才是 stream key；兩者合起來要是 `rtmps://host/app/streamkey`。若填 `rtmps://host` + key，
+   會觸發上面第 1 條的 fail-fast（`CheckRTMPOutputURL`）。最省事的填法是**把平台給的完整網址整段
+   貼進 server 欄、secret 留空**，`NormalizeRTMPConfig` 會自動拆欄。
 
 ---
 

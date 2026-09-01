@@ -28,7 +28,7 @@
 {
   "action": "update | delete",      // 省略或空 = 查詢
   "platform": "wx | bilibili | kuaishou | vlive-xxxx-xxxx",
-  "server": "rtmp://xxx",           // update 才需要
+  "server": "rtmp://xxx",           // update 才需要，rtmp(s):// 必須含 app path，例如 rtmps://host/app
   "secret": "...",                  // update 才需要
   "enabled": true,
   "custom": true,
@@ -36,6 +36,14 @@
   "files": [{ ... }]                // update 才需要
 }
 ```
+
+> **server 欄位的坑（Kick/IVS 案例）**：對 `rtmp(s)://` 目標，server 要填到 `host/app`（app path 一起給），
+> secret 才是 stream key，合併後要是 `rtmps://host/app/streamkey`。若只填 `rtmps://host` + secret=`sk_...`，
+> ffmpeg 會把 `sk_...` 當 app、playpath 為空，以空 stream 名 publish，平台斷線後表面錯誤是
+> `exit status 251`。最省事的填法是**把完整推流網址整段貼進 server 欄、secret 留空**——2026-09 起
+> `update` 會先跑 `NormalizeRTMPConfig()` 自動拆成 `server=host/app` + `secret=streamkey`；
+> `doVLive`/`doForward`/`doCamera`/`doTranscode` 啟動前再跑 `CheckRTMPOutputURL()` 兜底，
+> 仍缺 app path 就回「no app path」明確錯誤。
 
 | action | 行為 | 限制 |
 |---|---|---|

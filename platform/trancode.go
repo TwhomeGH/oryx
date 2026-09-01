@@ -79,6 +79,10 @@ func (v *TranscodeWorker) Handle(ctx context.Context, handler *http.ServeMux) er
 				return errors.Wrapf(err, "parse body")
 			}
 
+			// Allow pasting a full RTMP(S) ingest URL into the Server field, split it
+			// into server and secret automatically.
+			config.Server, config.Secret = NormalizeRTMPConfig(config.Server, config.Secret)
+
 			if b, err := json.Marshal(config); err != nil {
 				return errors.Wrapf(err, "marshal conf %v", config)
 			} else if err := rdb.HSet(ctx, SRS_TRANSCODE_CONFIG, "global", string(b)).Err(); err != nil && err != redis.Nil {
@@ -442,6 +446,12 @@ func (v *TranscodeTask) doTranscode(ctx context.Context, input *SrsStream) error
 		outputServer += "/"
 	}
 	outputURL := fmt.Sprintf("%v%v", outputServer, v.config.Secret)
+
+	// Check the output URL structure, to fail fast with a clear reason when the RTMP(S)
+	// URL has no app path, instead of a cryptic FFmpeg error like exit status 251.
+	if err := CheckRTMPOutputURL(outputURL); err != nil {
+		return errors.Wrapf(err, "output url precheck")
+	}
 
 	// Create a heartbeat to poll and manage the status of FFmpeg process.
 	heartbeat := NewFFmpegHeartbeat(cancel)

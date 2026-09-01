@@ -140,7 +140,8 @@ func handleHooksService(ctx context.Context, handler *http.ServeMux) error {
 
 			// Automatically add by SRS.
 			streamURL := streamObj.StreamURL()
-			if action == SrsActionOnPublish {
+			switch action {
+			case SrsActionOnPublish:
 				streamObj.Update = time.Now().Format(time.RFC3339)
 
 				b, err := json.Marshal(&streamObj)
@@ -163,7 +164,7 @@ func handleHooksService(ctx context.Context, handler *http.ServeMux) error {
 						return errors.Wrapf(err, "hset %v %v %v", SRS_STREAM_RTC_ACTIVE, streamURL, string(b))
 					}
 				}
-			} else if action == SrsActionOnUnpublish {
+			case SrsActionOnUnpublish:
 				if err := rdb.HDel(ctx, SRS_STREAM_ACTIVE, streamURL).Err(); err != nil && err != redis.Nil {
 					return errors.Wrapf(err, "hset %v %v", SRS_STREAM_ACTIVE, streamURL)
 				}
@@ -177,7 +178,7 @@ func handleHooksService(ctx context.Context, handler *http.ServeMux) error {
 						return errors.Wrapf(err, "hset %v %v", SRS_STREAM_RTC_ACTIVE, streamURL)
 					}
 				}
-			} else if action == "on_play" {
+			case "on_play":
 				if err := rdb.HIncrBy(ctx, SRS_STAT_COUNTER, "play", 1).Err(); err != nil && err != redis.Nil {
 					return errors.Wrapf(err, "hincrby %v play 1", SRS_STAT_COUNTER)
 				}

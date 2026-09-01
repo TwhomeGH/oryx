@@ -90,7 +90,12 @@ func (v *CameraWorker) Handle(ctx context.Context, handler *http.ServeMux) error
 				}
 			}
 
-			if action == "update" {
+			switch action {
+			case "update":
+				// Allow pasting a full RTMP(S) ingest URL into the Server field, split it
+				// into server and secret automatically.
+				userConf.Server, userConf.Secret = NormalizeRTMPConfig(userConf.Server, userConf.Secret)
+
 				var targetConf CameraConfigure
 				if config, err := rdb.HGet(ctx, SRS_CAMERA_CONFIG, userConf.Platform).Result(); err != nil && err != redis.Nil {
 					return errors.Wrapf(err, "hget %v %v", SRS_CAMERA_CONFIG, userConf.Platform)
@@ -119,7 +124,7 @@ func (v *CameraWorker) Handle(ctx context.Context, handler *http.ServeMux) error
 				ohttp.WriteData(ctx, w, r, nil)
 				logger.Tf(ctx, "Camera: update secret ok")
 				return nil
-			} else {
+			default:
 				confObjs := make(map[string]*CameraConfigure)
 				if configs, err := rdb.HGetAll(ctx, SRS_CAMERA_CONFIG).Result(); err != nil && err != redis.Nil {
 					return errors.Wrapf(err, "hgetall %v", SRS_CAMERA_CONFIG)
@@ -809,6 +814,12 @@ func (v *CameraTask) doCameraStreaming(ctx context.Context, input *FFprobeSource
 		outputServer += "/"
 	}
 	outputURL := fmt.Sprintf("%v%v", outputServer, v.config.Secret)
+
+	// Check the output URL structure, to fail fast with a clear reason when the RTMP(S)
+	// URL has no app path, instead of a cryptic FFmpeg error like exit status 251.
+	if err := CheckRTMPOutputURL(outputURL); err != nil {
+		return errors.Wrapf(err, "output url precheck")
+	}
 
 	// Create a heartbeat to poll and manage the status of FFmpeg process.
 	heartbeat := NewFFmpegHeartbeat(cancel)

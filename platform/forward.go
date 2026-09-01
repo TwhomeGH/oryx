@@ -101,7 +101,12 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 				}
 			}
 
-			if action == "update" {
+			switch action {
+			case "update":
+				// Allow pasting a full RTMP(S) ingest URL into the Server field, split it
+				// into server and secret automatically.
+				userConf.Server, userConf.Secret = NormalizeRTMPConfig(userConf.Server, userConf.Secret)
+
 				var targetConf ForwardConfigure
 				if config, err := rdb.HGet(ctx, SRS_FORWARD_CONFIG, userConf.Platform).Result(); err != nil && err != redis.Nil {
 					return errors.Wrapf(err, "hget %v %v", SRS_FORWARD_CONFIG, userConf.Platform)
@@ -130,7 +135,7 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 				ohttp.WriteData(ctx, w, r, nil)
 				logger.Tf(ctx, "Forward update secret ok")
 				return nil
-			} else if action == "delete" {
+			case "delete":
 				// Only custom forwarding configs are removable, built-in platforms are protected.
 				if !strings.Contains(userConf.Platform, "forwarding-") {
 					return errors.Errorf("invalid platform=%v", userConf.Platform)
@@ -144,7 +149,7 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 				ohttp.WriteData(ctx, w, r, nil)
 				logger.Tf(ctx, "forward delete config ok, platform=%v", userConf.Platform)
 				return nil
-			} else {
+			default:
 				confObjs := make(map[string]*ForwardConfigure)
 				if configs, err := rdb.HGetAll(ctx, SRS_FORWARD_CONFIG).Result(); err != nil && err != redis.Nil {
 					return errors.Wrapf(err, "hgetall %v", SRS_FORWARD_CONFIG)
@@ -625,6 +630,12 @@ func (v *ForwardTask) doForward(ctx context.Context, input *SrsStream) error {
 		outputServer += "/"
 	}
 	outputURL := fmt.Sprintf("%v%v", outputServer, v.config.Secret)
+
+	// B4: Check the output URL structure before probing, to fail fast with a clear reason
+	// instead of a cryptic FFmpeg error like exit status 251.
+	if err := CheckRTMPOutputURL(outputURL); err != nil {
+		return errors.Wrapf(err, "output url precheck")
+	}
 
 	// B3: Probe the output server before starting FFmpeg, to fail fast with a clear reason,
 	// instead of a cryptic FFmpeg dial error after several seconds.

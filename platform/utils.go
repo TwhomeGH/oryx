@@ -1617,6 +1617,69 @@ func ProbeTCPServer(ctx context.Context, rawURL string, timeout time.Duration) e
 	return nil
 }
 
+// NormalizeRTMPConfig splits a full RTMP(S) ingest URL pasted into the Server field into
+// Server (scheme://host/app) and Secret (the playpath / stream key), so users can paste
+// the URL as-is from platforms like Kick or AWS IVS. Only applied when the Secret is empty
+// and the Server is a valid rtmp(s) URL with both an app and a playpath; otherwise the
+// inputs are returned unchanged. For RTMP the first path segment is the app and the rest
+// is the playpath, e.g. rtmp(s)://host/app/foo/bar -> server=host/app, secret=foo/bar.
+func NormalizeRTMPConfig(server, secret string) (string, string) {
+	if secret != "" {
+		return server, secret
+	}
+
+	u, err := url.Parse(server)
+	if err != nil || (u.Scheme != "rtmp" && u.Scheme != "rtmps") {
+		return server, secret
+	}
+
+	path := strings.TrimPrefix(u.Path, "/")
+	index := strings.Index(path, "/")
+	if index <= 0 {
+		return server, secret
+	}
+	app, stream := path[:index], path[index+1:]
+	if app == "" || stream == "" {
+		return server, secret
+	}
+
+	rebuiltServer := fmt.Sprintf("%v://%v/%v", u.Scheme, u.Host, app)
+	if u.RawQuery != "" {
+		stream += "?" + u.RawQuery
+	}
+	return rebuiltServer, stream
+}
+
+// CheckRTMPOutputURL checks the output URL of an FFmpeg push, to fail fast with a clear
+// reason when the RTMP(S) URL is missing the app path. For RTMP, the URL must be
+// rtmp(s)://host/app/stream, otherwise FFmpeg parses the single path segment as the app
+// name and publishes an empty stream, which platforms like AWS IVS/Kick reject with a
+// cryptic error (e.g. ffmpeg exit status 251). Only checks rtmp and rtmps schemes, other
+// schemes such as srt are skipped because they have no app/stream path.
+func CheckRTMPOutputURL(outputURL string) error {
+	u, err := url.Parse(outputURL)
+	if err != nil {
+		return errors.Wrapf(err, "parse %v", outputURL)
+	}
+
+	switch u.Scheme {
+	case "rtmp", "rtmps":
+	default:
+		return nil
+	}
+
+	// The path must contain at least an app and a playpath, i.e. /app/stream, otherwise
+	// FFmpeg would take the only segment as the app and publish an empty stream name.
+	segments := strings.Split(strings.TrimPrefix(u.Path, "/"), "/")
+	if len(segments) < 2 || segments[1] == "" {
+		return errors.Errorf("invalid output url=%v, no app path: RTMP URL must be rtmp(s)://host/app/stream. "+
+			"Platforms like AWS IVS/Kick give a host-only ingest server, append /app to the server field, "+
+			"or paste the full ingest URL into the server field with an empty secret to split it automatically", outputURL)
+	}
+
+	return nil
+}
+
 // httpAllowCORS allow CORS for HTTP request.
 // Note that we always enable CROS because we enable HTTP cache.
 func httpAllowCORS(w http.ResponseWriter, _ *http.Request) {

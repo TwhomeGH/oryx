@@ -114,7 +114,12 @@ func (v *VLiveWorker) Handle(ctx context.Context, handler *http.ServeMux) error 
 				}
 			}
 
-			if action == "update" {
+			switch action {
+			case "update":
+				// Allow pasting a full RTMP(S) ingest URL into the Server field, split it
+				// into server and secret automatically.
+				userConf.Server, userConf.Secret = NormalizeRTMPConfig(userConf.Server, userConf.Secret)
+
 				var targetConf VLiveConfigure
 				if config, err := rdb.HGet(ctx, SRS_VLIVE_CONFIG, userConf.Platform).Result(); err != nil && err != redis.Nil {
 					return errors.Wrapf(err, "hget %v %v", SRS_VLIVE_CONFIG, userConf.Platform)
@@ -143,7 +148,7 @@ func (v *VLiveWorker) Handle(ctx context.Context, handler *http.ServeMux) error 
 				ohttp.WriteData(ctx, w, r, nil)
 				logger.Tf(ctx, "vLive: Update secret ok")
 				return nil
-			} else if action == "delete" {
+			case "delete":
 				// Only custom virtual live configs are removable, built-in platforms are protected.
 				if !strings.Contains(userConf.Platform, "vlive-") {
 					return errors.Errorf("invalid platform=%v", userConf.Platform)
@@ -157,7 +162,7 @@ func (v *VLiveWorker) Handle(ctx context.Context, handler *http.ServeMux) error 
 				ohttp.WriteData(ctx, w, r, nil)
 				logger.Tf(ctx, "vLive delete config ok, platform=%v", userConf.Platform)
 				return nil
-			} else {
+			default:
 				confObjs := make(map[string]*VLiveConfigure)
 				if configs, err := rdb.HGetAll(ctx, SRS_VLIVE_CONFIG).Result(); err != nil && err != redis.Nil {
 					return errors.Wrapf(err, "hgetall %v", SRS_VLIVE_CONFIG)
@@ -1212,6 +1217,12 @@ func (v *VLiveTask) doVirtualLiveStream(ctx context.Context, input *FFprobeSourc
 		outputServer += "/"
 	}
 	outputURL := fmt.Sprintf("%v%v", outputServer, v.config.Secret)
+
+	// Check the output URL structure, to fail fast with a clear reason when the RTMP(S)
+	// URL has no app path, instead of a cryptic FFmpeg error like exit status 251.
+	if err := CheckRTMPOutputURL(outputURL); err != nil {
+		return errors.Wrapf(err, "output url precheck")
+	}
 
 	// Create a heartbeat to poll and manage the status of FFmpeg process.
 	heartbeat := NewFFmpegHeartbeat(cancel)
