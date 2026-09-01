@@ -42,8 +42,6 @@
     "start-zh": "env PUBLIC_URL=/mgmt REACT_APP_LOCALE=zh vite",
     "start-en": "env PUBLIC_URL=/mgmt REACT_APP_LOCALE=en vite",
     "build": "vite build",
-    "build-cn": "vite build",
-    "build-en": "vite build",
     "lint": "eslint --max-warnings 0 ./src",
     "test": "vitest run",
     "testWatch": "vitest"

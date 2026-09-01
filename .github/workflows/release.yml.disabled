@@ -97,8 +97,8 @@ jobs:
           password: "${{ secrets.DOCKER_PASSWORD }}"
       - name: Build the ui for multiple archs
         run: |
-          echo "Build multiple language ui"
-          cd ui && make build-cn -j && make build-en -j
+          echo "Build ui"
+          cd ui && make build -j
       - name: Build SRS docker image
         run: |
           echo "Release ossrs/oryx:$SRS_TAG"

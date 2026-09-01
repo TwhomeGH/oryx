@@ -36,6 +36,7 @@ import {SrsErrorBoundary} from "./components/SrsErrorBoundary";
 import {resources} from "./localeLoader";
 import {SrsEnvContext} from "./components/SrsEnvContext";
 import Popouts from "./pages/Popouts";
+import i18n from "./i18n";
 
 function App() {
   const [env, setEnv] = React.useState(null);
@@ -66,6 +67,16 @@ function AppPreImpl() {
       locale: Locale.current()
     }).then(res => {
       setEnv(res.data.data);
+      // First visit: if the user has not chosen a language yet (no localStorage
+      // preference), seed the platform default locale (REACT_APP_LOCALE env, e.g. ja).
+      // The UI is a single bundle with all locales, so the default is applied at runtime
+      // instead of a per-locale build.
+      const platformLocale = res.data.data?.locale;
+      if (!Locale._cache && platformLocale && Object.keys(resources).includes(platformLocale)) {
+        Locale.save({lang: platformLocale});
+        i18n.changeLanguage(platformLocale);
+        console.log(`Apply platform locale ${platformLocale}`);
+      }
       console.log(`Env ok, ${JSON.stringify(res.data)}`);
     }).catch(handleError);
   }, [handleError, setEnv]);

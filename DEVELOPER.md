@@ -1168,7 +1168,7 @@ The software we depend on:
 The optional environments defined by `platform/containers/data/config/.env`:
 
 * `MGMT_PASSWORD`: The mgmt administrator password.
-* `REACT_APP_LOCALE`: The i18n config for ui, `en` or `zh`, default to `en`.
+* `REACT_APP_LOCALE`: The default locale for ui, seeded at runtime via the envs API (the ui is a single bundle with all locales), e.g. `zh`, `en` or `ja`, default to `en`.
 
 Other environments defined by `platform/containers/data/config/.env`:
 

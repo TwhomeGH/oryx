@@ -49,16 +49,17 @@ jobs:
             # Immutable tag per build, e.g. sha-a1b2c3d — always available for rollback.
             type=sha,prefix=sha-
 
-      # Prebuild zh/en UI on the runner, same as official release.yml,
-      # then root Dockerfile packs them via MAKEARGS=build-no-ui.
+      # Prebuild the UI on the runner, then the root Dockerfile packs it via
+      # MAKEARGS=build-no-ui. The UI is a single bundle with all locales, the default
+      # language is seeded at runtime from REACT_APP_LOCALE.
       - name: Setup Node 22
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      - name: Build UI (cn + en)
+      - name: Build UI
         run: |
-          cd ui && make build-cn -j && make build-en -j
+          cd ui && make build -j
 
       - name: Build and push
         uses: docker/build-push-action@v6

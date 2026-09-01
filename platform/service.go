@@ -750,6 +750,10 @@ func handleMgmtEnvs(ctx context.Context, handler *http.ServeMux) {
 				VLiveLimit int `json:"vLiveLimit"`
 				// The limit of the number of IP camera streams.
 				CameraLimit int `json:"cameraLimit"`
+				// The default locale from the REACT_APP_LOCALE env, for the UI to seed
+				// the initial language on first visit. Any value works because all
+				// locales are bundled in the single UI build.
+				Locale string `json:"locale"`
 			}{
 				// Whether in docker.
 				MgmtDocker: true,
@@ -771,6 +775,8 @@ func handleMgmtEnvs(ctx context.Context, handler *http.ServeMux) {
 				VLiveLimit: vLiveLimit,
 				// The limit of the number of IP camera streams.
 				CameraLimit: cameraLimit,
+				// The default locale for the UI.
+				Locale: envReactAppLocale(),
 			})
 
 			logger.Tf(ctx, "mgmt envs ok, locale=%v, platformDocker=%v, candidate=%v, rtmpPort=%v, httpPort=%v, srtPort=%v, rtcPort=%v, forwardLimit=%v, vLiveLimit=%v, cameraLimit=%v",
@@ -1808,8 +1814,10 @@ func handleMgmtStreamsKickoff(ctx context.Context, handler *http.ServeMux) {
 }
 
 func handleMgmtUI(ctx context.Context, handler *http.ServeMux) {
-	// Serve UI at platform.
-	fileRoot := path.Join(conf.Pwd, "../ui/build", envReactAppLocale())
+	// Serve the single UI bundle. All locales are bundled and the default language is
+	// seeded at runtime from the REACT_APP_LOCALE env, so there is no per-locale build
+	// and an unknown locale value cannot break the UI.
+	fileRoot := path.Join(conf.Pwd, "../ui/build")
 
 	fileServer := http.FileServer(http.Dir(fileRoot))
 	logger.Tf(ctx, "File server at %v", fileRoot)

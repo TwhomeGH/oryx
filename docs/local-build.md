@@ -23,7 +23,7 @@ cd F:\oryx          # 換成你的倉庫路徑
 docker build -t oryx:local .
 ```
 
-這會在容器內依序完成：npm 安裝與 lint → 建置中文/英文 UI → 編譯 Go 平台 →
+這會在容器內依序完成：npm 安裝與 lint → 建置 UI（單一 bundle，多語系於 runtime 載入）→ 編譯 Go 平台 →
 打包最終映像。
 
 | 情境 | 預計耗時 |
@@ -73,7 +73,7 @@ docker compose up -d
 
 ```bash
 # 需要本機有 Node.js 18+
-cd ui && make build-cn -j && make build-en -j && cd ..
+cd ui && make build -j && cd ..
 
 docker build --build-arg MAKEARGS=build-no-ui -t oryx:local .
 ```

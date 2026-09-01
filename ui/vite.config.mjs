@@ -7,8 +7,8 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// The base URL and locale are injected per build by Makefile:
-//   PUBLIC_URL=/mgmt REACT_APP_LOCALE=zh BUILD_PATH=build/zh ...
+// The base URL is injected per build by Makefile:
+//   PUBLIC_URL=/mgmt BUILD_PATH=build ...
 // Keep the CRA-compatible variables, so that no source code changes required.
 export default defineConfig(({ mode }) => {
   const publicUrl = (process.env.PUBLIC_URL || '/mgmt/').replace(/\/$/, '');

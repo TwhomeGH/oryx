@@ -12,7 +12,7 @@ ui/
 ├── index.html              # Vite 進入模板（含 %PUBLIC_URL% 等佔位符，勿手改值）
 ├── vite.config.mjs         # 建置設定（佔位符替換、JSX loader、dev proxy、vitest）
 ├── eslint.config.mjs       # ESLint 9 平面配置
-├── package.json            # 依賴與腳本（lint/test/build-cn/build-en）
+├── package.json            # 依賴與腳本（lint/test/build）
 ├── public/                 # favicon、manifest 等靜態檔，原樣複製到產物根目錄
 └── src/
     ├── index.js            # React 入口

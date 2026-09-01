@@ -1,9 +1,10 @@
 .PHONY: default clean build
-.PHONY: npm lint test build-cn build-en
+.PHONY: npm lint test
 
 default: build
 
-build: npm build build-cn build-en
+build: npm
+	env PUBLIC_URL=/mgmt BUILD_PATH=build npm run build
 
 npm: lint
 	npm install
@@ -16,13 +17,5 @@ lint:
 test: lint
 	npm run test
 
-build: build-cn npm
-
-build-cn: npm
-	env PUBLIC_URL=/mgmt REACT_APP_LOCALE=zh BUILD_PATH=build/zh npm run build
-
-build-en: npm
-	env PUBLIC_URL=/mgmt REACT_APP_LOCALE=en BUILD_PATH=build/en npm run build
-
 clean:
-	rm -rf ui/build
+	rm -rf build
