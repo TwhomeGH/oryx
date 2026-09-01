@@ -6,7 +6,7 @@
 import React from "react";
 import {render, waitFor} from "@testing-library/react";
 import {describe, expect, it, vi, beforeEach} from "vitest";
-import SrsConsole from "./SrsConsole";
+import SrsConsole, {fmtBitrate, fmtBytes, fmtFixed, fmtPercent, fmtSec} from "./SrsConsole";
 import axios from "axios";
 
 vi.mock("axios");
@@ -43,5 +43,27 @@ describe("SrsConsole", () => {
     await waitFor(() => {
       expect(getByText("SRS 7.0.0")).toBeTruthy();
     });
+  });
+
+  it("formats missing and malformed numeric API fields safely", () => {
+    expect(fmtBytes(undefined)).toBe("-");
+    expect(fmtBytes("")).toBe("-");
+    expect(fmtBytes("2048")).toBe("2.0 KB");
+
+    expect(fmtBitrate(undefined)).toBe("-");
+    expect(fmtBitrate("")).toBe("-");
+    expect(fmtBitrate("1200")).toBe("1.2 Kbps");
+
+    expect(fmtPercent(undefined)).toBe("-");
+    expect(fmtPercent("")).toBe("-");
+    expect(fmtPercent("0.12")).toBe("12.00%");
+
+    expect(fmtSec(undefined)).toBe("-");
+    expect(fmtSec("")).toBe("-");
+    expect(fmtSec("59")).toBe("59s");
+
+    expect(fmtFixed(undefined)).toBe("-");
+    expect(fmtFixed("")).toBe("-");
+    expect(fmtFixed("29.970")).toBe("30.0");
   });
 });

@@ -68,10 +68,18 @@ function useTutorials(key) {
 // A toast list for tutorials.
 // Format large view/like counts into compact "12.3K" style.
 function fmtCount(n) {
-  if (n == null) return null;
-  if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
-  if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
-  return String(n);
+  if (n == null || n === '') return null;
+  const value = Number(n);
+  if (!Number.isFinite(value)) return null;
+  if (value >= 1000000) return (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (value >= 1000) return (value / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+  return String(value);
+}
+
+function tutorialDisplayTitle(tutorial, fallbackTitle = 'Watch') {
+  if (tutorial.title) return tutorial.title;
+  if (fallbackTitle) return fallbackTitle;
+  return tutorial.link || '';
 }
 
 function TutorialsToast({tutorials, onClose}) {
@@ -80,45 +88,49 @@ function TutorialsToast({tutorials, onClose}) {
   return (<>
     <Container fluid>
       <Row>
-        {tutorials.map((tutorial, index) => (
-          <Col key={index} xs={12} sm={6} md={6} lg={4} xl={3} className="mb-3">
-            <Card className="h-100">
-              <Card.Body className="d-flex flex-column">
-                <div className="d-flex align-items-start mb-2">
-                  <img src={logo} className="rounded me-2 flex-shrink-0" width={40} height={40} alt=''/>
-                  <div className="me-auto">
-                    <div className="fw-semibold text-truncate">{tutorial.media}</div>
-                    <small className="text-muted">by {tutorial.author}</small>
+        {tutorials.map((tutorial, index) => {
+          const displayTitle = tutorialDisplayTitle(tutorial, t('tutorials.watch'));
+          return (
+            <Col key={index} xs={12} sm={6} md={6} lg={4} xl={3} className="mb-3">
+              <Card className="h-100">
+                <Card.Body className="d-flex flex-column">
+                  <div className="d-flex align-items-start mb-2">
+                    <img src={logo} className="rounded me-2 flex-shrink-0" width={40} height={40} alt=''/>
+                    <div className="me-auto">
+                      <div className="fw-semibold text-truncate">{tutorial.media}</div>
+                      <small className="text-muted">by {tutorial.author}</small>
+                    </div>
+                    {onClose &&
+                      <button type="button" className="btn-close" aria-label="Close" onClick={onClose}/>
+                    }
                   </div>
-                  {onClose &&
-                    <button type="button" className="btn-close" aria-label="Close" onClick={onClose}/>
-                  }
-                </div>
-                <a href={tutorial.link} target='_blank' rel='noreferrer'
-                   className="d-block mb-2 flex-grow-1 text-decoration-none">
-                  {tutorial.title}
-                </a>
-                <div className="d-flex align-items-center gap-3 text-muted small">
-                  {tutorial.view != null && (
-                    <span title={t('tutorials.view')}>
-                      <Icon.Play className="me-1"/>{fmtCount(tutorial.view)}
-                    </span>
-                  )}
-                  {tutorial.like != null && (
-                    <span title={t('tutorials.like')}>
-                      <Icon.HandThumbsUp className="me-1"/>{fmtCount(tutorial.like)}
-                    </span>
-                  )}
-                  {tutorial.share != null && (
-                    <span title={t('tutorials.share')}>
-                      <Icon.Share className="me-1"/>{fmtCount(tutorial.share)}
-                    </span>
-                  )}
-                </div>
-              </Card.Body>
-            </Card>
-          </Col>
-        ))}
+                  <a href={tutorial.link} target='_blank' rel='noreferrer'
+                     title={tutorial.id || tutorial.link}
+                     className="d-block mb-2 flex-grow-1 text-decoration-none">
+                    {displayTitle}
+                  </a>
+                  <div className="d-flex align-items-center gap-3 text-muted small">
+                    {tutorial.view != null && (
+                      <span title={t('tutorials.view')}>
+                        <Icon.Play className="me-1"/>{fmtCount(tutorial.view)}
+                      </span>
+                    )}
+                    {tutorial.like != null && (
+                      <span title={t('tutorials.like')}>
+                        <Icon.HandThumbsUp className="me-1"/>{fmtCount(tutorial.like)}
+                      </span>
+                    )}
+                    {tutorial.share != null && (
+                      <span title={t('tutorials.share')}>
+                        <Icon.Share className="me-1"/>{fmtCount(tutorial.share)}
+                      </span>
+                    )}
+                  </div>
+                </Card.Body>
+              </Card>
+            </Col>
+          );
+        })}
       </Row>
     </Container>
   </>);
@@ -145,4 +157,4 @@ function TutorialsButton({tutorials, prefixLine}) {
   );
 }
 
-export {useTutorials, TutorialsButton, TutorialsToast};
+export {useTutorials, TutorialsButton, TutorialsToast, fmtCount, tutorialDisplayTitle};

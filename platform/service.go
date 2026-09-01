@@ -1081,12 +1081,11 @@ func queryBilibili(ctx context.Context, bvid string) (map[string]interface{}, er
 			saveBilibiliCache(ctx, bvid, update, nil, r0.Error())
 			return nil, r0
 		}
-		// A browser-like User-Agent and Referer reduce the chance of being
-		// rejected by bilibili risk control, though a datacenter IP may still be
-		// rate limited.
-		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
+		// Do not spoof a browser User-Agent: Bilibili may reject Chrome-like
+		// API requests with HTTP 412 risk-control HTML. The Go client default UA
+		// currently returns normal JSON, and Accept asks for the API response.
 		req.Header.Set("Referer", "https://www.bilibili.com")
-		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+		req.Header.Set("Accept", "application/json")
 		req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
 
 		client := &http.Client{Timeout: 10 * time.Second}
@@ -1242,6 +1241,45 @@ func loadTutorialsManifest(ctx context.Context) (map[string][]*TutorialEntry, er
 	return manifest, nil
 }
 
+func resolveTutorialEntry(ctx context.Context, entry *TutorialEntry, query func(context.Context, string) (map[string]interface{}, error)) {
+	if entry.Source == "bilibili" {
+		entry.Link = fmt.Sprintf("https://www.bilibili.com/video/%v", entry.ID)
+		entry.Media = "Bilibili"
+		if res, err := query(ctx, entry.ID); err != nil {
+			logger.Wf(ctx, "tutorial bilibili %v, err=%v", entry.ID, err)
+		} else {
+			if title, ok := res["title"].(string); ok {
+				entry.Title = title
+			}
+			if desc, ok := res["desc"].(string); ok {
+				entry.Desc = desc
+			}
+			if stat, ok := res["stat"].(map[string]interface{}); ok {
+				if view, ok := stat["view"].(float64); ok {
+					entry.View = int64(view)
+				}
+				if like, ok := stat["like"].(float64); ok {
+					entry.Like = int64(like)
+				}
+				if share, ok := stat["share"].(float64); ok {
+					entry.Share = int64(share)
+				}
+			}
+		}
+		if entry.Title == "" {
+			entry.Title = "前往观看"
+		}
+	} else if entry.Media == "" && entry.Link != "" {
+		// Derive the media name for static entries (youtu.be is a YouTube
+		// video, anything else is treated as a blog post).
+		if strings.Contains(entry.Link, "youtu.be") {
+			entry.Media = "YouTube"
+		} else {
+			entry.Media = "Medium"
+		}
+	}
+}
+
 func handleMgmtTutorials(ctx context.Context, handler *http.ServeMux) {
 	ep := "/terraform/v1/mgmt/tutorials"
 	logger.Tf(ctx, "Handle %v", ep)
@@ -1257,39 +1295,7 @@ func handleMgmtTutorials(ctx context.Context, handler *http.ServeMux) {
 			// embedded in the manifest if any, so the card still renders.
 			for _, entries := range manifest {
 				for _, entry := range entries {
-					if entry.Source == "bilibili" {
-						entry.Link = fmt.Sprintf("https://www.bilibili.com/video/%v", entry.ID)
-						entry.Media = "Bilibili"
-						if res, err := queryBilibili(ctx, entry.ID); err != nil {
-							logger.Wf(ctx, "tutorial bilibili %v, err=%v", entry.ID, err)
-						} else {
-							if title, ok := res["title"].(string); ok {
-								entry.Title = title
-							}
-							if desc, ok := res["desc"].(string); ok {
-								entry.Desc = desc
-							}
-							if stat, ok := res["stat"].(map[string]interface{}); ok {
-								if view, ok := stat["view"].(float64); ok {
-									entry.View = int64(view)
-								}
-								if like, ok := stat["like"].(float64); ok {
-									entry.Like = int64(like)
-								}
-								if share, ok := stat["share"].(float64); ok {
-									entry.Share = int64(share)
-								}
-							}
-						}
-					} else if entry.Media == "" && entry.Link != "" {
-						// Derive the media name for static entries (youtu.be is a YouTube
-						// video, anything else is treated as a blog post).
-						if strings.Contains(entry.Link, "youtu.be") {
-							entry.Media = "YouTube"
-						} else {
-							entry.Media = "Medium"
-						}
-					}
+					resolveTutorialEntry(ctx, entry, queryBilibili)
 				}
 
 				// Sort by view descending, so the most popular tutorial comes first;

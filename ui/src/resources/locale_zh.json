@@ -213,6 +213,7 @@
       "limitConsumedDuration": "已经消耗时长"
     },
     "tutorials": {
+      "watch": "前往观看",
       "view": "播放次数",
       "like": "点赞次数",
       "share": "分享次数"

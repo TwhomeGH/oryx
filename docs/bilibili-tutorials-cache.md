@@ -1,8 +1,8 @@
 # B 站教學影片資訊查詢：快取與風控應對
 
 `/terraform/v1/mgmt/bilibili` 用於查詢單一 B 站影片 metadata（`api.bilibili.com/x/web-interface/view`），
-`/terraform/v1/mgmt/tutorials` 提供教程清單並在伺服器端解析 metadata。B 站對非瀏覽器請求有風控
-（HTTP 412），本文說明會觸發風控的頻率問題、服務端多層應對，以及教程清單的 manifest 設計。
+`/terraform/v1/mgmt/tutorials` 提供教程清單並在伺服器端解析 metadata。B 站對部分請求指紋有風控
+（HTTP 412），本文說明會觸發風控的頻率與 header 問題、服務端多層應對，以及教程清單的 manifest 設計。
 
 ## 頻率問題（2026-09 已根治）
 
@@ -15,14 +15,17 @@ manifest），B 站 metadata 由平台逐條解析（走下面同一套快取/�
 
 ## 風控 412 的成因
 
-B 站風控（`Precondition Failed`）主要看三個訊號：
+B 站風控（`Precondition Failed`）主要看幾個訊號：
 
 1. **資料中心 IP**（最致命）——CI（GitHub Actions）或雲端 VPS 都是資料中心網段，風控直接標記。
 2. **缺少瀏覽器指紋/cookie**——真瀏覽器執行 B 站 JS 後才有 `buvid3` 指紋；Go HTTP client 不跑 JS，
    永遠沒有指紋。
 3. **請求頻率**——無指紋還頻繁/並行打，更容易被 412。
+4. **不完整的瀏覽器偽裝**——實測 Chrome-like `User-Agent` 打 API 會返回 412 HTML；Go client 預設 UA
+   搭配 `Accept: application/json` 可正常返回 JSON。
 
-家用 IP（compose 跑在本機）時，第 3 點是主因。
+家用 IP（compose 跑在本機）通常能正常查 API；若出現 412，先檢查是否偽裝了 Chrome-like
+`User-Agent`，再看是否有並行 burst 或短時間重試。
 
 ## 服務端多層應對
 
@@ -32,7 +35,8 @@ B 站風控（`Precondition Failed`）主要看三個訊號：
 - **singleflight（同 bvid 合併）**：`bilibiliSingleFlight`，同一 bvid 的併發只打一次。
 - **limiter（跨 bvid 串行化）**：`bilibiliLimiter` 是一個容量 1 的 channel semaphore，包住對外的
   `client.Do(req)`，一次只打一發。
-- **瀏覽器樣 header**：`User-Agent` + `Referer` + `Accept` + `Accept-Language`。
+- **API header**：不要偽裝瀏覽器 `User-Agent`；保留 Go client 預設 UA，使用 `Accept: application/json`
+  與 `Referer`。
 - **錯誤帶 body**：非 2xx 時把 response body（截斷 500 字元）併入錯誤訊息，例如
   `bilibili response status 412, body=<HTML/JSON 內容>, url=...`，方便確認風控實際回了什麼。
 
@@ -57,8 +61,9 @@ B 站風控（`Precondition Failed`）主要看三個訊號：
 
 - `source`：`bilibili`（live metadata，伺服器解析）或靜態來源（`medium` / `youtube`，直接帶 title/link）。
 - `langs`：可選，控制顯示的語系（`["zh"]` / `["en"]`）；缺省表示所有語系。
-- 伺服器端解析 bilibili 條目（title/desc/view/like/share + 影片連結），B 站失敗時 fallback 到
-  manifest 內嵌的靜態 title/link（若有的話），卡片不會因 B 站掛掉而消失。
+- 伺服器端解析 bilibili 條目（title/desc/view/like/share + 影片連結），B 站失敗時保留影片連結並
+  fallback 到 manifest 內嵌 title；若沒有內嵌 title，預設顯示「前往观看」，卡片不會因 B 站掛掉
+  或標題缺失而變成空白連結。
 - 前端 `useTutorials('live')` 依 context key 讀取並依語系過濾，一次 fetch 快取在模組內。
 
 ## 測試行為
@@ -67,4 +72,6 @@ B 站風控（`Precondition Failed`）主要看三個訊號：
   不讓 CI 因 B 站不可用而失敗；平台自身 bug（非 bilibili 錯誤）仍會 FAIL。
 - `TestApi_TutorialsQuery`：驗證 `/terraform/v1/mgmt/tutorials` 一定回傳所有 context（`live`/`ssl`/
   `recordVod`/`recordCos`/`srt`/`all`）且每個條目有 id/source——manifest 不受 B 站可用性影響。
+- `TestService_ResolveTutorialEntry_BilibiliFallback`：模擬 B 站 API 失敗，驗證 Bilibili 條目仍有
+  media、影片 link 與「前往观看」fallback title。
 - `test/main_test.go` 的 `Request` 在非 2xx 時會把 response body 併入錯誤，skip 判斷以實際錯誤內容為準。

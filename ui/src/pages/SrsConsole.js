@@ -80,6 +80,12 @@ function SrsConsoleImpl() {
 }
 
 // ── Helpers ──
+function finiteNumber(n) {
+  if (n === null || n === undefined || n === '') return null;
+  const value = Number(n);
+  return Number.isFinite(value) ? value : null;
+}
+
 function fmtUptime(sec) {
   if (!sec && sec !== 0) return '-';
   sec = Math.floor(sec);
@@ -94,32 +100,42 @@ function fmtUptime(sec) {
 }
 
 function fmtBytes(n) {
-  if (n === null || n === undefined) return '-';
+  const value = finiteNumber(n);
+  if (value === null) return '-';
   const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
   let i = 0;
-  let v = n;
+  let v = value;
   while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
   return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
 function fmtBitrate(bps) {
-  if (bps === null || bps === undefined) return '-';
+  const value = finiteNumber(bps);
+  if (value === null) return '-';
   const units = ['bps', 'Kbps', 'Mbps', 'Gbps'];
   let i = 0;
-  let v = bps;
+  let v = value;
   while (v >= 1000 && i < units.length - 1) { v /= 1000; i++; }
   return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
 function fmtPercent(n, digits = 2) {
-  if (n === null || n === undefined) return '-';
-  return `${(n * 100).toFixed(digits)}%`;
+  const value = finiteNumber(n);
+  if (value === null) return '-';
+  return `${(value * 100).toFixed(digits)}%`;
 }
 
 function fmtSec(sec) {
-  if (sec === null || sec === undefined) return '-';
-  if (sec < 60) return `${sec}s`;
-  return moment.duration(sec, 'seconds').humanize();
+  const value = finiteNumber(sec);
+  if (value === null) return '-';
+  if (value < 60) return `${value}s`;
+  return moment.duration(value, 'seconds').humanize();
+}
+
+function fmtFixed(n, digits = 1) {
+  const value = finiteNumber(n);
+  if (value === null) return '-';
+  return value.toFixed(digits);
 }
 
 // The stream URL, derived from tcUrl + name.
@@ -443,10 +459,13 @@ function SrsStreams({handleError}) {
         <tbody>
           {streams.map(s => {
             const fpsInfo = fps[s.id];
+            const streamName = String(s.name || '');
+            const fpsValue = fmtFixed(fpsInfo?.fps);
+            const jitterValue = fmtFixed(fpsInfo?.jitterMs);
             return (
             <tr key={s.id} className={fpsInfo?.abnormal ? 'table-warning' : ''}>
               <td><code>{s.id}</code></td>
-              <td>{s.name.length > 15 ? `${s.name.slice(0, 15)}…` : s.name}</td>
+              <td>{streamName.length > 15 ? `${streamName.slice(0, 15)}…` : streamName}</td>
               <td style={{wordBreak: 'break-all'}}><code>{buildStreamUrl(s.ownerName, s)}</code></td>
               <td>{s.ownerName}</td>
               <td>{s.publish?.active ? <Badge bg="success">{t('console.publishing')}</Badge> : <Badge bg="secondary">{t('console.no')}</Badge>}</td>
@@ -458,13 +477,15 @@ function SrsStreams({handleError}) {
               <td>
                 {fpsInfo ? (
                   fpsInfo.abnormal ? (
-                    <Badge bg="warning" title={t('console.fpsTooltip', {fps: fpsInfo.fps.toFixed(1), jitter: fpsInfo.jitterMs.toFixed(1)})}>
-                      ⚠️ {t('console.fpsAbnormal')}
+                    <Badge bg="warning" title={t('console.fpsTooltip', {fps: fpsValue, jitter: jitterValue})}>
+                      {t('console.fpsAbnormal')}
                     </Badge>
-                  ) : (
-                    <span title={t('console.fpsTooltip', {fps: fpsInfo.fps.toFixed(1), jitter: fpsInfo.jitterMs.toFixed(1)})}>
-                      {fpsInfo.fps.toFixed(1)} fps
+                  ) : fpsValue !== '-' ? (
+                    <span title={t('console.fpsTooltip', {fps: fpsValue, jitter: jitterValue})}>
+                      {fpsValue} fps
                     </span>
+                  ) : (
+                    '-'
                   )
                 ) : '-'}
               </td>
@@ -602,3 +623,5 @@ function SrsConfigs({handleError}) {
     </>
   );
 }
+
+export {fmtBitrate, fmtBytes, fmtFixed, fmtPercent, fmtSec};

@@ -1,12 +1,11 @@
-//
 // Copyright (c) 2022-2024 Winlin
 //
 // SPDX-License-Identifier: MIT
-//
 package main
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -40,5 +39,28 @@ func TestService_MuxRegistrations_NoDuplicate(t *testing.T) {
 		if _, pattern := handler.Handler(req); pattern == "" {
 			t.Errorf("route %v not registered", ep)
 		}
+	}
+}
+
+func TestService_ResolveTutorialEntry_BilibiliFallback(t *testing.T) {
+	ctx := context.Background()
+	entry := &TutorialEntry{
+		ID:     "BV1844y1L7dL",
+		Source: "bilibili",
+		Author: "SRS",
+	}
+
+	resolveTutorialEntry(ctx, entry, func(context.Context, string) (map[string]interface{}, error) {
+		return nil, errors.New("bilibili rate limited")
+	})
+
+	if entry.Media != "Bilibili" {
+		t.Fatalf("invalid media %v", entry.Media)
+	}
+	if entry.Link != "https://www.bilibili.com/video/BV1844y1L7dL" {
+		t.Fatalf("invalid link %v", entry.Link)
+	}
+	if entry.Title != "前往观看" {
+		t.Fatalf("invalid fallback title %v", entry.Title)
 	}
 }

@@ -26,8 +26,9 @@ value 是條目陣列。
 {"id": "BV1xxxxxxxxxx", "source": "bilibili", "author": "作者名", "langs": ["zh"]}
 ```
 
-- 伺服器端會自動查 B 站 API 補上標題/簡介/觀看數（有快取，一天最多打一次）。
-- 想要 B 站掛掉時卡片仍顯示標題，可以**內嵌靜態 fallback**：
+- 伺服器端會自動查 B 站 API 補上標題/簡介/觀看數（有快取，一天最多打一次），並固定補上影片連結。
+- 想要 B 站掛掉時卡片仍顯示指定標題，可以**內嵌靜態 fallback title**；若不填 title，卡片會顯示
+  「前往观看」作為可點擊文字：
 
 ```json
 {"id": "BV1xxxxxxxxxx", "source": "bilibili", "author": "作者名", "langs": ["zh"],
@@ -65,7 +66,7 @@ JSON 裡寫的順序。
 ## 常見問題
 
 - **JSON 格式錯誤**：接口回 500 且錯誤訊息會指出哪個檔、哪一行格式有問題。改好再刷新即可。
-- **B 站風控（412）**：B 站 metadata 查不到時，若條目有內嵌 fallback 的 title/link 就照樣顯示，
-  沒有就只少標題（卡片仍在）。
+- **B 站風控（412）**：B 站 metadata 查不到時，伺服器仍會補 B 站影片 link；若條目有內嵌
+  fallback title 就顯示該標題，否則顯示「前往观看」，卡片不會變成空白連結。
 - **改動沒生效**：確認你改的是 `/data/tutorials.json`（不是 image 內的預設檔），並**完整刷新**
   瀏覽器（SPA 首次載入後會把 manifest 快取在記憶體，F5 才會重新抓）。

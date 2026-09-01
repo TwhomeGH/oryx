@@ -799,6 +799,7 @@
       "codecCustom": "カスタム（上級者向け）"
     },
     "tutorials": {
+      "watch": "動画を見る",
       "view": "再生回数",
       "like": "いいね数",
       "share": "シェア数"

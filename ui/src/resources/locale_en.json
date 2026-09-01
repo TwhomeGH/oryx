@@ -688,6 +688,7 @@
       "limitConsumedDuration": "Consumed Duration"
     },
     "tutorials": {
+      "watch": "Watch video",
       "view": "View",
       "like": "Like",
       "share": "Share"
