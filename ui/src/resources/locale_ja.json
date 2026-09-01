@@ -586,7 +586,7 @@
       "noClients": "クライアントはありません",
       "fps": "フレームレート",
       "fpsAbnormal": "変動",
-      "fpsTooltip": "実測 {{fps}} fps、基準は約 {{baseline}} fps、想定間隔 {{interval}}ms、ジッター約 {{jitter}}ms、参考値です",
+      "fpsTooltip": "更新 {{updatedAt}}、実測 {{fps}} fps、平均間隔は約 {{measuredInterval}}ms、基準は約 {{baseline}} fps、参考間隔 {{interval}}ms、ジッター約 ±{{jitter}}ms、参考値です",
       "fpsAbnormalAlert": "{{count}} 件のストリームでフレーム間隔の変動が大きめです。下の実測 FPS を確認してください",
       "key": "キー",
       "value": "値",

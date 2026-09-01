@@ -6,7 +6,7 @@
 import React from "react";
 import {render, screen, waitFor} from "@testing-library/react";
 import {describe, expect, it, vi, beforeEach} from "vitest";
-import SrsConsole, {SrsStreams, fmtBitrate, fmtBytes, fmtFixed, fmtFPSIntervalRange, fmtPercent, fmtSec, mergeFPSProbe} from "./SrsConsole";
+import SrsConsole, {SrsStreams, fmtBitrate, fmtBytes, fmtClock, fmtFixed, fmtFPSInterval, fmtFPSIntervalRange, fmtPercent, fmtSec, mergeFPSProbe} from "./SrsConsole";
 import axios from "axios";
 
 vi.mock("axios");
@@ -69,6 +69,9 @@ describe("SrsConsole", () => {
     expect(fmtFPSIntervalRange(undefined)).toBe("-");
     expect(fmtFPSIntervalRange(60)).toBe("13.9-20.8");
     expect(fmtFPSIntervalRange(25)).toBe("33.3-50.0");
+    expect(fmtFPSInterval(59.6)).toBe("16.8");
+    expect(fmtClock(undefined)).toBe("-");
+    expect(fmtClock(12 * 3600 * 1000 + 34 * 60 * 1000 + 56 * 1000)).toMatch(/^\d{2}:34:56$/);
   });
 
   it("shows measured fps even when frame interval variation is marked", async () => {
@@ -99,11 +102,12 @@ describe("SrsConsole", () => {
   });
 
   it("keeps a rolling fps baseline from the stream's own samples", () => {
-    expect(mergeFPSProbe(undefined, {fps: 60.0}).baselineFps).toBe(60.0);
-    expect(mergeFPSProbe({baselineFps: 60.0}, {fps: 58.0}).baselineFps).toBeCloseTo(59.6);
-    expect(mergeFPSProbe({baselineFps: 60.0}, {fps: 58.0}).variable).toBe(false);
-    expect(mergeFPSProbe({baselineFps: 60.0}, {fps: 40.0}).variable).toBe(true);
-    expect(mergeFPSProbe({baselineFps: 60.0}, {jitter_ms: 7.2}).baselineFps).toBe(60.0);
-    expect(mergeFPSProbe({baselineFps: 60.0}, {jitter_ms: 7.2}).jitterMs).toBe(7.2);
+    expect(mergeFPSProbe(undefined, {fps: 60.0}, 1000).baselineFps).toBe(60.0);
+    expect(mergeFPSProbe({baselineFps: 60.0}, {fps: 58.0}, 2000).baselineFps).toBeCloseTo(59.6);
+    expect(mergeFPSProbe({baselineFps: 60.0}, {fps: 58.0}, 3000).variable).toBe(false);
+    expect(mergeFPSProbe({baselineFps: 60.0}, {fps: 40.0}, 4000).variable).toBe(true);
+    expect(mergeFPSProbe({baselineFps: 60.0}, {jitter_ms: 7.2}, 5000).baselineFps).toBe(60.0);
+    expect(mergeFPSProbe({baselineFps: 60.0}, {jitter_ms: 7.2}, 6000).jitterMs).toBe(7.2);
+    expect(mergeFPSProbe({baselineFps: 60.0}, {fps: 59.6, jitter_ms: 1.5}, 7000).updatedAt).toBe(7000);
   });
 });

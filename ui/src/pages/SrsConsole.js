@@ -149,7 +149,19 @@ function fmtFPSIntervalRange(fps, driftRatio = fpsBaselineDriftRatio) {
   return `${fmtFixed(1000 / minFPS)}-${fmtFixed(1000 / maxFPS)}`;
 }
 
-function mergeFPSProbe(prev, next) {
+function fmtFPSInterval(fps) {
+  const value = finiteNumber(fps);
+  if (value === null || value <= 0) return '-';
+  return fmtFixed(1000 / value);
+}
+
+function fmtClock(ms) {
+  const value = finiteNumber(ms);
+  if (value === null || value <= 0) return '-';
+  return moment(value).format('HH:mm:ss');
+}
+
+function mergeFPSProbe(prev, next, now = Date.now()) {
   if (!next) return prev;
   const fps = finiteNumber(next.fps);
   const jitterMs = finiteNumber(next.jitter_ms ?? next.jitterMs);
@@ -160,6 +172,7 @@ function mergeFPSProbe(prev, next) {
     jitterMs,
     baselineFps: fps === null ? prevBaseline : prevBaseline === null ? fps : prevBaseline * (1 - fpsBaselineAlpha) + fps * fpsBaselineAlpha,
     baselineDrift,
+    updatedAt: now,
     variable: !!next.abnormal || baselineDrift > fpsBaselineDriftRatio,
   };
 }
@@ -344,7 +357,7 @@ function SrsVhosts({handleError}) {
   if (!vhosts) return <Alert variant="info">{t('console.loading')}</Alert>;
 
   return (
-    <Table size="sm" striped bordered hover>
+    <Table responsive size="sm" striped bordered hover>
       <thead>
         <tr>
           <th>ID</th>
@@ -446,7 +459,7 @@ function SrsStreams({handleError, initialFps}) {
     return () => { cancelled = true; clearInterval(timer); };
   }, [handleError]);
 
-  const abnormalCount = Object.values(fps).filter(f => f?.abnormal).length;
+  const abnormalCount = Object.values(fps).filter(f => f?.variable ?? f?.abnormal).length;
 
   const preview = React.useCallback((s) => {
     const schema = window.location.protocol.replace(':', '');
@@ -465,7 +478,7 @@ function SrsStreams({handleError, initialFps}) {
           {t('console.fpsAbnormalAlert', {count: abnormalCount})}
         </Alert>
       )}
-      <Table size="sm" striped bordered hover>
+      <Table responsive size="sm" striped bordered hover>
         <thead>
           <tr>
             <th>ID</th>
@@ -489,9 +502,11 @@ function SrsStreams({handleError, initialFps}) {
             const fpsValue = fmtFixed(fpsInfo?.fps);
             const jitterValue = fmtFixed(fpsInfo?.jitterMs);
             const baselineValue = fmtFixed(fpsInfo?.baselineFps);
+            const measuredInterval = fmtFPSInterval(fpsInfo?.fps);
             const intervalRange = fmtFPSIntervalRange(fpsInfo?.baselineFps);
+            const updatedAt = fmtClock(fpsInfo?.updatedAt);
             const fpsTitle = t('console.fpsTooltip', {
-              fps: fpsValue, baseline: baselineValue, interval: intervalRange, jitter: jitterValue,
+              fps: fpsValue, baseline: baselineValue, measuredInterval, interval: intervalRange, jitter: jitterValue, updatedAt,
             });
             const fpsVariable = fpsInfo?.variable ?? fpsInfo?.abnormal;
             return (
@@ -569,7 +584,7 @@ function SrsClients({handleError}) {
   return (
     <>
       {clients.length === 0 && <Alert variant="info">{t('console.noClients')}</Alert>}
-      <Table size="sm" striped bordered hover>
+      <Table responsive size="sm" striped bordered hover>
         <thead>
           <tr>
             <th>ID</th>
@@ -633,7 +648,7 @@ function SrsConfigs({handleError}) {
       <Alert variant="warning">
         {t('console.rawApiRemoved')} <a href="https://github.com/ossrs/srs/issues/2653" target="_blank" rel="noreferrer">#2653</a>
       </Alert>
-      <Table size="sm" striped bordered hover>
+      <Table responsive size="sm" striped bordered hover>
         <thead>
           <tr>
             <th>{t('console.key')}</th>
@@ -657,4 +672,4 @@ function SrsConfigs({handleError}) {
   );
 }
 
-export {SrsStreams, fmtBitrate, fmtBytes, fmtFixed, fmtFPSIntervalRange, fmtPercent, fmtSec, mergeFPSProbe};
+export {SrsStreams, fmtBitrate, fmtBytes, fmtClock, fmtFixed, fmtFPSInterval, fmtFPSIntervalRange, fmtPercent, fmtSec, mergeFPSProbe};
