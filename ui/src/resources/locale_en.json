@@ -72,7 +72,7 @@
       "remove": "Remove",
       "removeConfirm": "Remove this forwarding config? This cannot be undone.",
       "defaultLabel": "Custom forwarding",
-      "limit": "Reached the limit of forwarding targets",
+      "limit": "Reached the limit of custom forwarding targets",
       "deleted": "Removed successfully",
       "restarts": "Restarts",
       "failures": "Failures",

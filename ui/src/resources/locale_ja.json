@@ -417,7 +417,7 @@
       "remove": "削除",
       "removeConfirm": "この転送設定を削除しますか？削除後は復元できません。",
       "defaultLabel": "カスタム転送",
-      "limit": "転送先の数が上限に達しました",
+      "limit": "カスタム転送先の数が上限に達しました",
       "deleted": "削除が成功しました",
       "restarts": "再起動",
       "failures": "連続失敗",

@@ -1188,7 +1188,7 @@ For multiple ports running in multiple containers in one host server:
 
 For limit that you can control:
 
-* `SRS_FORWARD_LIMIT`: The limit for SRS forward. Default: `10`.
+* `SRS_FORWARD_LIMIT`: The limit for custom forwarding targets, excluding built-in platforms such as `wx`, `bilibili`, and `kuaishou`. Default: `10`.
 * `SRS_VLIVE_LIMIT`: The limit for SRS virtual live. Default: `10`.
 * `SRS_TRANSCRIPT_FIX_QUEUE_LIMIT`: The limit for SRS transcript manually fix queue. Default: `2`.
 * `SRS_TRANSCRIPT_OVERLAY_QUEUE_LIMIT`: The limit for SRS transcript overlay queue. Default: `9`.

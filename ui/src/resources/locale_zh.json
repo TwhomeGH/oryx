@@ -678,7 +678,7 @@
       "remove": "删除",
       "removeConfirm": "确认删除该转播配置？删除后不可恢复。",
       "defaultLabel": "自定义转播",
-      "limit": "已达到转播目标数量上限",
+      "limit": "自定义转播目标数量已达上限",
       "deleted": "删除成功",
       "restarts": "重启",
       "failures": "连续失败",
