@@ -7,9 +7,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"os/exec"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -26,6 +28,17 @@ import (
 )
 
 var forwardWorker *ForwardWorker
+
+const (
+	forwardStateIdle        = "idle"
+	forwardStateWaiting     = "waiting_input"
+	forwardStateRunning     = "running"
+	forwardStateRetrying    = "retrying"
+	forwardStateDegraded    = "degraded"
+	forwardMaxRetryDelay    = 60 * time.Second
+	forwardBaseRetryDelay   = 3500 * time.Millisecond
+	forwardCircuitThreshold = 5
+)
 
 type ForwardWorker struct {
 	cancel context.CancelFunc
@@ -111,6 +124,12 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 				if config, err := rdb.HGet(ctx, SRS_FORWARD_CONFIG, userConf.Platform).Result(); err != nil && err != redis.Nil {
 					return errors.Wrapf(err, "hget %v %v", SRS_FORWARD_CONFIG, userConf.Platform)
 				} else {
+					isNewConfig := config == ""
+					if isNewConfig && isForwardCustomPlatform(userConf.Platform, userConf.Customed) {
+						if err := ensureForwardCustomLimit(ctx); err != nil {
+							return err
+						}
+					}
 					if config != "" {
 						if err = json.Unmarshal([]byte(config), &targetConf); err != nil {
 							return errors.Wrapf(err, "unmarshal %v", config)
@@ -186,10 +205,9 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 						return errors.Wrapf(err, "unmarshal %v %v", k, configItem)
 					}
 
-					var pid int32
-					var streamURL, frame, update, starttime, ready string
+					status := ForwardTaskStatus{State: forwardStateIdle}
 					if task := v.GetTask(config.Platform); task != nil {
-						pid, streamURL, frame, update, starttime, ready = task.queryFrame()
+						status = task.queryStatus()
 					}
 
 					elem := map[string]interface{}{
@@ -197,15 +215,31 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 						"enabled":  config.Enabled,
 						"custom":   config.Customed,
 						"label":    config.Label,
+						"status":   status.State,
 					}
+					if status.Input != "" {
+						elem["stream"] = status.Input
+					}
+					if status.Start != "" {
+						elem["start"] = status.Start
+					}
+					if status.Ready != "" {
+						elem["ready"] = status.Ready
+					}
+					if status.LastError != "" {
+						elem["lastError"] = status.LastError
+						elem["lastErrorAt"] = status.LastErrorAt
+					}
+					if status.NextRetryAt != "" {
+						elem["nextRetryAt"] = status.NextRetryAt
+					}
+					elem["restartCount"] = status.RestartCount
+					elem["consecutiveFailures"] = status.ConsecutiveFailures
 
-					if pid > 0 {
-						elem["stream"] = streamURL
-						elem["start"] = starttime
-						elem["ready"] = ready
+					if status.PID > 0 {
 						elem["frame"] = map[string]string{
-							"log":    frame,
-							"update": update,
+							"log":    status.Frame,
+							"update": status.FrameUpdate,
 						}
 					}
 
@@ -404,6 +438,13 @@ type ForwardTask struct {
 	starttime *time.Time
 	// The first ready time.
 	firstReadyTime *time.Time
+	// Runtime health state for API observability and retry control.
+	State               string     `json:"state,omitempty"`
+	RestartCount        int        `json:"restartCount,omitempty"`
+	ConsecutiveFailures int        `json:"consecutiveFailures,omitempty"`
+	LastError           string     `json:"lastError,omitempty"`
+	LastErrorAt         *time.Time `json:"lastErrorAt,omitempty"`
+	NextRetryAt         *time.Time `json:"nextRetryAt,omitempty"`
 
 	// The context for current task.
 	cancel context.CancelFunc
@@ -415,6 +456,21 @@ type ForwardTask struct {
 
 	// To protect the fields.
 	lock sync.Mutex
+}
+
+type ForwardTaskStatus struct {
+	PID                 int32
+	State               string
+	Input               string
+	Frame               string
+	FrameUpdate         string
+	Start               string
+	Ready               string
+	LastError           string
+	LastErrorAt         string
+	NextRetryAt         string
+	RestartCount        int
+	ConsecutiveFailures int
 }
 
 func (v *ForwardTask) String() string {
@@ -460,6 +516,11 @@ func (v *ForwardTask) Restart(ctx context.Context) error {
 	if v.cancel != nil {
 		v.cancel()
 	}
+	v.State = forwardStateRetrying
+	v.NextRetryAt = nil
+	v.LastError = ""
+	v.LastErrorAt = nil
+	v.ConsecutiveFailures = 0
 
 	// Reload config from redis.
 	if b, err := rdb.HGet(ctx, SRS_FORWARD_CONFIG, v.Platform).Result(); err != nil {
@@ -481,26 +542,140 @@ func (v *ForwardTask) updateFrame(frame string) {
 	v.update = &now
 }
 
-func (v *ForwardTask) queryFrame() (int32, string, string, string, string, string) {
+func (v *ForwardTask) queryStatus() ForwardTaskStatus {
 	v.lock.Lock()
 	defer v.lock.Unlock()
 
-	ready := ""
+	status := ForwardTaskStatus{
+		PID:                 v.PID,
+		State:               v.State,
+		Input:               v.inputStreamURL,
+		Frame:               strings.TrimSpace(v.frame),
+		RestartCount:        v.RestartCount,
+		ConsecutiveFailures: v.ConsecutiveFailures,
+		LastError:           v.LastError,
+	}
+	if status.State == "" {
+		status.State = forwardStateIdle
+	}
 	if v.firstReadyTime != nil {
-		ready = v.firstReadyTime.Format(time.RFC3339)
+		status.Ready = v.firstReadyTime.Format(time.RFC3339)
 	}
-
-	update := ""
 	if v.update != nil {
-		update = v.update.Format(time.RFC3339)
+		status.FrameUpdate = v.update.Format(time.RFC3339)
 	}
-
-	starttime := ""
 	if v.starttime != nil {
-		starttime = v.starttime.Format(time.RFC3339)
+		status.Start = v.starttime.Format(time.RFC3339)
+	}
+	if v.LastErrorAt != nil {
+		status.LastErrorAt = v.LastErrorAt.Format(time.RFC3339)
+	}
+	if v.NextRetryAt != nil {
+		status.NextRetryAt = v.NextRetryAt.Format(time.RFC3339)
+	}
+	return status
+}
+
+func (v *ForwardTask) markWaitingInput() {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	v.State = forwardStateWaiting
+	v.NextRetryAt = nil
+}
+
+func (v *ForwardTask) markRunning(pid int32, inputURL, inputStreamURL, outputURL string) {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	v.PID = pid
+	v.Input, v.inputStreamURL, v.Output = inputURL, inputStreamURL, outputURL
+	v.State = forwardStateRunning
+	v.NextRetryAt = nil
+}
+
+func (v *ForwardTask) markFailure(err error) time.Duration {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+
+	v.ConsecutiveFailures++
+	v.RestartCount++
+	now := time.Now()
+	v.LastError = err.Error()
+	v.LastErrorAt = &now
+	delay := forwardRetryDelay(v.ConsecutiveFailures)
+	next := now.Add(delay)
+	v.NextRetryAt = &next
+	if v.ConsecutiveFailures >= forwardCircuitThreshold {
+		v.State = forwardStateDegraded
+	} else {
+		v.State = forwardStateRetrying
+	}
+	return delay
+}
+
+func (v *ForwardTask) markHealthy() {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	v.ConsecutiveFailures = 0
+	v.LastError = ""
+	v.LastErrorAt = nil
+	v.NextRetryAt = nil
+	if v.config != nil && v.config.Enabled {
+		v.State = forwardStateWaiting
+	} else {
+		v.State = forwardStateIdle
+	}
+}
+
+func forwardRetryDelay(failures int) time.Duration {
+	if failures <= 1 {
+		return forwardBaseRetryDelay
 	}
 
-	return v.PID, v.inputStreamURL, v.frame, update, starttime, ready
+	multiplier := math.Pow(2, float64(failures-1))
+	delay := time.Duration(float64(forwardBaseRetryDelay) * multiplier)
+	if delay > forwardMaxRetryDelay {
+		return forwardMaxRetryDelay
+	}
+	return delay
+}
+
+func ensureForwardCustomLimit(ctx context.Context) error {
+	limit := 10
+	if envForwardLimit() != "" {
+		if iv, err := strconv.Atoi(envForwardLimit()); err != nil {
+			return errors.Wrapf(err, "parse env forward limit %v", envForwardLimit())
+		} else {
+			limit = iv
+		}
+	}
+	if limit <= 0 {
+		return errors.Errorf("invalid forward limit %v", limit)
+	}
+
+	configItems, err := rdb.HGetAll(ctx, SRS_FORWARD_CONFIG).Result()
+	if err != nil && err != redis.Nil {
+		return errors.Wrapf(err, "hgetall %v", SRS_FORWARD_CONFIG)
+	}
+
+	customs := 0
+	for platform, configItem := range configItems {
+		var config ForwardConfigure
+		if err = json.Unmarshal([]byte(configItem), &config); err != nil {
+			return errors.Wrapf(err, "unmarshal %v %v", platform, configItem)
+		}
+		if isForwardCustomPlatform(config.Platform, config.Customed) {
+			customs++
+		}
+	}
+	if customs >= limit {
+		return errors.Errorf("forward custom config limit exceeded, limit=%v", limit)
+	}
+
+	return nil
+}
+
+func isForwardCustomPlatform(platform string, customed bool) bool {
+	return customed || strings.Contains(platform, "forwarding-")
 }
 
 func (v *ForwardTask) Initialize(ctx context.Context, w *ForwardWorker) error {
@@ -573,6 +748,7 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 	pfn := func(ctx context.Context) error {
 		// Ignore when not enabled.
 		if !v.config.Enabled {
+			v.markHealthy()
 			return nil
 		}
 
@@ -583,6 +759,7 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 		}
 
 		if input == nil {
+			v.markWaitingInput()
 			return nil
 		}
 
@@ -596,14 +773,16 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 
 	for ctx.Err() == nil {
 		if err := pfn(ctx); err != nil {
-			logger.Wf(ctx, "ignore %v err %+v", v.String(), err)
+			delay := v.markFailure(err)
+			logger.Wf(ctx, "ignore %v err %+v, retry in %v", v.String(), err, delay)
 
 			select {
 			case <-ctx.Done():
-			case <-time.After(3500 * time.Millisecond):
+			case <-time.After(delay):
 			}
 			continue
 		}
+		v.markHealthy()
 
 		select {
 		case <-ctx.Done():
@@ -688,8 +867,7 @@ func (v *ForwardTask) doForward(ctx context.Context, input *SrsStream) error {
 		return errors.Wrapf(err, "execute ffmpeg %v", strings.Join(args, " "))
 	}
 
-	v.PID = int32(cmd.Process.Pid)
-	v.Input, v.inputStreamURL, v.Output = inputURL, input.StreamURL(), outputURL
+	v.markRunning(int32(cmd.Process.Pid), inputURL, input.StreamURL(), outputURL)
 	defer func() {
 		// If we got a PID, sleep for a while, to avoid too fast restart.
 		if v.PID > 0 {
@@ -708,6 +886,28 @@ func (v *ForwardTask) doForward(ctx context.Context, input *SrsStream) error {
 	if err := v.saveTask(ctx); err != nil {
 		return errors.Wrapf(err, "save task %v", v.String())
 	}
+
+	inputGone := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if _, err := rdb.HGet(ctx, SRS_STREAM_ACTIVE, input.StreamURL()).Result(); err == redis.Nil {
+					logger.Tf(ctx, "forward input stream gone, platform=%v, stream=%v", v.Platform, input.StreamURL())
+					close(inputGone)
+					cancel()
+					return
+				} else if err != nil {
+					logger.Wf(ctx, "ignore forward input stream check err %+v", err)
+				}
+			}
+		}
+	}()
 
 	// Pull the latest log frame.
 	heartbeat.Polling(ctx, stderr)
@@ -733,6 +933,7 @@ func (v *ForwardTask) doForward(ctx context.Context, input *SrsStream) error {
 	select {
 	case <-parentCtx.Done():
 	case <-ctx.Done():
+	case <-inputGone:
 	case <-heartbeat.PollingCtx.Done():
 	}
 	logger.Tf(ctx, "Forward: Cycle stopping, platform=%v, stream=%v, pid=%v",
@@ -742,6 +943,12 @@ func (v *ForwardTask) doForward(ctx context.Context, input *SrsStream) error {
 	logger.Tf(ctx, "forward done, platform=%v, stream=%v, pid=%v, err=%v",
 		v.Platform, input.StreamURL(), v.PID, err,
 	)
+
+	select {
+	case <-inputGone:
+		return nil
+	default:
+	}
 
 	return err
 }

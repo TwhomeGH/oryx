@@ -21,13 +21,13 @@
 | 元件 | 行號 | 職責 |
 |---|---|---|
 | `ForwardWorker` | :30 | 全域單例，持有 tasks map（key=platform） |
-| `Handle()` | :49-195 | 註冊兩個 HTTP API（見下） |
-| `Start()` | :205 | 為 Redis 裡每份配置起一個 `ForwardTask` goroutine；監聽新配置 |
-| `ForwardConfigure` | :314 | 配置結構（見下欄位） |
-| `ForwardTask.Run()` | :483-581 | 主迴圈：選流 → 啟動轉推 → 失敗退避重試 |
-| `doForward()` | :583-701 | **FFmpeg 命令構造與程序管理（核心）** |
-| `Restart()` | :422 | 配置更新時原地重啟 |
-| `queryFrame()/updateFrame()` | :450/:440 | ffmpeg stderr 日誌幀快取，供 API 查詢進度 |
+| `Handle()` | forward.go | 註冊兩個 HTTP API（見下），update 時同步套用後端自訂目標上限 |
+| `Start()` | forward.go | 為 Redis 裡每份配置起一個 `ForwardTask` goroutine；監聽新配置 |
+| `ForwardConfigure` | forward.go | 配置結構（見下欄位） |
+| `ForwardTask.Run()` | forward.go | 主迴圈：選流 → 啟動轉推 → 失敗退避／降級狀態 → 等待重試 |
+| `doForward()` | forward.go | **FFmpeg 命令構造、程序管理與來源斷流感知（核心）** |
+| `Restart()` | forward.go | 配置更新時原地重啟，並清理連續失敗狀態 |
+| `queryStatus()/updateFrame()` | forward.go | 匯總 pid、stream、frame、重啟次數、錯誤原因、下次重試時間等狀態 |
 
 ### 配置結構 `ForwardConfigure`
 
@@ -45,10 +45,20 @@ Label    string
 
 | 端點 | 方法語義 | 說明 |
 |---|---|---|
-| `/terraform/v1/ffmpeg/forward/secret` | action=`update` / `delete` / 查詢 | update：寫入並合併配置到 Redis `SRS_FORWARD_CONFIG`（hash，key=platform），若任務存活則觸發 `Restart()`；delete：僅允許 `forwarding-*` 自訂配置，HDel 配置＋`RemoveTask()` 停止並移除任務；不帶 action 時回傳全部配置 |
-| `/terraform/v1/ffmpeg/forward/streams` | 查詢 | 列出所有配置＋各任務運行狀態（pid/stream/frame log/ready 時間） |
+| `/terraform/v1/ffmpeg/forward/secret` | action=`update` / `delete` / 查詢 | update：寫入並合併配置到 Redis `SRS_FORWARD_CONFIG`（hash，key=platform），新增自訂平台時套用 `SRS_FORWARD_LIMIT` 後端上限，若任務存活則觸發 `Restart()`；delete：僅允許 `forwarding-*` 自訂配置，HDel 配置＋`RemoveTask()` 停止並移除任務；不帶 action 時回傳全部配置 |
+| `/terraform/v1/ffmpeg/forward/streams` | 查詢 | 列出所有配置＋各任務運行狀態（pid/stream/frame log/ready 時間），並回傳健康狀態與重試資訊 |
 
-平台白名單校驗：必須是 `wx|bilibili|kuaishou` 或以 `forwarding-` 開頭（自訂平台）。
+平台白名單校驗：必須是 `wx|bilibili|kuaishou` 或以 `forwarding-` 開頭（自訂平台）。自訂平台新增數量由 `SRS_FORWARD_LIMIT` 控制，前端與後端都會檢查，避免直接打 API 繞過 UI 上限。
+
+`/forward/streams` 新增狀態欄位：
+
+| 欄位 | 說明 |
+|---|---|
+| `status` | `idle` / `waiting_input` / `running` / `retrying` / `degraded` |
+| `restartCount` | 該任務自啟動以來累計失敗重啟次數 |
+| `consecutiveFailures` | 連續失敗次數，成功恢復或重新套用配置後歸零 |
+| `lastError` / `lastErrorAt` | 最近一次 FFmpeg、URL、TCP 探測等錯誤 |
+| `nextRetryAt` | 下一次重試時間；目標端故障時可直接觀察是否正在退避 |
 
 ---
 
@@ -71,7 +81,8 @@ doForward(input):
    ffmpeg -re -i rtmp://localhost/<app>/<stream> -c copy -f flv <Server+Secret>
    │
    ├─ FFmpegHeartbeat 解析 stderr（速度行/frame 日誌）→ updateFrame → API 可查
-   └─ 程序退出 → cleanup(kill pid) → saveTask → Run() 外層 3.5s 退避後重試
+   ├─ 來源監控：每秒檢查 SRS_STREAM_ACTIVE；on_unpublish 後主動 cancel FFmpeg
+   └─ 程序退出 → cleanup(kill pid) → saveTask → Run() 外層指數退避後重試
 ```
 
 ### 關鍵 Redis keys
@@ -80,7 +91,7 @@ doForward(input):
 |---|---|---|
 | `SRS_FORWARD_CONFIG` | hash | platform → ForwardConfigure JSON |
 | `SRS_STREAM_ACTIVE` | hash | 由 SRS http hooks 維護的活躍串流清單 |
-| 任務狀態 | hash | 各 task 序列化 JSON（pid/input/output/frame 等） |
+| `SRS_FORWARD_TASK` | hash | 各 task 序列化 JSON（pid/input/output/frame/restart/error 等） |
 
 ---
 
@@ -100,7 +111,12 @@ ffmpeg
 - 輸出 URL 中 `localhost` 一律替換為 `localhost`（容器內語義保留）
 - 程序管理：`exec.CommandContext` + `cmd.StderrPipe()`；
   `FFmpegHeartbeat.Polling()` 持續解析日誌判活，異常觸發 cancel → `cmd.Wait()`
-- 重啟策略：正常結束後 300ms 輪詢間隔；出錯退避 3500ms；有 PID 時額外睡 1s 防止過快重啟
+- 重啟策略：正常等待 300ms 後重新檢查來源；失敗後指數退避
+  `3.5s → 7s → 14s → 28s → 56s → 60s cap`；有 PID 時額外睡 1s 防止過快重啟
+- 失敗狀態：連續失敗達 5 次後進入 `degraded`，仍按 60s 上限做間隔性重試，
+  不再以固定短週期打爆故障中的目標平台
+- 來源斷流：FFmpeg 啟動後每秒檢查 `SRS_STREAM_ACTIVE`，來源 `on_unpublish` 消失時主動 cancel，
+  視為正常停止，避免靠 FFmpeg EOF 或 heartbeat 超時兜底
 - 起 FFmpeg 前兩道快速失敗檢查：
   1. `CheckRTMPOutputURL()`：`rtmp(s)://` 輸出必須是 `host/app/stream` 三段式（path ≥ 2 段）。
      若 Server 沒含 app path（如 `rtmps://host` + secret=`sk_...`），ffmpeg 會把唯一一段當 app、
@@ -113,7 +129,7 @@ ffmpeg
 ### 已知行為限制（設計改造的切入點）
 
 1. **無轉碼能力**：來源 H.265/VP9 推到只收 H.264 的平台會直接失敗（copy 不轉換）
-2. **自訂目標按需增減**：UI 改為「新增轉播目標」按鈕動態加入空槽（受 env.forwardLimit 上限），每個自訂槽有刪除按鈕（action=delete）；內建三平台不可刪。歷史遺留的英文標籤槽位可手動改名或直接刪除
+2. **自訂目標按需增減**：UI 改為「新增轉播目標」按鈕動態加入空槽（受 env.forwardLimit 上限），後端 update 也套用 `SRS_FORWARD_LIMIT`；每個自訂槽有刪除按鈕（action=delete）；內建三平台不可刪。歷史遺留的英文標籤槽位可手動改名或直接刪除
 3. **選流規則簡單**：空 Stream 名時「挑最新」可能選錯來源
 4. **與 SRS 原生 forward 的取捨**：SRS 本身有協定層 forward（不經 ffmpeg、更省資源），目前未使用
 5. **自訂目標的 URL 結構**：`rtmp(s)://` 目標的 Server 欄位必須含 app path（`rtmps://host/app`），
@@ -170,21 +186,38 @@ ffmpeg
 
 **結論：單程序層面的穩定性已經夠用，真正的短板在「任務生命週期策略」和「目標端健康」。**
 
-### 7.2 兩條改造軌道
+### 7.2 已落地的穩定性改進
+
+這次修正的核心目標是控制多平台轉播的線性放大風險：N 個平台仍然需要 N 支 FFmpeg
+分別推到外部 ingest，但當目標端故障、來源斷流或 API 被直接濫用時，不再把負載快速放大。
+
+| 改進 | 現況 |
+|---|---|
+| 指數退避重啟 | 已落地。失敗重試由固定 3.5s 改為 `3.5s → 7s → 14s → 28s → 56s → 60s cap` |
+| 失敗降級狀態 | 已落地。連續 5 次失敗後標記 `degraded`，API 持續曝露錯誤與下一次重試時間 |
+| 目標預檢 | 已落地。起 FFmpeg 前先做 RTMP URL 結構檢查與 output host:port TCP 探測 |
+| 可觀測性增強 | 已落地。`/forward/streams` 回傳 `status`、`restartCount`、`consecutiveFailures`、`lastError`、`nextRetryAt` |
+| 輸入斷流感知 | 已落地。來源從 `SRS_STREAM_ACTIVE` 消失後主動 cancel FFmpeg，避免延遲釋放 |
+| 後端目標上限 | 已落地。新增自訂平台時後端同步檢查 `SRS_FORWARD_LIMIT` |
+
+相關測試：`platform/forward_test.go` 覆蓋退避上限與任務健康狀態轉移。因專案目前使用
+Linux-only 的 `syscall.Kill`，Windows 本機直接 `go test` 會被既有代碼阻擋；可用
+`GOOS=linux go test -c` 做容器目標編譯驗證。
+
+### 7.3 兩條後續改造軌道
 
 #### 軌道一（主力）：強化 ffmpeg 轉推的穩定性
 
 外部平台（wx/B站/快手）的 ingest 都要求 `rtmp://server/app + 串流金鑰(secret)`，
-而 **SRS 原生 forward 只會用「同名流」推送、無法改寫串流名/金鑰**——
-這是硬傷，決定了對外平台只能繼續走 ffmpeg。可做的改進：
+而 **SRS 原生 forward 只會用「同名流」推送、無法改寫串流名/金鑰**。
+因此對外平台仍以 FFmpeg 線為主。已完成基礎穩定性保護，後續可再做：
 
 | # | 改進 | 現況 → 目標 |
 |---|---|---|
-| B1 | 指數退避重啟 | 固定 3.5s → 指數退避（3.5s→7s→14s…上限 60s）＋抖動，避免打死故障中的目標伺服器 |
-| B2 | 失敗熔斷與狀態 | 無限重試 → 連續 N 次快速失敗後進入「熔斷」狀態，API 標記 `degraded=true`，間隔性半開探測 |
-| B3 | 目標預檢 | 啟動前對 output host:port 做 TCP connect 探測（2s timeout），失敗直接標記原因，不浪費一次 ffmpeg 啟動 |
-| B4 | 可觀測性增強 | `/forward/streams` 增加 `restartCount`、`lastError`、連續失敗次數欄位 |
-| B5 | 輸入斷流感知 | 來源流 on_unpublish 時主動停掉任務（目前靠 ffmpeg 自然 EOF＋心跳兜底，延遲較高） |
+| B6 | 抖動 jitter | 在退避時間上加入小幅隨機抖動，避免多平台同時重試 |
+| B7 | 半開探測狀態 | `degraded` 期間區分正式重啟與半開探測，UI 可顯示更清楚 |
+| B8 | 來源選擇策略 | 空 Stream 名時不只選最新，可支援固定 app/stream、優先級或手動鎖定 |
+| B9 | UI 狀態接線 | 前端顯示 `lastError`、`nextRetryAt`、重啟次數與 degraded 狀態 |
 
 #### 軌道二（選配）：自控目標走 SRS 原生 forward
 
@@ -200,12 +233,13 @@ ffmpeg
   - 無 per-task 幀日誌，觀測性下降（可用 SRS callback 彌補）
 - UI 需區分「平台型（ffmpeg）」vs「中繼型（native）」兩種目標類型
 
-### 7.3 建議實施順序
+### 7.4 建議實施順序
 
 1. **B3 目標預檢**（小，立即可做）——✅ 已實作：`ProbeTCPServer()`（utils.go），
    `doForward()` 在啟動 ffmpeg 前以 2s timeout 對輸出位址做 TCP 撥測，
    失敗快速返回明確原因，交由既有 3.5s 退避重試循環處理
-2. **B1+B2 退避與熔斷**（中，核心穩定性收益）
-3. **B4 觀測欄位**（小，隨 B2 順手做）
-4. **B5 來源斷流感知**（中）
-5. **軌道二 native forward**（大，獨立 feature flag，驗證 SRS5 多目的地後再上）
+2. **B1+B2 退避與熔斷**（中，核心穩定性收益）——✅ 已實作：退避、`degraded` 狀態、錯誤欄位
+3. **B4 觀測欄位**（小，隨 B2 順手做）——✅ 已實作：API 已回傳狀態、錯誤與重試時間
+4. **B5 來源斷流感知**（中）——✅ 已實作：來源從 active stream 消失後主動 cancel FFmpeg
+5. **B9 UI 狀態接線**（小）——待做：把新增 API 欄位顯示到轉播頁
+6. **軌道二 native forward**（大，獨立 feature flag，驗證 SRS7 多目的地後再上）
