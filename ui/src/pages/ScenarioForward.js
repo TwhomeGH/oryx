@@ -133,6 +133,8 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
           start: e.start ? moment(e.start) : null,
           ready: e.ready ? moment(e.ready) : null,
           update: e.frame?.update ? moment(e.frame.update) : null,
+          lastErrorAt: e.lastErrorAt ? moment(e.lastErrorAt) : null,
+          nextRetryAt: e.nextRetryAt ? moment(e.nextRetryAt) : null,
           i,
         })));
         console.log(`Forward: Query streams ${JSON.stringify(res.data.data)}`);
@@ -174,6 +176,24 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
       return `${t('forward.autoSource')}, ${t('forward.currentSource')}: ${actives[0].stream}`;
     }
     return t('forward.autoSource');
+  };
+  const forwardStatus = (file) => {
+    if (!file.enabled) return {bg: 'secondary', label: t('plat.com.s2')};
+
+    switch (file.status) {
+      case 'running':
+        return {bg: 'success', label: t('forward.status.running')};
+      case 'waiting_input':
+        return {bg: 'primary', label: t('forward.status.waitingInput')};
+      case 'retrying':
+        return {bg: 'warning', label: t('forward.status.retrying')};
+      case 'degraded':
+        return {bg: 'danger', label: t('forward.status.degraded')};
+      case 'idle':
+        return {bg: 'secondary', label: t('forward.status.idle')};
+      default:
+        return {bg: file.frame ? 'success' : 'primary', label: file.frame ? t('plat.com.s0') : t('plat.com.s1')};
+    }
   };
   const updateConfigObject = React.useCallback((conf) => {
     const confs = configs.map((e) => {
@@ -363,25 +383,38 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
                     <th>Ready</th>
                     <th>{t('plat.com.update')}</th>
                     <th>{t('plat.com.source')}</th>
+                    <th>{t('forward.restarts')}</th>
+                    <th>{t('forward.nextRetry')}</th>
+                    <th>{t('forward.lastError')}</th>
                     <th>{t('plat.com.log')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {
                     forwards?.map(file => {
+                      const status = forwardStatus(file);
                       return <tr key={file.platform} style={{ verticalAlign: 'middle' }}>
                         <td>{file.i}</td>
                         <td>{file.custom ? (file.label ? '' : t('plat.com.custom')) : file.name} {file.label}</td>
                         <td>
-                          <Badge bg={file.enabled ? (file.frame ? 'success' : 'primary') : 'secondary'}>
-                            {file.enabled ? (file.frame ? t('plat.com.s0') : t('plat.com.s1')) : t('plat.com.s2')}
-                          </Badge>
+                          <Badge bg={status.bg}>{status.label}</Badge>
+                          {!!file.consecutiveFailures && <div className="small text-muted">
+                            {t('forward.failures')}: {file.consecutiveFailures}
+                          </div>}
                         </td>
                         <td>{file.start && `${file.start?.format('YYYY-MM-DD HH:mm:ss')}`}</td>
                         <td>{file.ready && `${file.ready?.format('YYYY-MM-DD HH:mm:ss')}`}</td>
                         <td>{file.update && `${file.update?.format('YYYY-MM-DD HH:mm:ss')}`}</td>
                         <td>{file.stream}</td>
-                        <td>{file.frame?.log}</td>
+                        <td>{file.restartCount || 0}</td>
+                        <td>{file.nextRetryAt && `${file.nextRetryAt?.format('YYYY-MM-DD HH:mm:ss')}`}</td>
+                        <td style={{ maxWidth: 280, wordBreak: 'break-word' }}>
+                          {file.lastError}
+                          {file.lastErrorAt && <div className="small text-muted">
+                            {file.lastErrorAt?.format('YYYY-MM-DD HH:mm:ss')}
+                          </div>}
+                        </td>
+                        <td style={{ maxWidth: 360, wordBreak: 'break-word' }}>{file.frame?.log}</td>
                       </tr>;
                     })
                   }

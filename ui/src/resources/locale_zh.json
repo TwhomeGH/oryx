@@ -679,7 +679,18 @@
       "removeConfirm": "确认删除该转播配置？删除后不可恢复。",
       "defaultLabel": "自定义转播",
       "limit": "已达到转播目标数量上限",
-      "deleted": "删除成功"
+      "deleted": "删除成功",
+      "restarts": "重启",
+      "failures": "连续失败",
+      "nextRetry": "下次重试",
+      "lastError": "最近错误",
+      "status": {
+        "idle": "空闲",
+        "running": "转播中",
+        "waitingInput": "等待来源",
+        "retrying": "重试中",
+        "degraded": "异常降级"
+      }
     },
     "vle": {
       "tip": "将文件转直播流",

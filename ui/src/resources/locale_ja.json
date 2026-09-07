@@ -418,7 +418,18 @@
       "removeConfirm": "この転送設定を削除しますか？削除後は復元できません。",
       "defaultLabel": "カスタム転送",
       "limit": "転送先の数が上限に達しました",
-      "deleted": "削除が成功しました"
+      "deleted": "削除が成功しました",
+      "restarts": "再起動",
+      "failures": "連続失敗",
+      "nextRetry": "次回再試行",
+      "lastError": "最新エラー",
+      "status": {
+        "idle": "待機中",
+        "running": "転送中",
+        "waitingInput": "入力待ち",
+        "retrying": "再試行中",
+        "degraded": "劣化状態"
+      }
     },
     "fp": {
       "label": "ファイルを選択",

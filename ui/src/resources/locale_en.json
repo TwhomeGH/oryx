@@ -73,7 +73,18 @@
       "removeConfirm": "Remove this forwarding config? This cannot be undone.",
       "defaultLabel": "Custom forwarding",
       "limit": "Reached the limit of forwarding targets",
-      "deleted": "Removed successfully"
+      "deleted": "Removed successfully",
+      "restarts": "Restarts",
+      "failures": "Failures",
+      "nextRetry": "Next Retry",
+      "lastError": "Last Error",
+      "status": {
+        "idle": "Idle",
+        "running": "Forwarding",
+        "waitingInput": "Waiting Input",
+        "retrying": "Retrying",
+        "degraded": "Degraded"
+      }
     },
     "camera": {
       "s3": "There is no stream. Please start the live event and wait for about 30 seconds, the list will update automatically.",
