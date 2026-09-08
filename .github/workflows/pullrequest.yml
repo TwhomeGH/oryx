@@ -55,7 +55,7 @@ jobs:
       - name: Setup the Go
         uses: actions/setup-go@v7
         with:
-          go-version: '>=1.16.0'
+          go-version: '1.26.x'
       - name: Install tools
         run: |
           curl -L https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz | tar xJ --strip-components=2 -C /usr/local/bin/ ffmpeg-master-latest-linux64-gpl/bin/ffmpeg ffmpeg-master-latest-linux64-gpl/bin/ffprobe

@@ -39,7 +39,7 @@ docker run --rm -d `
 測試檔需要在 Linux 環境編譯（cross-compile），用 Docker 一行搞定：
 
 ```powershell
-docker run --rm -v F:\oryx\test:/test -w /test golang:1.24 bash -c `
+docker run --rm -v F:\oryx\test:/test -w /test golang:1.26 bash -c `
   "GOOS=windows GOARCH=amd64 go test -mod=vendor -c -o oryx.test.exe ."
 ```
 
