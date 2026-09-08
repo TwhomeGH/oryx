@@ -67,6 +67,7 @@ jobs:
           # Record all logs.
           docker logs -f oryx >docker.log 2>&1 & pid_docker=$!
           
+          {
           echo "Wait for service ready." &&
           make -j -C test &&
           bash scripts/tools/secret.sh --output test/.env &&
@@ -94,7 +95,11 @@ jobs:
           ./scripts/tools/failed-retry.sh 3 ./test/oryx.test -test.timeout=1h -test.failfast -test.v -endpoint http://localhost:2022 \
               -srs-log=true -wait-ready=true -init-password=false -init-self-signed-cert=false \
               -check-api-secret=true -test.run WithStream
-          ret=$?; echo "Test result: $ret"
+          } 2>&1 | tee test.log
+          ret=${PIPESTATUS[0]}; echo "Test result: $ret"
+          if [[ $ret -ne 0 ]]; then
+            bash scripts/tools/github-test-annotations.sh "Test EN image" "$ret" test.log docker.log
+          fi
           
           echo "Stop service"
           docker stop oryx
