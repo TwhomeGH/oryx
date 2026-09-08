@@ -39,27 +39,52 @@ collect_matches() {
     done | sed -E 's/\x1b\[[0-9;]*m//g' | head -n "$limit" || true
 }
 
-emit_go_test_annotations() {
-    local count=0
-    local log line file lineno message
+collect_failed_test_blocks() {
+    local log
 
     for log in "$@"; do
         [[ -f "$log" ]] || continue
-        while IFS= read -r line; do
-            if [[ "$line" =~ ^[[:space:]]*([^[:space:]:]+_test\.go):([0-9]+):[[:space:]]*(.*)$ ]]; then
-                file="${BASH_REMATCH[1]}"
-                lineno="${BASH_REMATCH[2]}"
-                message="${BASH_REMATCH[3]}"
-                echo "::error file=$(escape_property "$file"),line=$lineno,title=$(escape_property "$title failed")::$(escape_annotation "$message")"
-                count=$((count + 1))
-                [[ $count -ge 10 ]] && return
-            fi
-        done < <(grep -aE '^[[:space:]]*[^[:space:]:]+_test\.go:[0-9]+:' "$log" || true)
-    done
+        awk '
+            /^--- FAIL: / {
+                if (capture) {
+                    print ""
+                }
+                capture = 1
+                lines = 0
+            }
+            capture {
+                print
+                lines++
+                if (/^FAIL([[:space:]]|$)/ || lines >= 80) {
+                    capture = 0
+                    print ""
+                }
+            }
+        ' "$log"
+    done | sed -E 's/\x1b\[[0-9;]*m//g' || true
+}
+
+emit_go_test_annotations() {
+    local count=0
+    local line file lineno message
+
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^[[:space:]]*([^[:space:]:]+_test\.go):([0-9]+):[[:space:]]*(.*)$ ]]; then
+            file="${BASH_REMATCH[1]}"
+            lineno="${BASH_REMATCH[2]}"
+            message="${BASH_REMATCH[3]}"
+            [[ "$message" =~ ^(測試案例|Test case)[[:space:]] ]] && continue
+            [[ -z "$message" ]] && continue
+            echo "::error file=$(escape_property "$file"),line=$lineno,title=$(escape_property "$title failed")::$(escape_annotation "$message")"
+            count=$((count + 1))
+            [[ $count -ge 10 ]] && return
+        fi
+    done < <(printf '%s\n' "$failed_blocks")
 }
 
 failed_tests="$(collect_matches '^--- FAIL: ' 20 "$@" | sed -E 's/^--- FAIL: ([^ ]+).*/\1/' | sort -u)"
-go_locations="$(collect_matches '^[[:space:]]*[^[:space:]:]+_test\.go:[0-9]+:' 40 "$@")"
+failed_blocks="$(collect_failed_test_blocks "$@" | head -n 200 || true)"
+go_locations="$(printf '%s\n' "$failed_blocks" | grep -aE '^[[:space:]]*[^[:space:]:]+_test\.go:[0-9]+:' | grep -avE ':[[:space:]]*(測試案例|Test case)[[:space:]]' | head -n 40 || true)"
 test_errors="$(collect_matches 'Fail for err|Prepare test fail|panic:|fatal error:|FAIL[[:space:]]|exit status|Error:|ERROR' 40 "$@")"
 service_errors="$(collect_matches 'Start SRS failed|Start platform failed|Check SRS failed|conf error|panic|fatal|ERROR|failed' 40 "$@")"
 

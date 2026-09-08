@@ -20,7 +20,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       # Version comes from platform/version.go, e.g. v5.15.20
       - name: Generate version

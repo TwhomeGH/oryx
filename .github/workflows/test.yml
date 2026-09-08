@@ -13,7 +13,7 @@ jobs:
       ##################################################################################################################
       # Git checkout
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       # The github.ref is, for example, refs/tags/v5.0.145 or refs/tags/v5.0-r8
       # Generate variables like:
       #   SRS_TAG=v1.0.52
@@ -38,7 +38,7 @@ jobs:
       - envs
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Build image for platform
         run: |
           docker build -t platform:latest -f Dockerfile .
@@ -112,17 +112,40 @@ jobs:
   check-pr-test:
     steps:
       - name: Wait for PR Test Workflow
-        uses: fountainhead/action-wait-for-check@v1.1.0
-        id: wait-for-test
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          checkName: test-pr-final
-          ref: ${{ github.sha }}
-          timeoutSeconds: 3600
-      - name: Check Test Workflow result
-        if: steps.wait-for-test.outputs.conclusion != 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Test Workflow failed, aborting release" && exit 1
+          set -euo pipefail
+
+          deadline=$((SECONDS + 3600))
+          while true; do
+            check=$(
+              gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs" \
+                --jq '.check_runs[] | select(.name == "test-pr-final") | [.status, .conclusion] | @tsv' \
+                | tail -n 1
+            )
+
+            status=$(echo "$check" | awk '{print $1}')
+            conclusion=$(echo "$check" | awk '{print $2}')
+
+            if [[ "$conclusion" == "success" ]]; then
+              echo "test-pr-final succeeded"
+              exit 0
+            fi
+
+            if [[ -n "$conclusion" && "$conclusion" != "null" ]]; then
+              echo "::error title=PR test workflow failed::test-pr-final concluded with ${conclusion}"
+              exit 1
+            fi
+
+            if [[ "$SECONDS" -ge "$deadline" ]]; then
+              echo "::error title=Timed out waiting for PR test workflow::test-pr-final did not complete within 3600 seconds"
+              exit 1
+            fi
+
+            echo "Waiting for test-pr-final, current status: ${status:-not found}"
+            sleep 30
+          done
     runs-on: ubuntu-22.04
 
   test-final:
