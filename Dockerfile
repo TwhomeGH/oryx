@@ -47,7 +47,8 @@ RUN export SRS_NO_LINT=1 && \
 # the CI integration test ("Start SRS failed"). See docs/local-test.md#FAQ.
 
 # For youtube-dl, see https://github.com/ytdl-org/ytdl-nightly
-FROM ${ARCH}python:3.9-slim-bullseye AS ytdl
+# Use bookworm to avoid stale bullseye-security Release metadata breaking apt.
+FROM ${ARCH}python:3.9-slim-bookworm AS ytdl
 
 RUN apt-get update -y && apt-get install -y binutils curl unzip && \
     pip install pyinstaller
