@@ -64,7 +64,49 @@ docker compose pull && docker compose up -d
 
 ---
 
-## 2-1. 自訂 SRS 版本的替換與能力驗證（本 fork 新增功能）
+## 2-1. SRS7 主設定性能基線
+
+Oryx 的 SRS 主設定位於 `platform/containers/conf/srs.release.conf`，本地開發與 origin-cluster
+還有對應的 `srs.release-local.conf`、`srs.release-mac.conf`、`srs.origin.conf`。這些檔案會在
+`vhost __defaultVhost__` 中顯式設定 RTMP/HTTP-FLV 的性能基線：
+
+```conf
+min_latency off;
+tcp_nodelay off;
+publish {
+    mr off;
+    mr_latency 350;
+    firstpkt_timeout 20000;
+    normal_timeout 7000;
+    parse_sps on;
+    try_annexb_first on;
+    kickoff_for_idle 0;
+}
+play {
+    gop_cache on;
+    gop_cache_max_frames 2500;
+    queue_length 10;
+    time_jitter full;
+    mw_latency 350;
+    mw_msgs 8;
+}
+```
+
+這組不是極限低延遲配置，而是「穩定吞吐＋快速起播」基線：
+
+- `min_latency off`、`tcp_nodelay off`：保留 RTMP/HTTP-FLV 的吞吐取向，避免大量小包增加系統壓力。
+- `gop_cache on`：讓播放器或轉播拉流可以快速拿到上一個 GOP，不必等下一個 IDR。
+- `queue_length 10`：比 SRS 預設 30 秒更收斂，避免慢客戶端累積過長播放隊列。
+- `mw_latency 350`、`mw_msgs 8`：保留 merged-write 對 RTMP/HTTP-FLV 的批量寫入收益。
+- `kickoff_for_idle 0`：保持不因沒有播放器而踢掉推流，避免和 forward/錄製等後台工作衝突。
+
+若後續要做低延遲模式，應另做成可配置選項，再評估是否切到 `min_latency on`、
+`tcp_nodelay on`、`gop_cache off`、更短的 `queue_length` 或 `mw_latency 0`。這會犧牲吞吐與起播體驗，
+不適合作為 Oryx 混合場景的全域預設。
+
+---
+
+## 2-2. 自訂 SRS 版本的替換與能力驗證（本 fork 新增功能）
 
 若你想用自己的特製版 SRS（自行編譯、加私修改、或換供應商映像），替換點就是
 Dockerfile 的基底映像標籤；但換完怎麼確認「Oryx 依賴的功能都還在」？
