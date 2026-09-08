@@ -276,6 +276,7 @@ func TestScenario_WithStream_PublishVLiveServerFile(t *testing.T) {
 		Size   int64  `json:"size"`
 		Target string `json:"target"`
 		UUID   string `json:"uuid"`
+		Type   string `json:"type"`
 	}{}
 	if err := NewApi().WithAuth(ctx, "/terraform/v1/ffmpeg/vlive/server", &struct {
 		StreamFile string `json:"file"`

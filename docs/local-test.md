@@ -45,6 +45,8 @@ docker run --rm -v F:\oryx\test:/test -w /test golang:1.26 bash -c `
 
 產出 `test\oryx.test.exe`（Windows 可執行檔）。
 
+CI 也固定使用 Go `1.26.x`。不要把 workflow 改回 `>=1.16.0` 這類寬鬆範圍，否則 `actions/setup-go` 可能解析到較舊工具鏈，讓本地、CI、Docker 測試環境不一致。
+
 ### 3. 跑測試
 
 #### 跑全部測試（比照 CI）
@@ -165,6 +167,30 @@ Windows 上 `ffmpeg`/`ffprobe` 需在 PATH 中（WinGet 安裝後自動滿足）
 解法：Dockerfile 已移除 UPX 壓縮步驟（`upx --best --lzma` 那一段），重新 build
 映像後 binary 不再自解壓，即可消除這類偶發崩潰。若又看到類似症狀，先檢查
 Dockerfile 是否把 UPX 加回去了。
+
+### CI 失敗：`TestScenario_WithStream_PublishVLiveServerFile`
+
+這個案例會把伺服器端檔案放進 vLive，啟動虛擬直播，再用 ffprobe 驗證 HTTP-FLV 播放時長。
+
+曾發生的 flaky 症狀是：
+
+- 失敗測試固定為 `TestScenario_WithStream_PublishVLiveServerFile`
+- stack 指到 `test/scenario_test.go` 的 `short duration`
+- service log 可看到 `vlive/*.flv` 被 FFmpeg 以極高 `speed` 推完，例如數百倍速度
+
+根因是 `/terraform/v1/ffmpeg/vlive/server` 回傳的檔案物件沒有明確 `type`，後續 `/source` 儲存後未被當成 upload/file 類來源，因此啟動 FFmpeg 時沒有加 `-re`。平台已修正為：
+
+- `/vlive/server` 回傳 `type: "upload"`
+- `/vlive/source` 對漏帶 `type` 的本地檔案補成 `upload`
+- vLive 只對 `type: "stream"` 略過 `-re`；其他來源都按即時速度循環推流
+
+如果又遇到這個測試失敗，先看 GitHub Actions annotation 是否仍是 `short duration`，再查 service log 中該 stream 的 FFmpeg `speed` 是否異常偏高。
+
+### CI annotation 診斷
+
+`pullrequest.yml` 和 `test.yml` 的整合測試會把測試輸出寫入 `test.log`，失敗時呼叫 `scripts/tools/github-test-annotations.sh` 產生 GitHub Actions annotation 和 Step Summary。
+
+annotation 腳本只從 `--- FAIL:` 的 Go test 失敗區塊抓錯誤行，並跳過 `測試案例` / `Test case` 說明行，避免把所有 `main_test.go` 的 `t.Log` 都標成錯誤。若看到 annotation 又列出大量無關測試名稱，優先檢查這個腳本的 failed block 過濾邏輯。
 
 ## 常見問題
 

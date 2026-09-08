@@ -492,11 +492,13 @@ func (v *VLiveWorker) Handle(ctx context.Context, handler *http.ServeMux) error 
 				UUID   string `json:"uuid"`
 				Target string `json:"target"`
 				Size   int    `json:"size"`
+				Type   string `json:"type"`
 			}{
 				Name:   info.Name(),
 				UUID:   targetUUID,
 				Target: targetFileName,
 				Size:   int(info.Size()),
+				Type:   string(FFprobeSourceTypeUpload),
 			})
 			logger.Tf(ctx, "vLive: Got vlive local file target=%v, size=%v", targetFileName, info.Size())
 			return nil
@@ -666,6 +668,9 @@ func (v *VLiveWorker) Handle(ctx context.Context, handler *http.ServeMux) error 
 			for _, f := range files {
 				if f.Target == "" {
 					return errors.New("no target")
+				}
+				if f.Type == "" && !strings.Contains(f.Target, "://") {
+					f.Type = FFprobeSourceTypeUpload
 				}
 				if f.Type != FFprobeSourceTypeStream {
 					if _, err := os.Stat(f.Target); err != nil {
@@ -1233,7 +1238,7 @@ func (v *VLiveTask) doVirtualLiveStream(ctx context.Context, input *FFprobeSourc
 
 	// Start FFmpeg process.
 	args := []string{}
-	if input.Type == FFprobeSourceTypeFile || input.Type == FFprobeSourceTypeUpload || input.Type == FFprobeSourceTypeYTDL {
+	if input.Type != FFprobeSourceTypeStream {
 		args = append(args, "-stream_loop", "-1")
 		args = append(args, "-re")
 	}

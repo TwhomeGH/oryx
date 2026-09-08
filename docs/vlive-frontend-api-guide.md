@@ -20,6 +20,14 @@
 | `/source` | POST | 確認/設定影片源（檔案/串流）並回傳 FFprobe 資訊 | `VideoSourceSelector.js` |
 | `/upload/<filename>` | POST | 上傳本機檔案（multipart） | `FileUploader.js` |
 
+### 伺服器端檔案來源修正（2026-09）
+
+`/server` 會把 `/data/upload` 或伺服器資料目錄中的檔案複製到 upload 暫存區，並回傳可交給 `/source` 的檔案物件。這類來源必須帶 `type: "upload"`；若前端或舊資料漏帶 `type`，後端會在 `/source` 依本地檔案路徑補成 `upload`。
+
+這個型別會影響 FFmpeg 啟動參數：vLive 只有真正的遠端串流來源（`type: "stream"`）不加 `-re`；檔案、upload、youtube-dl 與漏帶型別的本地檔案都會加 `-stream_loop -1 -re`，按即時速度循環推流。
+
+修正原因：`TestScenario_WithStream_PublishVLiveServerFile` 曾在 CI 偶發 `short duration`。log 顯示 server file 來源 `vlive/*.flv` 被 FFmpeg 以數百倍速度推完，導致 ffprobe 還沒穩定拉到足夠內容就結束。補齊 `type=upload` 並對非 stream 來源統一使用 `-re` 後，server file 會像真正直播一樣按時間推送。
+
 ## 2. `/secret` 接口的 action 語義
 
 請求 body：

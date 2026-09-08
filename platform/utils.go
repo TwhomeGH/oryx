@@ -1868,8 +1868,8 @@ type FFprobeSource struct {
 }
 
 func (v *FFprobeSource) String() string {
-	return fmt.Sprintf("name=%v, path=%v, size=%v, uuid=%v, target=%v, format=(%v), video=(%v), audio=(%v)",
-		v.Name, v.Path, v.Size, v.UUID, v.Target, v.Format, v.Video, v.Audio,
+	return fmt.Sprintf("name=%v, path=%v, size=%v, uuid=%v, target=%v, type=%v, format=(%v), video=(%v), audio=(%v)",
+		v.Name, v.Path, v.Size, v.UUID, v.Target, v.Type, v.Format, v.Video, v.Audio,
 	)
 }
 
