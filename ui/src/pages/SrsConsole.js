@@ -823,7 +823,7 @@ function SrsRedisMetrics({active}) {
                     <tr key={r.method + ' ' + r.route}>
                       <td><code>{r.method}</code></td>
                       <td style={{wordBreak: 'break-all'}}><code>{r.route}</code></td>
-                      <td className="text-end">{fmtNum(r.count)}</td>
+                      <td className="text-end">{fmtInt(r.count)}</td>
                       <td className="text-end">{fmtFixed(r.rate_per_sec, 1)}</td>
                       <td className="text-end">{fmtFixed(r.avg_ms, 1)}</td>
                       <td className="text-end">{fmtFixed(r.max_ms, 1)}</td>
