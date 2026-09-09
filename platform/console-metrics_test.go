@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,7 +16,7 @@ import (
 )
 
 // Exercise the shared JSON writer through the exact sink reported by CodeQL.
-func TestConsoleMetricsJSONPInjection(t *testing.T) {
+func TestConsoleMetricsJSONPIgnored(t *testing.T) {
 	for _, callback := range []string{
 		"alert(1)//", "cb;alert(1)//", "<script>alert(1)</script>",
 		"cb\nalert(1)", "cb\n", "cb[alert(1)]", ".cb", "cb.", "cb..next",
@@ -28,17 +29,17 @@ func TestConsoleMetricsJSONPInjection(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/test?callback="+url.QueryEscape(callback), nil)
 			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
-			if res.Code != http.StatusBadRequest || res.Body.String() != "invalid JSONP callback\n" {
+			if res.Code != http.StatusOK || !json.Valid(res.Body.Bytes()) || strings.Contains(res.Body.String(), callback) {
 				t.Fatalf("unsafe callback response: status=%d body=%q", res.Code, res.Body.String())
 			}
-			if res.Header().Get("Content-Type") != "text/plain; charset=utf-8" || res.Header().Get("X-Content-Type-Options") != "nosniff" {
+			if res.Header().Get("Content-Type") != "application/json; charset=utf-8" || res.Header().Get("X-Content-Type-Options") != "nosniff" {
 				t.Fatalf("unsafe error headers: %v", res.Header())
 			}
 		})
 	}
 }
 
-func TestConsoleMetricsJSONPCompatibility(t *testing.T) {
+func TestConsoleMetricsJSONOnly(t *testing.T) {
 	for _, callback := range []string{"", "callback", "app.handlers.done", "_$cb123"} {
 		t.Run(callback, func(t *testing.T) {
 			handler := newConsoleMetricsStore(10).Wrap(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -49,14 +50,42 @@ func TestConsoleMetricsJSONPCompatibility(t *testing.T) {
 			if res.Code != http.StatusOK || strings.Contains(res.Body.String(), "<script>") {
 				t.Fatalf("unexpected response: %d %q", res.Code, res.Body.String())
 			}
-			if callback == "" {
-				if !strings.Contains(res.Header().Get("Content-Type"), "application/json") {
-					t.Fatal("normal response must remain JSON")
-				}
-			} else if !strings.HasPrefix(res.Body.String(), callback+"(") || !strings.HasSuffix(res.Body.String(), ")") {
-				t.Fatalf("JSONP callback was not preserved: %q", res.Body.String())
+			var body struct {
+				Code int    `json:"code"`
+				Data string `json:"data"`
+			}
+			if err := json.Unmarshal(res.Body.Bytes(), &body); err != nil {
+				t.Fatalf("response must be JSON, never JSONP: %v", err)
+			}
+			if body.Code != 0 || body.Data != "<script>alert(1)</script>" {
+				t.Fatalf("response data changed: %+v", body)
+			}
+			if res.Header().Get("Content-Type") != "application/json; charset=utf-8" || res.Header().Get("X-Content-Type-Options") != "nosniff" {
+				t.Fatalf("unsafe response headers: %v", res.Header())
 			}
 		})
+	}
+}
+
+func TestConsoleMetricsJSONError(t *testing.T) {
+	handler := newConsoleMetricsStore(10).Wrap(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ohttp.WriteCplxError(context.Background(), w, r, ohttp.SystemError(123), r.URL.Query().Get("message"))
+	}))
+	res := httptest.NewRecorder()
+	payload := "<script>alert(1)</script>"
+	handler.ServeHTTP(res, httptest.NewRequest(http.MethodGet, "/test?callback=app.done&message="+url.QueryEscape(payload), nil))
+	var body struct {
+		Code int    `json:"code"`
+		Data string `json:"data"`
+	}
+	if err := json.Unmarshal(res.Body.Bytes(), &body); err != nil {
+		t.Fatalf("error response must remain JSON: %v", err)
+	}
+	if res.Code != http.StatusOK || body.Code != 123 || body.Data != payload || strings.Contains(res.Body.String(), "<script>") {
+		t.Fatalf("unexpected error response: %d %q", res.Code, res.Body.String())
+	}
+	if res.Header().Get("Content-Type") != "application/json; charset=utf-8" || res.Header().Get("X-Content-Type-Options") != "nosniff" {
+		t.Fatalf("unsafe error headers: %v", res.Header())
 	}
 }
 

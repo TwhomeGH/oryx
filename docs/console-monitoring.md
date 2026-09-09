@@ -61,8 +61,8 @@ window_sec, routes: [{method, route, count, rate_per_sec, avg_ms, max_ms, p95_ms
 
 ## 4. 测试与验证
 
-安全说明：2026-09 的 CodeQL 曾将 `statusRecorder.Write()` 标为反射型 XSS 输出点。程序检查发现，共用 HTTP 函式库原本会将未经验证的 JSONP `callback` 拼入 JavaScript；本次在函式库加入名称白名单，并在 `console-metrics_test.go` 覆盖经过 middleware 的攻击与相容性案例。完整成因、修正范围及验证状态见 [CodeQL 安全漏洞修复说明](security-fix-codeql.md)。
+安全说明：2026-09 的 CodeQL 曾将 `statusRecorder.Write()` 标为反射型 XSS 输出点。程序检查发现，共用 HTTP 函式库原本会将未经验证的 JSONP `callback` 拼入 JavaScript；后续已移除共用 writer 的 JSONP 支持，忽略 callback 并固定回传 JSON，加入 nosniff；`console-metrics_test.go` 覆盖经过 middleware 的攻击、正常 JSON 与错误回应案例。CodeQL 尚待重扫确认。完整成因、修正范围及验证状态见 [CodeQL 安全漏洞修复说明](security-fix-codeql.md)。
 
-- 后端：`golang:1.26` 容器内 `go test -run 'TestNormalizeConsoleRoute|TestConsoleMetricsSnapshot|TestBuildRedisInfoSnapshot' .`
+- 后端：在 `platform/` 目录、`golang:1.26` 容器内执行 `go test -mod=vendor . -run 'TestConsoleMetrics|TestNormalizeConsoleRoute|TestBuildRedisInfoSnapshot' -count=1`，已通过，包含 JSONP 移除后的安全回归案例。
 - 前端：`npx vitest run`（含 `SrsConsole.test.js` 的 `calcRedisRates` 单测）
-- 生效需重建 Docker 映像 + 重新 build UI；2026-09 前部署的容器仍是旧代码。
+- 监控页面变更需重新 build UI 并重建 Docker 映像；本次 JSONP 修正位于后端 vendored 函式库，需以 `-mod=vendor` 重建后端并更新容器，仅更新 UI 不会生效。目前尚未部署此修正，也尚未重跑 CodeQL。

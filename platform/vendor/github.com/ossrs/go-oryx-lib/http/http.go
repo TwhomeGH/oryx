@@ -43,7 +43,6 @@ import (
 	ol "github.com/ossrs/go-oryx-lib/logger"
 	"net/http"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 )
@@ -147,11 +146,8 @@ func SetHeader(w http.ResponseWriter) {
 	w.Header().Set("Server", Server)
 }
 
-// Local security patch: keep this validation when refreshing the vendored library.
-// JSONP accepts a function name, never an arbitrary JavaScript expression.
-var jsonpCallback = regexp.MustCompile(`\A[A-Za-z_$][A-Za-z0-9_$]*(\.[A-Za-z_$][A-Za-z0-9_$]*)*\z`)
-
-// response json directly.
+// Local security patch: always return JSON, ignoring legacy JSONP callbacks.
+// Preserve this behavior when refreshing the vendored library.
 func jsonHandler(ctx ol.Context, rv interface{}) http.Handler {
 	var err error
 	var b []byte
@@ -167,28 +163,13 @@ func jsonHandler(ctx ol.Context, rv interface{}) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		SetHeader(w)
 
-		q := r.URL.Query()
-		if cb := q.Get("callback"); cb != "" {
-			if !jsonpCallback.MatchString(cb) {
-				http.Error(w, "invalid JSONP callback", http.StatusBadRequest)
-				return
-			}
-			w.Header().Set("X-Content-Type-Options", "nosniff")
-			w.Header().Set("Content-Type", HttpJavaScript)
-			if status != http.StatusOK {
-				w.WriteHeader(status)
-			}
-
-			// TODO: Handle error.
-			fmt.Fprintf(w, "%s(%s)", cb, string(b))
-		} else {
-			w.Header().Set("Content-Type", HttpJson)
-			if status != http.StatusOK {
-				w.WriteHeader(status)
-			}
-			// TODO: Handle error.
-			w.Write(b)
+		w.Header().Set("Content-Type", HttpJson+"; charset=utf-8")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		if status != http.StatusOK {
+			w.WriteHeader(status)
 		}
+		// TODO: Handle error.
+		w.Write(b)
 	})
 }
 

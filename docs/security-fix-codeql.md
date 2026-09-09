@@ -2,7 +2,41 @@
 
 本文記錄本 fork 自 2026-08 起的 CodeQL 安全修復。各批次的程式修正、測試與重掃狀態分別列出；完成程式修正不代表 CodeQL 警告已經關閉。
 
-## 2026-09-10：共用 HTTP 函式庫的 JSONP callback 注入
+## 2026-09-10 後續：移除 JSONP，固定回傳 JSON
+
+此變更取代下方歷史紀錄中的 callback 白名單方案。共用 `jsonHandler()` 不再讀取或拼接 `callback`，無論參數內容為何，都以 `json.Marshal` 產生 JSON，設定 `application/json; charset=utf-8` 與 `X-Content-Type-Options: nosniff`。一般 JSON 的資料結構、應用錯誤碼及 HTTPStatus 處理維持原有行為；非 jsonHandler 的原始文字錯誤、代理與媒體回應不在本次變更範圍。
+
+專案內搜尋未找到 JSONP 呼叫端；外部若仍使用 JSONP，需改用 fetch/HTTP JSON，跨域時由服務端配置 CORS。正常及惡意 callback 現在都會被忽略，不再回傳 JSONP 或 callback 驗證的 400。
+
+`statusRecorder.Write(b)` 保留原樣，避免破壞代理、HTML 與媒體回應。測試涵蓋經過此 wrapper 的惡意 callback、一般 callback、JSON 資料還原與應用錯誤回應。修正仍位於 vendored 函式庫，更新 vendor 時須保留此行為。Linux Go 1.26 容器已通過 `go test -mod=vendor . -run 'TestConsoleMetrics|TestNormalizeConsoleRoute|TestBuildRedisInfoSnapshot' -count=1`。CodeQL 尚未重掃，不能宣稱該警告已關閉；後端需重新建置部署。
+
+### 呼叫端遷移與部署
+
+舊式 `<script src="/endpoint?callback=app.done">` 不再受支援；請改用 HTTP 客戶端讀取 JSON，例如同源瀏覽器呼叫：
+
+```js
+const response = await fetch('/terraform/v1/mgmt/http/metrics', {
+  headers: {Authorization: `Bearer ${token}`},
+});
+if (!response.ok) throw new Error(`HTTP ${response.status}`);
+const result = await response.json();
+if (result.code !== 0) throw new Error(`API error ${result.code}`);
+```
+
+`token` 應使用既有登入流程取得的憑證。移除 callback 不會取消端點認證；跨域呼叫仍須遵守服務端的 CORS 與認證設定。本次僅修改共用 `jsonHandler()`，不代表上游 SRS 或其他獨立服務的 JSONP 也已移除。
+
+部署時使用 `-mod=vendor` 重新建置平台後端映像並更新容器；只重建前端不會套用此修正。部署後確認回應為 JSON、帶有 `nosniff`，且加上 `callback=app.done` 不會產生 JavaScript 包裝。接著對包含本次修正的提交重跑 CodeQL；若警告仍在，須依完整來源到輸出點的路徑繼續追查。
+
+### 已完成的驗證
+
+- `TestConsoleMetricsJSONPIgnored`：惡意 callback 不會回顯或產生 JSONP。
+- `TestConsoleMetricsJSONOnly`：空值與正常 callback 均回傳可解析的 JSON，資料內容與安全標頭正確。
+- `TestConsoleMetricsJSONError`：使用者提供的錯誤訊息經 JSON 編碼後保留原始語意，應用錯誤碼維持正確。
+- 上述案例及路由正規化、metrics、Redis snapshot 相關測試已在 Linux Go 1.26 通過；這是指定範圍的回歸測試，不是完整平台測試或 CodeQL 重掃。
+
+## 2026-09-10：共用 HTTP 函式庫的 JSONP callback 注入（前次修補紀錄）
+
+以下記錄提交 `b02314a` 當時的白名單方案與驗證狀態，已由上方 JSON-only 方案取代；合法 callback 保留 JSONP、非法 callback 回傳 400 等描述不再是目前行為。
 
 ### 問題如何造成
 
