@@ -4,10 +4,61 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
+
+	ohttp "github.com/ossrs/go-oryx-lib/http"
 )
+
+// Exercise the shared JSON writer through the exact sink reported by CodeQL.
+func TestConsoleMetricsJSONPInjection(t *testing.T) {
+	for _, callback := range []string{
+		"alert(1)//", "cb;alert(1)//", "<script>alert(1)</script>",
+		"cb\nalert(1)", "cb\n", "cb[alert(1)]", ".cb", "cb.", "cb..next",
+	} {
+		t.Run(callback, func(t *testing.T) {
+			store := newConsoleMetricsStore(10)
+			handler := store.Wrap(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				ohttp.WriteData(context.Background(), w, r, "ok")
+			}))
+			req := httptest.NewRequest(http.MethodGet, "/test?callback="+url.QueryEscape(callback), nil)
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
+			if res.Code != http.StatusBadRequest || res.Body.String() != "invalid JSONP callback\n" {
+				t.Fatalf("unsafe callback response: status=%d body=%q", res.Code, res.Body.String())
+			}
+			if res.Header().Get("Content-Type") != "text/plain; charset=utf-8" || res.Header().Get("X-Content-Type-Options") != "nosniff" {
+				t.Fatalf("unsafe error headers: %v", res.Header())
+			}
+		})
+	}
+}
+
+func TestConsoleMetricsJSONPCompatibility(t *testing.T) {
+	for _, callback := range []string{"", "callback", "app.handlers.done", "_$cb123"} {
+		t.Run(callback, func(t *testing.T) {
+			handler := newConsoleMetricsStore(10).Wrap(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				ohttp.WriteData(context.Background(), w, r, "<script>alert(1)</script>")
+			}))
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, httptest.NewRequest(http.MethodGet, "/test?callback="+url.QueryEscape(callback), nil))
+			if res.Code != http.StatusOK || strings.Contains(res.Body.String(), "<script>") {
+				t.Fatalf("unexpected response: %d %q", res.Code, res.Body.String())
+			}
+			if callback == "" {
+				if !strings.Contains(res.Header().Get("Content-Type"), "application/json") {
+					t.Fatal("normal response must remain JSON")
+				}
+			} else if !strings.HasPrefix(res.Body.String(), callback+"(") || !strings.HasSuffix(res.Body.String(), ")") {
+				t.Fatalf("JSONP callback was not preserved: %q", res.Body.String())
+			}
+		})
+	}
+}
 
 func TestNormalizeConsoleRoute(t *testing.T) {
 	tests := []struct {

@@ -1,6 +1,59 @@
 # CodeQL 安全漏洞修復說明
 
-本 fork 於 2026-08 收到 CodeQL 掃描報告，分為多個類別，已全部修復。
+本文記錄本 fork 自 2026-08 起的 CodeQL 安全修復。各批次的程式修正、測試與重掃狀態分別列出；完成程式修正不代表 CodeQL 警告已經關閉。
+
+## 2026-09-10：共用 HTTP 函式庫的 JSONP callback 注入
+
+### 問題如何造成
+
+`platform/vendor/github.com/ossrs/go-oryx-lib/http/http.go` 的 `jsonHandler()` 原本直接讀取 `r.URL.Query().Get("callback")`，再用以下方式產生 `application/javascript` 回應：
+
+```go
+fmt.Fprintf(w, "%s(%s)", cb, string(b))
+```
+
+JSONP 原意是讓呼叫端指定接收 JSON 的函式名稱，例如 `callback=app.done` 會產生 `app.done({...})`。但原本沒有檢查 `cb` 是否只是名稱；若輸入 `alert(1)//`，回應就變成 `alert(1)//({...})`。當回應被當作 JavaScript 載入執行時，前面的程式碼會執行，後面的 JSON 則被註解掉。
+
+JSON 本體雖然經過 `json.Marshal`，callback 卻是在序列化之後另外拼接，因此 JSON 的跳脫保護無法涵蓋 callback。實際利用仍取決於端點可達性、認證與回應如何被載入；這個問題本身不代表能繞過 API 認證。
+
+### 為何 CodeQL 標在 `console-metrics.go:74`
+
+使用者提供的 `go/reflected-xss` 警告指向提交 `26110db` 的 `statusRecorder.Write()`：
+
+```go
+return v.ResponseWriter.Write(b)
+```
+
+這裡是回應的輸出點。監控 middleware 包住 handler 後，回應內容會經過這個方法送出；它記錄 HTTP 狀態碼並轉交原始位元組，不會自行產生 callback。
+
+本次程式檢查找到的可注入路徑是：
+
+```text
+URL 的 callback 參數
+  → 共用 jsonHandler 未驗證就拼接 JavaScript
+  → statusRecorder.Write 接收回應位元組
+  → 底層 ResponseWriter 寫出回應
+```
+
+因此修正在內容產生處，而不是把 `statusRecorder.Write()` 的所有回應做 HTML 轉義。後者也會改動正常 HTML、JSON 與 FLV 等媒體資料。這是程式碼追查確認的漏洞路徑；尚未取得完整 CodeQL 路徑報告及重掃結果，不能據此宣稱所有流向該行的警告都已排除。
+
+### 本次修正與相容性
+
+- 在共用 `http.go` 加入完整字串白名單：`\A[A-Za-z_$][A-Za-z0-9_$]*(\.[A-Za-z_$][A-Za-z0-9_$]*)*\z`。允許 ASCII 識別名稱與點分隔名稱，如 `callback`、`app.handlers.done`、`_$cb123`；不接受函式呼叫、括號、分號、換行、HTML 或其他運算式。
+- 不合法的非空 callback 回傳 **HTTP 400**，內容固定為 `invalid JSONP callback`，不回顯使用者輸入。`http.Error` 同時設定 `text/plain; charset=utf-8` 與 `X-Content-Type-Options: nosniff`。
+- 合法 JSONP 保留原有呼叫格式，並加入 `X-Content-Type-Options: nosniff`。這是額外的 MIME 防護，真正阻擋注入的是 callback 白名單。
+- 未提供 callback 或 callback 為空時，維持一般 JSON 回應。原本使用括號存取或其他運算式作為 callback 的客戶端，需改用允許的名稱。
+- `console-metrics.go` 的輸出邏輯沒有修改；`console-metrics_test.go` 新增測試，透過真實共用 JSON writer 與 metrics wrapper 驗證攻擊被阻擋、正常 JSON／JSONP 保持相容。
+
+### 驗證與維護
+
+2026-09-10 驗證狀態：
+
+- 隔離執行 `console-metrics.go` 與 `console-metrics_test.go` 的測試已通過，包括新增的 `TestConsoleMetricsJSONPInjection`、`TestConsoleMetricsJSONPCompatibility`。隔離時使用暫存宣告替代未使用的 Redis 全域與認證入口；這不驗證 Redis 連線或真實認證流程。
+- 完整 platform 測試在 Windows 受既有 `syscall.Kill` 未定義錯誤阻擋，尚未完成。可在 Linux 環境的 `platform/` 目錄執行 `go test -mod=vendor . -run 'TestConsoleMetrics|TestNormalizeConsoleRoute|TestBuildRedisInfoSnapshot' -count=1` 進行相關回歸驗證。
+- CodeQL 尚未重跑，尚未確認原警告關閉；修正尚未部署。
+
+此修正位於版本控制內的 **vendored `go-oryx-lib` v0.0.9**，目前 Makefile 使用 `-mod=vendor` 建置。重新執行 `go mod vendor` 或升級依賴時，必須確認上游已包含同等修正，否則需保留本地補丁並重跑回歸測試。使用 `-mod=mod` 不會使用這份 vendored 補丁。部署需重新建置並更新平台後端映像；調整 SRS 設定或只更新前端不會套用此修正。
 
 ## 第一批：Go 後端路徑穿越與 XSS（31 個 High）
 
@@ -297,4 +350,3 @@ docker run --rm -v "F:\oryx:/oryx" -w /oryx/platform golang:1.26 sh -c "go run h
 $files = Get-ChildItem *.go | ? { $_.Name -notmatch '_test|vendor' } | % { $_.FullName }
 gopls check -severity=hint $files
 ```
-
