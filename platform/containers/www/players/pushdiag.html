@@ -220,13 +220,13 @@
         <!-- 連線設定 -->
         <div class="card">
             <div class="card-header">
-                <span class="collapse-trigger">▾ WebRTC 連線設定</span>
+                <span id="rtcConnToggle" class="collapse-trigger">▾ WebRTC 連線設定</span>
                 <div class="form-row">
                     <button id="rtcStartBtn" class="btn btn-primary btn-sm">開始分析</button>
                     <button id="rtcStopBtn" class="btn btn-secondary btn-sm hidden">停止</button>
                 </div>
             </div>
-            <div>
+            <div id="rtcConnBody">
                 <div class="diag-grid cols-2 mb-12">
                     <div class="form-group mb-0">
                         <label class="form-label" for="rtcUrlInput">WHEP URL</label>
@@ -421,6 +421,7 @@ var state = {
   offsetSamples: [],
   rawCache: new Map(),
   rawMeta: new Map(),
+  rawCacheBytes: 0,
   lastPktTime: 0,
   perSec: new Map(),
   packetSeries: [],
@@ -857,17 +858,20 @@ function handleTag(type, ts, data) {
 
   state.rawCache.set(state.seq, data.slice(0, 262144));
   state.rawMeta.set(state.seq, { typeName: row.typeName, ts: ts });
+  state.rawCacheBytes += Math.min(data.length, 262144);
   if (state.rawCache.size > 300) {
-    state.rawCache.delete(state.rawCache.keys().next().value);
-    state.rawMeta.delete(state.rawMeta.keys().next().value);
+    var old = state.rawCache.keys().next().value;
+    state.rawCacheBytes -= state.rawCache.get(old).length;
+    state.rawCache.delete(old);
+    state.rawMeta.delete(old);
   }
-  var rawBytes = 0;
-  for (var b of state.rawCache.values()) rawBytes += b.length;
-  while (rawBytes > 4 * 1024 * 1024 && state.rawCache.size > 1) {
-    var k = state.rawCache.keys().next().value;
-    rawBytes -= state.rawCache.get(k).length;
-    state.rawCache.delete(k);
-    state.rawMeta.delete(k);
+  // Track the raw cache size with a counter instead of re-scanning all entries on
+  // every packet, which keeps the per-tag hot path O(1).
+  while (state.rawCacheBytes > 4 * 1024 * 1024 && state.rawCache.size > 1) {
+    var k2 = state.rawCache.keys().next().value;
+    state.rawCacheBytes -= state.rawCache.get(k2).length;
+    state.rawCache.delete(k2);
+    state.rawMeta.delete(k2);
   }
 }
 
@@ -1087,10 +1091,14 @@ function flushPacketRows() {
   while (tbody.children.length > 500) tbody.removeChild(tbody.firstChild);
   tbody.parentElement.scrollTop = tbody.parentElement.scrollHeight;
   state.pendingRows = [];
-  tbody.querySelectorAll('.viewBtn').forEach(function (btn) {
-    btn.addEventListener('click', function () { openRawView(Number(btn.dataset.seq)); });
-  });
 }
+
+// Delegate the 🔍 view buttons on the packet table: each flush used to re-bind a
+// listener on every existing row, so the listeners accumulated on each 250ms tick.
+document.getElementById('pktTable').addEventListener('click', function (e) {
+  var btn = e.target && e.target.closest ? e.target.closest('button.viewBtn') : null;
+  if (btn && btn.dataset.seq) openRawView(Number(btn.dataset.seq));
+});
 
 function renderVideoBlocks() {
   var tbody = document.getElementById('videoTable');
@@ -1515,6 +1523,7 @@ function resetState() {
   state.pendingRows = [];
   state.rawCache = new Map();
   state.rawMeta = new Map();
+  state.rawCacheBytes = 0;
   document.getElementById('pktTable').innerHTML = '';
   document.getElementById('audioTable').innerHTML = '';
   document.getElementById('videoTable').innerHTML = '';
@@ -1915,6 +1924,14 @@ document.getElementById('connToggle').addEventListener('click', function () {
   var body = document.getElementById('connBody');
   body.classList.toggle('hidden');
   this.textContent = connCollapsed ? '▸ 連線設定' : '▾ 連線設定';
+});
+
+var rtcConnCollapsed = false;
+document.getElementById('rtcConnToggle').addEventListener('click', function () {
+  rtcConnCollapsed = !rtcConnCollapsed;
+  var body = document.getElementById('rtcConnBody');
+  body.classList.toggle('hidden');
+  this.textContent = rtcConnCollapsed ? '▸ WebRTC 連線設定' : '▾ WebRTC 連線設定';
 });
 
 document.getElementById('streamEye').addEventListener('click', toggleStreamReveal);
