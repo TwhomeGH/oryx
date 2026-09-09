@@ -6,7 +6,7 @@
 import React from "react";
 import {render, screen, waitFor} from "@testing-library/react";
 import {describe, expect, it, vi, beforeEach} from "vitest";
-import SrsConsole, {SrsStreams, fmtBitrate, fmtBytes, fmtClock, fmtFixed, fmtFPSInterval, fmtFPSIntervalRange, fmtPercent, fmtSec, mergeFPSProbe} from "./SrsConsole";
+import SrsConsole, {SrsStreams, calcRedisRates, fmtBitrate, fmtBytes, fmtClock, fmtFixed, fmtFPSInterval, fmtFPSIntervalRange, fmtPercent, fmtSec, mergeFPSProbe} from "./SrsConsole";
 import axios from "axios";
 
 vi.mock("axios");
@@ -38,6 +38,7 @@ describe("SrsConsole", () => {
     expect(getByText("console.streams")).toBeTruthy();
     expect(getByText("console.clients")).toBeTruthy();
     expect(getByText("console.configs")).toBeTruthy();
+    expect(getByText("console.redisTab")).toBeTruthy();
 
     // Overview data renders after load. Card header is "SRS 7.0.0".
     await waitFor(() => {
@@ -109,5 +110,30 @@ describe("SrsConsole", () => {
     expect(mergeFPSProbe({baselineFps: 60.0}, {jitter_ms: 7.2}, 5000).baselineFps).toBe(60.0);
     expect(mergeFPSProbe({baselineFps: 60.0}, {jitter_ms: 7.2}, 6000).jitterMs).toBe(7.2);
     expect(mergeFPSProbe({baselineFps: 60.0}, {fps: 59.6, jitter_ms: 1.5}, 7000).updatedAt).toBe(7000);
+  });
+
+  it("computes redis rates from absolute INFO counter deltas", () => {
+    expect(calcRedisRates(undefined, {}, 3000).cmdRate).toBe(0);
+    const prev = {
+      total_commands_processed: 100,
+      total_net_input_bytes: 1000,
+      total_net_output_bytes: 2000,
+      keyspace_hits: 90,
+      keyspace_misses: 10,
+    };
+    const snap = {
+      total_commands_processed: 160,
+      total_net_input_bytes: 13000,
+      total_net_output_bytes: 5000,
+      keyspace_hits: 120,
+      keyspace_misses: 20,
+    };
+    const r = calcRedisRates(prev, snap, 3000);
+    expect(r.cmdRate).toBeCloseTo(20, 6);
+    expect(r.inRate).toBeCloseTo(32000, 6);
+    expect(r.outRate).toBeCloseTo(8000, 6);
+    expect(r.hitRate).toBeCloseTo(75, 6);
+    expect(r.hitCount).toBe(30);
+    expect(r.missCount).toBe(10);
   });
 });

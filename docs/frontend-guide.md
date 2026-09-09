@@ -237,6 +237,7 @@ npm run test                        # vitest
 | Overview | `/api/v1/summaries` | 回傳包在 `data` 內 |
 | Vhosts | `/api/v1/vhosts/` | 列表在頂層（無 `data` 包裝） |
 | Streams | `/api/v1/streams/` | 先抓 vhosts join owner 名稱 |
+| Redis / API | `/terraform/v1/mgmt/redis/info` + `/terraform/v1/mgmt/http/metrics` | 平台自身的 Redis 與 HTTP 端點監控（非 SRS API），詳見 [console-monitoring.md](console-monitoring.md) |
 | Clients | `/api/v1/clients/` | Kickoff 用 `axios.delete` |
 | Configs | `/api/v1/raw?rpc=raw` | `http_api` 頂層 |
 
@@ -251,7 +252,9 @@ npm run test                        # vitest
 stream 保存自己的滾動 `baselineFps`（第一次採樣用當前 FPS，之後 `80% 舊基準 + 20% 新採樣`），
 tooltip 顯示探測更新時間、實測 FPS、實測平均幀間隔、基準 FPS、依基準推算的參考幀間隔區間
 （例如 60fps 約 `13.9-20.8ms`）與實測 jitter。UI 即使標記「波動」也必須保留實測 FPS，例如 `59.9 fps [波動]`，
-方便判斷 60fps、50fps、25fps、24fps 等不同來源是否真的異常。
+方便判斷 60fps、50fps、25fps、24fps 等不同來源是否真的異常。探測請求經 server 端快取＋序列化，且只在 Streams tab 啟用、頁面可見時輪詢（見 [streams-query-api.md](streams-query-api.md)）。
+
+**Redis / API tab（2026-09 新增）：** 資料來源是平台自己的兩支 auth 端點，不是 SRS API——`/terraform/v1/mgmt/redis/info`（Redis INFO snapshot，計數器皆絕對值，前端算 delta rate）與 `/terraform/v1/mgmt/http/metrics`（全平台 HTTP 端點 60 秒視窗的延遲/5xx 統計）。tab 顯示 Redis 三張卡＋四張 recharts 趨勢圖（ops/s、memory+RSS、hit rate、clients，滾動約 12 分鐘）＋ HTTP 端點延遲表；與其他 tab 相同每 3 秒輪詢，且只在 tab 啟用、頁面可見時執行。完整語意與設計見 [console-monitoring.md](console-monitoring.md)。
 
 **修改提示：** 加 tab → 在 `SrsConsoleImpl` 的 `<Tabs>` 加 `<Tab>`，並在 `locale.json` 的 `console` 區塊補中英文。
 

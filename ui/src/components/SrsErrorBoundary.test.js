@@ -52,7 +52,7 @@ test('renders with auth', () => {
   }
 
   disableConsoleError(() => {
-    render(<BrowserRouter><SrsErrorBoundary><TestError /></SrsErrorBoundary></BrowserRouter>);
+    render(<BrowserRouter future={{v7_startTransition: true, v7_relativeSplatPath: true}}><SrsErrorBoundary><TestError /></SrsErrorBoundary></BrowserRouter>);
     const elem = screen.getByText(/Token过期/i);
     expect(elem).toBeInTheDocument();
   });
@@ -65,7 +65,7 @@ test('renders with code', () => {
   }
 
   disableConsoleError(() => {
-    render(<BrowserRouter><SrsErrorBoundary><TestError /></SrsErrorBoundary></BrowserRouter>);
+    render(<BrowserRouter future={{v7_startTransition: true, v7_relativeSplatPath: true}}><SrsErrorBoundary><TestError /></SrsErrorBoundary></BrowserRouter>);
     const elem = screen.getByText(/Code: 100/i);
     expect(elem).toBeInTheDocument();
   });
@@ -78,7 +78,7 @@ test('renders with status', () => {
   }
 
   disableConsoleError(() => {
-    render(<BrowserRouter><SrsErrorBoundary><TestError /></SrsErrorBoundary></BrowserRouter>);
+    render(<BrowserRouter future={{v7_startTransition: true, v7_relativeSplatPath: true}}><SrsErrorBoundary><TestError /></SrsErrorBoundary></BrowserRouter>);
     const elem = screen.getByText(/Status: 500/i);
     expect(elem).toBeInTheDocument();
   });
@@ -91,7 +91,7 @@ test('renders with object', () => {
   }
 
   disableConsoleError(() => {
-    render(<BrowserRouter><SrsErrorBoundary><TestError /></SrsErrorBoundary></BrowserRouter>);
+    render(<BrowserRouter future={{v7_startTransition: true, v7_relativeSplatPath: true}}><SrsErrorBoundary><TestError /></SrsErrorBoundary></BrowserRouter>);
     const elem = screen.getByText(/Object: /i);
     expect(elem).toBeInTheDocument();
   });
@@ -104,7 +104,7 @@ test('renders with array', () => {
   }
 
   disableConsoleError(() => {
-    render(<BrowserRouter><SrsErrorBoundary><TestError /></SrsErrorBoundary></BrowserRouter>);
+    render(<BrowserRouter future={{v7_startTransition: true, v7_relativeSplatPath: true}}><SrsErrorBoundary><TestError /></SrsErrorBoundary></BrowserRouter>);
     const elem = screen.getByText(/Object: /i);
     expect(elem).toBeInTheDocument();
   });
@@ -117,7 +117,7 @@ test('renders with funciton', () => {
   }
 
   disableConsoleError(() => {
-    render(<BrowserRouter><SrsErrorBoundary><TestError /></SrsErrorBoundary></BrowserRouter>);
+    render(<BrowserRouter future={{v7_startTransition: true, v7_relativeSplatPath: true}}><SrsErrorBoundary><TestError /></SrsErrorBoundary></BrowserRouter>);
     const elem = screen.getByText(/Function: /i);
     expect(elem).toBeInTheDocument();
   });
@@ -130,7 +130,7 @@ test('renders with string', () => {
   }
 
   disableConsoleError(() => {
-    render(<BrowserRouter><SrsErrorBoundary><TestError /></SrsErrorBoundary></BrowserRouter>);
+    render(<BrowserRouter future={{v7_startTransition: true, v7_relativeSplatPath: true}}><SrsErrorBoundary><TestError /></SrsErrorBoundary></BrowserRouter>);
     const elem = screen.getByText(/Hello World!/i);
     expect(elem).toBeInTheDocument();
   });

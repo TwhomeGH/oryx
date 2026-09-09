@@ -20,6 +20,7 @@
 - [Redis 架構與 Key 設計](redis-architecture.md) — 後端 Redis 的 Key 總覽、結構慣例（CONFIG/TASK/global）、動態 map 設計與擴展準則。
 - [版本體系與升級指南](version-and-upgrade.md) — 產品版本 vs SRS 核心兩套版本號、SRS 主伺服器升級步驟、bump-version 一鍵工具。
 - [串流查詢 API：單流精確查詢](streams-query-api.md) — streams/query 支援 vhost/app/stream 參數，精確查詢單路串流狀態。
+- [routers-console 監控：Redis / API tab](console-monitoring.md) — Redis INFO 監控與平台 HTTP 端點延遲分析：端點、資料語意、圖表與輪詢規則。
 - [AI 服務擴展性指南](ai-model-config.md) — 接上本地 LLM（Ollama/LM Studio）或第三方 OpenAI 相容服務，自訂 ASR/聊天模型。
 - [前端組件與頁面維護指南](frontend-guide.md) — 頁面骨架、排版慣例、i18n、能力探測卡片模式、Vite 特殊事項與常見炸點。
 - [前端本地調試與測試指南](ui-debugging.md) — dev server 啟動、連真實後端、Playwright E2E、無後端調試、常見調試手法。

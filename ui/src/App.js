@@ -105,7 +105,7 @@ function AppImpl() {
         <Container fluid>Loading...</Container>
       </>}
       {!loading && <>
-        <BrowserRouter basename={window.PUBLIC_URL}>
+        <BrowserRouter basename={window.PUBLIC_URL} future={{v7_startTransition: true, v7_relativeSplatPath: true}}>
           <AppRoute {...{initialized, setInitialized}} />
         </BrowserRouter>
       </>}

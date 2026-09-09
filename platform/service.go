@@ -104,8 +104,9 @@ func (v *httpService) Run(ctx context.Context) error {
 				return
 			}
 
-			// Handle by service handler.
-			serviceHandler.ServeHTTP(w, r)
+			// Handle by service handler. The wrapper records the endpoint latency and
+			// error rate for the console Redis/API tab (see console-metrics.go).
+			consoleMetrics.Wrap(serviceHandler).ServeHTTP(w, r)
 		})
 	}
 
@@ -370,6 +371,8 @@ func handleHTTPService(ctx context.Context, handler *http.ServeMux) error {
 	handleMgmtStreamsQuery(ctx, handler)
 	handleMgmtStreamsFPS(ctx, handler)
 	handleMgmtStreamsKickoff(ctx, handler)
+	handleMgmtHttpMetrics(ctx, handler)
+	handleMgmtRedisInfo(ctx, handler)
 	handleMgmtUI(ctx, handler)
 
 	proxy2023, err := httpCreateProxy("http://" + os.Getenv("SRS_HOST") + ":2023")

@@ -16,6 +16,7 @@ import moment from "moment";
 import {useTranslation} from "react-i18next";
 import {useErrorHandler} from "react-error-boundary";
 import {SrsErrorBoundary} from "../components/SrsErrorBoundary";
+import {LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer} from "recharts";
 
 export default function SrsConsole() {
   return (
@@ -66,6 +67,9 @@ function SrsConsoleImpl() {
           </Tab>
           <Tab eventKey="streams" title={t('console.streams')}>
             <SrsStreams {...{handleError}} active={key === 'streams'} />
+          </Tab>
+          <Tab eventKey="redis" title={t('console.redisTab')}>
+            <SrsRedisMetrics {...{handleError}} active={key === 'redis'} />
           </Tab>
           <Tab eventKey="clients" title={t('console.clients')}>
             <SrsClients {...{handleError}} />
@@ -551,6 +555,291 @@ function SrsStreams({handleError, initialFps, active}) {
           })}
         </tbody>
       </Table>
+    </>
+  );
+}
+
+// ── Redis / API ──
+
+// Given the previous absolute Redis counters and the current snapshot, compute the
+// per-second rates over the wall-clock span since the last poll. All counters in
+// INFO are cumulative, so the console derives rates from the deltas.
+export function calcRedisRates(prev, snap, dtMs) {
+  if (!prev || !snap || !(dtMs > 0)) {
+    return {cmdRate: 0, inRate: 0, outRate: 0, hitRate: 0, hitCount: 0, missCount: 0};
+  }
+  const dt = dtMs / 1000;
+  const cmd = Math.max(0, snap.total_commands_processed - prev.total_commands_processed);
+  const inB = Math.max(0, snap.total_net_input_bytes - prev.total_net_input_bytes);
+  const outB = Math.max(0, snap.total_net_output_bytes - prev.total_net_output_bytes);
+  const hits = Math.max(0, snap.keyspace_hits - prev.keyspace_hits);
+  const misses = Math.max(0, snap.keyspace_misses - prev.keyspace_misses);
+  const total = hits + misses;
+  return {
+    cmdRate: cmd / dt,
+    inRate: inB * 8 / dt,
+    outRate: outB * 8 / dt,
+    hitRate: total > 0 ? hits / total * 100 : 0,
+    hitCount: hits,
+    missCount: misses,
+  };
+}
+
+const redisSeriesWindow = 240; // ~12 minutes at a 3s poll
+
+function RedisLineChart({data, points}) {
+  const fmtTick = (v) => {
+    if (v === null || v === undefined || Number.isNaN(v)) return '';
+    return Math.abs(v) >= 1000 ? `${Math.round(v / 1000)}k` : (Number.isInteger(v) ? v : v.toFixed(1));
+  };
+  return (
+    <ResponsiveContainer width="100%" height={120}>
+      <LineChart data={data} margin={{top: 4, right: 4, bottom: 0, left: -8}}>
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
+        <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']}
+          tickFormatter={(t) => moment(t).format('HH:mm')}
+          tick={{fontSize: 10, fill: '#94a3b8'}} minTickGap={40} />
+        <YAxis tick={{fontSize: 10, fill: '#94a3b8'}} tickFormatter={fmtTick} />
+        <Tooltip labelFormatter={(t) => moment(t).format('HH:mm:ss')}
+          contentStyle={{fontSize: 12, background: '#1e293b', border: '1px solid #334155', borderRadius: 6}} />
+        <Legend wrapperStyle={{fontSize: 11}} />
+        {points.map(p => (
+          <Line key={p.key} type="monotone" dataKey={p.key} name={p.name} stroke={p.color}
+            dot={false} strokeWidth={1.5} isAnimationActive={false} />
+        ))}
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+function SrsRedisMetrics({active}) {
+  const {t} = useTranslation();
+  const [snap, setSnap] = React.useState();
+  const [rates, setRates] = React.useState();
+  const [routes, setRoutes] = React.useState([]);
+  const [series, setSeries] = React.useState([]);
+  const [down, setDown] = React.useState(false);
+  const prevRef = React.useRef();
+  const fmtInt = (v) => {
+    const x = finiteNumber(v);
+    return x === null ? '-' : Math.round(x).toLocaleString();
+  };
+
+  React.useEffect(() => {
+    if (!active) return undefined;
+    let cancelled = false;
+
+    const refresh = () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      axios.get('/terraform/v1/mgmt/redis/info', {
+        headers: Token.loadBearerHeader(),
+      }).then((r) => {
+        if (cancelled) return;
+        const s = r.data && r.data.data;
+        if (!s) return;
+        const p = prevRef.current;
+        const dt = p ? now - p.at : 0;
+        const rt = calcRedisRates(p, s, dt);
+        prevRef.current = {
+          at: now,
+          total_commands_processed: s.total_commands_processed,
+          total_net_input_bytes: s.total_net_input_bytes,
+          total_net_output_bytes: s.total_net_output_bytes,
+          keyspace_hits: s.keyspace_hits,
+          keyspace_misses: s.keyspace_misses,
+        };
+        setSnap(s);
+        setRates(rt);
+        setDown(false);
+        setSeries(cur => {
+          const next = [...cur, {
+            t: now,
+            ops: s.instantaneous_ops_per_sec,
+            cmdRate: rt.cmdRate,
+            memMB: s.used_memory / 1048576,
+            rssMB: s.used_memory_rss / 1048576,
+            hitRate: rt.hitRate,
+            clients: s.connected_clients,
+          }];
+          return next.length > redisSeriesWindow ? next.slice(next.length - redisSeriesWindow) : next;
+        });
+      }).catch(() => {
+        if (!cancelled) setDown(true);
+      });
+
+      axios.get('/terraform/v1/mgmt/http/metrics', {
+        headers: Token.loadBearerHeader(),
+      }).then((r) => {
+        if (cancelled) return;
+        setRoutes((r.data && r.data.data && r.data.data.routes) || []);
+      }).catch(() => {
+        // Keep the previous endpoint list; the platform may be transiently busy.
+      });
+    };
+
+    refresh();
+    const timer = setInterval(refresh, 3000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [active]);
+
+  const line = (v) => (
+    <span style={{whiteSpace: 'nowrap'}}>{v}</span>
+  );
+  const infoRow = (label, value, cls) => (
+    <tr>
+      <td style={{color: 'var(--bs-secondary-color)'}}>{label}</td>
+      <td className={cls || ''}>{value}</td>
+    </tr>
+  );
+
+  const hitRate = rates ? rates.hitRate : (snap && snap.keyspace_hits + snap.keyspace_misses > 0
+    ? snap.keyspace_hits / (snap.keyspace_hits + snap.keyspace_misses) * 100 : 0);
+
+  return (
+    <>
+      {down && !snap && <Alert variant="danger">{t('console.redisDown')}</Alert>}
+      {!down && !snap && <Alert variant="info">{t('console.loading')}</Alert>}
+
+      {snap && (
+        <Row className="g-3 mb-3">
+          <Col xs={12} md={6} xl={4}>
+            <Card>
+              <Card.Header>{t('console.redisServerCard')}</Card.Header>
+              <Table size="sm" striped hover className="mb-0">
+                <tbody>
+                  {infoRow(t('console.redisVersion'), snap.redis_version)}
+                  {infoRow(t('console.redisRole'), snap.role)}
+                  {infoRow(t('console.redisUptime'), fmtUptime(snap.uptime_sec))}
+                  {infoRow(t('console.redisKeys'), fmtInt(snap.db0_keys))}
+                  {infoRow(t('console.redisExpires'), fmtInt(snap.db0_expires))}
+                  {infoRow(t('console.redisPersistence'),
+                    `${snap.rdb_last_bgsave_status || '-'}${snap.aof_enabled ? ' / AOF' : ''} (${t('console.redisChanges')} ${fmtInt(snap.rdb_changes_since_last_save)})`)}
+                </tbody>
+              </Table>
+            </Card>
+          </Col>
+          <Col xs={12} md={6} xl={4}>
+            <Card>
+              <Card.Header>{t('console.redisMemCard')}</Card.Header>
+              <Table size="sm" striped hover className="mb-0">
+                <tbody>
+                  {infoRow(t('console.redisMemUsed'), fmtBytes(snap.used_memory))}
+                  {infoRow(t('console.redisMemPeak'), fmtBytes(snap.used_memory_peak))}
+                  {infoRow(t('console.redisMemRss'), fmtBytes(snap.used_memory_rss))}
+                  {infoRow(t('console.redisFragRatio'), fmtFixed(snap.mem_fragmentation_ratio, 2))}
+                  {infoRow(t('console.redisPolicy'), `${snap.maxmemory_policy || '-'} (${fmtBytes(snap.maxmemory)})`)}
+                  {infoRow(t('console.redisEvicted'), fmtInt(snap.evicted_keys))}
+                </tbody>
+              </Table>
+            </Card>
+          </Col>
+          <Col xs={12} md={6} xl={4}>
+            <Card>
+              <Card.Header>{t('console.redisTrafficCard')}</Card.Header>
+              <Table size="sm" striped hover className="mb-0">
+                <tbody>
+                  {infoRow(t('console.redisOps'), line(`${fmtInt(snap.instantaneous_ops_per_sec)} ops/s`))}
+                  {infoRow(t('console.redisCmdRate'), rates ? line(`${fmtFixed(rates.cmdRate, 1)} cmd/s`) : '-')}
+                  {infoRow(t('console.redisNet'), rates
+                    ? line(`${fmtBitrate(rates.inRate)} ↓ / ${fmtBitrate(rates.outRate)} ↑`) : '-')}
+                  {infoRow(t('console.redisHitRate'), line(`${fmtFixed(hitRate, 1)}%`))}
+                  {infoRow(t('console.redisClients'), line(`${fmtInt(snap.connected_clients)} / ${t('console.redisBlocked')} ${fmtInt(snap.blocked_clients)}`))}
+                  {infoRow(t('console.redisRejected'), fmtInt(snap.rejected_connections))}
+                </tbody>
+              </Table>
+            </Card>
+          </Col>
+        </Row>
+      )}
+
+      {series.length > 1 && (
+        <Row className="g-3 mb-3">
+          <Col xs={12} md={6} xl={3}>
+            <Card>
+              <Card.Header>{t('console.redisChartOps')}</Card.Header>
+              <Card.Body>
+                <RedisLineChart data={series}
+                  points={[{key: 'ops', name: t('console.redisOps'), color: '#22d3ee'}]} />
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col xs={12} md={6} xl={3}>
+            <Card>
+              <Card.Header>{t('console.redisChartMem')}</Card.Header>
+              <Card.Body>
+                <RedisLineChart data={series}
+                  points={[
+                    {key: 'memMB', name: t('console.redisMemUsed'), color: '#f472b6'},
+                    {key: 'rssMB', name: t('console.redisMemRss'), color: '#c084fc'},
+                  ]} />
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col xs={12} md={6} xl={3}>
+            <Card>
+              <Card.Header>{t('console.redisChartHit')}</Card.Header>
+              <Card.Body>
+                <RedisLineChart data={series}
+                  points={[{key: 'hitRate', name: t('console.redisHitRate'), color: '#4ade80'}]} />
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col xs={12} md={6} xl={3}>
+            <Card>
+              <Card.Header>{t('console.redisChartClients')}</Card.Header>
+              <Card.Body>
+                <RedisLineChart data={series}
+                  points={[{key: 'clients', name: t('console.redisClients'), color: '#fbbf24'}]} />
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+      )}
+
+      <Card className="mb-3">
+        <Card.Header>{t('console.apiTitle')}</Card.Header>
+        <Card.Body>
+          {routes.length === 0 ? (
+            <div className="text-dim">{t('console.apiEmpty')}</div>
+          ) : (
+            <div className="diag-table-wrap">
+              <Table responsive size="sm" striped bordered hover className="mb-0">
+                <thead>
+                  <tr>
+                    <th>{t('console.apiMethod')}</th>
+                    <th>{t('console.apiRoute')}</th>
+                    <th className="text-end">{t('console.apiCount')}</th>
+                    <th className="text-end">{t('console.apiRps')}</th>
+                    <th className="text-end">{t('console.apiAvgMs')}</th>
+                    <th className="text-end">{t('console.apiMaxMs')}</th>
+                    <th className="text-end">{t('console.apiP95Ms')}</th>
+                    <th className="text-end">{t('console.api5xx')}</th>
+                    <th className="text-end">{t('console.apiSlow')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {routes.slice(0, 120).map((r) => (
+                    <tr key={r.method + ' ' + r.route}>
+                      <td><code>{r.method}</code></td>
+                      <td style={{wordBreak: 'break-all'}}><code>{r.route}</code></td>
+                      <td className="text-end">{fmtNum(r.count)}</td>
+                      <td className="text-end">{fmtFixed(r.rate_per_sec, 1)}</td>
+                      <td className="text-end">{fmtFixed(r.avg_ms, 1)}</td>
+                      <td className="text-end">{fmtFixed(r.max_ms, 1)}</td>
+                      <td className="text-end">{fmtFixed(r.p95_ms, 1)}</td>
+                      <td className="text-end">{r.error_count > 0
+                        ? <Badge bg="danger">{r.error_count}</Badge> : 0}</td>
+                      <td className="text-end">{r.slow_count > 0
+                        ? <Badge bg="warning" text="dark">{r.slow_count}</Badge> : 0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </div>
+          )}
+        </Card.Body>
+      </Card>
     </>
   );
 }
