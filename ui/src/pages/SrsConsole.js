@@ -65,7 +65,7 @@ function SrsConsoleImpl() {
             <SrsVhosts {...{handleError}} />
           </Tab>
           <Tab eventKey="streams" title={t('console.streams')}>
-            <SrsStreams {...{handleError}} />
+            <SrsStreams {...{handleError}} active={key === 'streams'} />
           </Tab>
           <Tab eventKey="clients" title={t('console.clients')}>
             <SrsClients {...{handleError}} />
@@ -389,7 +389,7 @@ function SrsVhosts({handleError}) {
 }
 
 // ── Streams ──
-function SrsStreams({handleError, initialFps}) {
+function SrsStreams({handleError, initialFps, active}) {
   const {t} = useTranslation();
   const [streams, setStreams] = React.useState();
   const [fps, setFps] = React.useState(initialFps || {});
@@ -434,11 +434,16 @@ function SrsStreams({handleError, initialFps}) {
   }, [handleError]);
 
   // Sample the fps of each publishing stream via the platform, throttled to once per
-  // 10s, so the potentially abnormal streams (variable frame rate) are marked.
+  // 10s, so the potentially abnormal streams (variable frame rate) are marked. Each
+  // sample opens a real RTMP player (ffprobe) on the server, which the server caches
+  // and serializes; here we also pause probing entirely while the streams tab is not
+  // active or the page is hidden, so the probe never runs in the background.
   const fpsCacheRef = React.useRef({});
   React.useEffect(() => {
+    if (!active) return undefined;
     let cancelled = false;
     const timer = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
       const now = Date.now();
       (streamsRef.current || []).filter(s => s.publish?.active).forEach(s => {
         const cachedAt = fpsCacheRef.current[s.id] || 0;
@@ -457,7 +462,7 @@ function SrsStreams({handleError, initialFps}) {
       });
     }, 3000);
     return () => { cancelled = true; clearInterval(timer); };
-  }, [handleError]);
+  }, [handleError, active]);
 
   const abnormalCount = Object.values(fps).filter(f => f?.variable ?? f?.abnormal).length;
 

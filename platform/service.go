@@ -1871,6 +1871,174 @@ func handleMgmtStreamsQuery(ctx context.Context, handler *http.ServeMux) {
 // See SRS error code ERROR_RTMP_CLIENT_NOT_FOUND
 const ErrorRtmpClientNotFound = 2049
 
+// fpsFlightGroup and fpsFlightCall merge concurrent fps probes of the same stream
+// into one, mirroring singleflightGroup above but returning *StreamFPS.
+type fpsFlightCall struct {
+	done chan struct{}
+	res  *StreamFPS
+	err  error
+}
+
+type fpsFlightGroup struct {
+	lock  sync.Mutex
+	calls map[string]*fpsFlightCall
+}
+
+func (v *fpsFlightGroup) Do(key string, fn func() (*StreamFPS, error)) (*StreamFPS, error) {
+	v.lock.Lock()
+	if v.calls == nil {
+		v.calls = make(map[string]*fpsFlightCall)
+	}
+	if c, ok := v.calls[key]; ok {
+		v.lock.Unlock()
+		<-c.done
+		return c.res, c.err
+	}
+
+	c := &fpsFlightCall{done: make(chan struct{})}
+	v.calls[key] = c
+	v.lock.Unlock()
+
+	c.res, c.err = fn()
+	close(c.done)
+
+	v.lock.Lock()
+	delete(v.calls, key)
+	v.lock.Unlock()
+	return c.res, c.err
+}
+
+// streamFPSFlight merges concurrent requests for the same stream, while
+// streamFPSLimiter serializes the actual ffprobe sampling across all streams, so a
+// burst of /terraform/v1/mgmt/streams/fps requests (the console probes every
+// publishing stream each poll) never spawns a wave of ffprobe processes that each
+// open an extra RTMP player against SRS.
+var streamFPSFlight fpsFlightGroup
+
+var streamFPSLimiter = make(chan struct{}, 1)
+
+// fpsCacheTTL is how long a successful fps sample is served from the redis cache.
+// The console re-samples each stream every ~10s; keeping the value fresh for this
+// long means concurrent requests (e.g. several console tabs) share one probe
+// instead of each spawning its own ffprobe.
+const fpsCacheTTL = 8 * time.Second
+
+// fpsCacheErrTTL is the backoff of a failed sample (e.g. the stream just stopped).
+// Shorter than fpsCacheTTL so a transient failure recovers quickly.
+const fpsCacheErrTTL = 10 * time.Second
+
+type fpsCacheObj struct {
+	Update string     `json:"update"`
+	Res    *StreamFPS `json:"res"`
+	Err    string     `json:"err"`
+}
+
+// saveFpsCache stores the fps sample (or a failure) to redis, so concurrent and
+// repeated requests do not probe the stream again while the value is fresh.
+func saveFpsCache(ctx context.Context, key string, fps *StreamFPS, errMsg string) {
+	obj := fpsCacheObj{Update: time.Now().Format(time.RFC3339), Res: fps, Err: errMsg}
+	if b, err := json.Marshal(obj); err != nil {
+		logger.Wf(ctx, "fps marshal cache %v, err=%v", key, err)
+	} else if err = rdb.HSet(ctx, SRS_CACHE_STREAM_FPS, key, string(b)).Err(); err != nil && err != redis.Nil {
+		logger.Wf(ctx, "fps save cache key=%v, err=%v", key, err)
+	}
+}
+
+// loadFpsCache returns the cached fps sample for the stream, or nil if absent.
+func loadFpsCache(ctx context.Context, key string) (*fpsCacheObj, error) {
+	var obj fpsCacheObj
+	if v, err := rdb.HGet(ctx, SRS_CACHE_STREAM_FPS, key).Result(); err != nil && err != redis.Nil {
+		return nil, errors.Wrapf(err, "hget %v %v", SRS_CACHE_STREAM_FPS, key)
+	} else if v == "" {
+		return nil, nil
+	} else if err := json.Unmarshal([]byte(v), &obj); err != nil {
+		return nil, errors.Wrapf(err, "unmarshal fps cache %v", key)
+	}
+	return &obj, nil
+}
+
+// fpsCacheFresh checks whether the cached value is still served without a new probe.
+func fpsCacheFresh(obj *fpsCacheObj) bool {
+	if obj == nil || obj.Update == "" {
+		return false
+	}
+	duration := fpsCacheTTL
+	if obj.Err != "" {
+		duration = fpsCacheErrTTL
+	}
+	if updateAt, err := time.Parse(time.RFC3339, obj.Update); err != nil {
+		return false
+	} else {
+		return !updateAt.Add(duration).Before(time.Now())
+	}
+}
+
+// queryStreamFPS returns the measured fps of a stream with three layers of
+// throttling: a redis cache (fpsCacheTTL), a singleflight merging concurrent
+// requests of the same stream, and a global limiter serializing the actual ffprobe
+// sampling. Sampling opens a real RTMP player (see ProbeStreamFPS), so without
+// these layers the console would run one ffprobe per publishing stream per poll.
+// When the limiter is busy probing another stream, a stale cached value is served
+// instead of queueing, so requests never pile up behind a probe.
+func queryStreamFPS(ctx context.Context, app, stream string) (*StreamFPS, error) {
+	key := fmt.Sprintf("%v/%v", app, stream)
+
+	// Serve the fresh cached result or failure directly.
+	if obj, err := loadFpsCache(ctx, key); err != nil {
+		return nil, err
+	} else if fpsCacheFresh(obj) {
+		if obj.Err != "" {
+			return nil, errors.New(obj.Err)
+		}
+		logger.Tf(ctx, "fps cache hit key=%v, update=%v", key, obj.Update)
+		return obj.Res, nil
+	}
+
+	// Merge concurrent requests of the same stream, so a burst only samples once.
+	res, err := streamFPSFlight.Do(key, func() (*StreamFPS, error) {
+		// The value may have just been refreshed by a twin request while we waited
+		// to be elected; serve the fresh cache instead of sampling again.
+		if obj, rerr := loadFpsCache(ctx, key); rerr != nil {
+			return nil, rerr
+		} else if fpsCacheFresh(obj) {
+			if obj.Err != "" {
+				return nil, errors.New(obj.Err)
+			}
+			return obj.Res, nil
+		}
+
+		// Serialize the actual ffprobe sampling across all streams. If another
+		// probe is running, return the stale cached value rather than queueing, so
+		// a burst of streams refreshes progressively without piling up requests.
+		select {
+		case streamFPSLimiter <- struct{}{}:
+			defer func() { <-streamFPSLimiter }()
+		default:
+			if obj, rerr := loadFpsCache(ctx, key); rerr == nil && obj != nil {
+				logger.Tf(ctx, "fps limiter busy, serve stale key=%v, update=%v", key, obj.Update)
+				if obj.Err != "" {
+					return nil, errors.New(obj.Err)
+				}
+				return obj.Res, nil
+			}
+			// No previous value at all (e.g. a brand-new stream): wait for the
+			// limiter so the first sample is not lost.
+			streamFPSLimiter <- struct{}{}
+			defer func() { <-streamFPSLimiter }()
+		}
+
+		fps, err := ProbeStreamFPS(ctx, app, stream)
+		if err != nil {
+			r0 := errors.Wrapf(err, "probe fps %v/%v", app, stream)
+			saveFpsCache(ctx, key, nil, r0.Error())
+			return nil, r0
+		}
+		saveFpsCache(ctx, key, fps, "")
+		return fps, nil
+	})
+	return res, err
+}
+
 func handleMgmtStreamsFPS(ctx context.Context, handler *http.ServeMux) {
 	ep := "/terraform/v1/mgmt/streams/fps"
 	logger.Tf(ctx, "Handle %v", ep)
@@ -1893,8 +2061,8 @@ func handleMgmtStreamsFPS(ctx context.Context, handler *http.ServeMux) {
 				return errors.New("no stream")
 			}
 
-			if fps, err := ProbeStreamFPS(ctx, app, stream); err != nil {
-				return errors.Wrapf(err, "probe fps %v/%v", app, stream)
+			if fps, err := queryStreamFPS(ctx, app, stream); err != nil {
+				return errors.Wrapf(err, "query fps %v/%v", app, stream)
 			} else {
 				ohttp.WriteData(ctx, w, r, fps)
 				logger.Tf(ctx, "stream fps ok, app=%v, stream=%v, fps=%v, jitter=%vms, abnormal=%v",

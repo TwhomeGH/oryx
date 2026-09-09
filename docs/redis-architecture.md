@@ -23,6 +23,7 @@
 | `SRS_FIRST_BOOT` | String | 首次啟動旗標 |
 | `SRS_UPGRADING` / `SRS_UPGRADE_WINDOW` | String | 升級鎖與升級窗口 |
 | `SRS_CACHE_BILIBILI` | String | Bilibili 相關快取 |
+| `SRS_CACHE_STREAM_FPS` | Hash（field=`app/stream` → JSON，含 `{update,res,err}`） | Streams FPS 探測快取：成功 TTL 8s、失敗退避 10s，配合同 stream singleflight + 全局限流（同時只跑 1 支 ffprobe），**2026-09 新增** |
 | `SRS_BEIAN` / `SRS_HTTPS` / `SRS_HTTPS_DOMAIN` | String | ICP 備案、HTTPS 設定 |
 | `SRS_SYS_LIMITS` | Hash | 系統限制（vLive/camera 位元率上限等） |
 | `SRS_SYS_OPENAI` | Hash | 全域 OpenAI 設定（secretKey/baseURL/organization） |

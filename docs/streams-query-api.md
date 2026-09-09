@@ -128,5 +128,5 @@ curl -s -X POST http://localhost:2022/terraform/v1/mgmt/streams/query \
 | 端點 | 用途 |
 |---|---|
 | `/terraform/v1/mgmt/streams/query` | 查詢活躍串流（本文） |
-| `/terraform/v1/mgmt/streams/fps` | 用 ffprobe 探測單路推流的實測 FPS、jitter 與波動標記；前端會基於每路 stream 自己的滾動基準顯示，並推算預期幀間隔區間作參考 |
+| `/terraform/v1/mgmt/streams/fps` | 探測單路推流的實測 FPS、jitter 與波動標記（用 ffprobe 開真實 RTMP player 取樣約 150 video packets）；**2026-09 起三層節流**：Redis 快取（成功 8s / 失敗退避 10s）+ 同 stream singleflight + 全局限流序列化（同時只跑 1 支 ffprobe，limiter 忙碌時回傳 stale 值不排隊）。前端基於每路 stream 自己的滾動基準顯示，並推算預期幀間隔區間作參考；console 只在 Streams tab 啟用且頁面可見時輪詢（每路 ≥10s 一次） |
 | `/terraform/v1/mgmt/streams/kickoff` | 強制斷開某路串連（本就支援 vhost/app/stream 定位） |
