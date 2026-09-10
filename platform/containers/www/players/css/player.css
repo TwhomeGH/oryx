@@ -523,6 +523,6 @@ a:hover { color: var(--accent-hover); }
     .navbar-inner { gap: 16px; }
     .navbar-nav { gap: 2px; }
     .navbar-nav a { padding: 6px 10px; font-size: 13px; }
-    .form-row { flex-direction: column; }
+    .form-row { flex-direction: column; align-items: stretch; }
     .container { padding: 16px; }
 }

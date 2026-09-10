@@ -50,8 +50,10 @@
     <div id="hlsPanel" class="card hidden">
         <h2>HLS 相容檢查（Safari／行動裝置）</h2>
         <p class="text-dim">HLS 可檢查畫面、解析度與緩衝狀態；延遲通常較高，不提供 FLV 封包、GOP 或 WebRTC RTT／丟包分析。伺服器必須啟用 HLS。</p>
-        <label for="hlsUrlInput" class="form-label">HLS 播放網址（可修正自動推導的主機或路徑）</label>
-        <input id="hlsUrlInput" class="form-input" type="url" placeholder="https://主機/live/串流.m3u8">
+        <div class="form-group">
+            <label for="hlsUrlInput" class="form-label">HLS 播放網址（可修正自動推導的主機或路徑）</label>
+            <input id="hlsUrlInput" class="form-input" type="url" placeholder="https://主機/live/串流.m3u8">
+        </div>
         <div class="form-row">
             <button id="hlsStartBtn" class="btn btn-primary">開始 HLS 檢查</button>
             <button id="hlsStopBtn" class="btn btn-secondary">停止</button>
