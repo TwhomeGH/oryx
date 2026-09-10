@@ -196,7 +196,7 @@ func TestBuildRedisInfoSnapshot(t *testing.T) {
 		"# Keyspace\n" +
 		"db0:keys=1243,expires=50,avg_ttl=0\n"
 	obj := buildRedisInfoSnapshot(raw)
-	if obj.RedisVersion != "5.0.14" || obj.Role != "master" || obj.UptimeSec != 16314 {
+	if obj.RedisVersion != "5.0.14" || obj.ServerName != "redis" || obj.ServerVersion != "5.0.14" || obj.Role != "master" || obj.UptimeSec != 16314 {
 		t.Errorf("server fields wrong, %+v", obj)
 	}
 	if obj.UsedMemory != 1326512 || obj.MemFragmentationRatio != 2.49 || obj.MaxmemoryPolicy != "noeviction" {
@@ -210,5 +210,12 @@ func TestBuildRedisInfoSnapshot(t *testing.T) {
 	}
 	if obj.DB0Keys != 1243 || obj.DB0Expires != 50 {
 		t.Errorf("keyspace fields wrong, %+v", obj)
+	}
+}
+
+func TestBuildRedisInfoSnapshotValkey(t *testing.T) {
+	obj := buildRedisInfoSnapshot("# Server\r\nserver_name:valkey\r\nredis_version:7.2.4\r\nvalkey_version:8.1.10\r\n")
+	if obj.ServerName != "valkey" || obj.ServerVersion != "8.1.10" || obj.RedisVersion != "7.2.4" {
+		t.Fatalf("actual Valkey version must be separate from Redis compatibility version: %+v", obj)
 	}
 }

@@ -306,9 +306,11 @@ func handleMgmtHttpMetrics(ctx context.Context, handler *http.ServeMux) {
 // redisInfoSnapshot is the parsed subset of Redis INFO the console displays. All
 // counters are absolute, so the client computes rates from the deltas between polls.
 type redisInfoSnapshot struct {
-	RedisVersion string `json:"redis_version"`
-	Role         string `json:"role"`
-	UptimeSec    int64  `json:"uptime_sec"`
+	ServerName    string `json:"server_name"`
+	ServerVersion string `json:"server_version"`
+	RedisVersion  string `json:"redis_version"`
+	Role          string `json:"role"`
+	UptimeSec     int64  `json:"uptime_sec"`
 
 	ConnectedClients int64 `json:"connected_clients"`
 	BlockedClients   int64 `json:"blocked_clients"`
@@ -385,7 +387,13 @@ func redisInfoString(sections map[string]map[string]string, section, key string)
 
 func buildRedisInfoSnapshot(raw string) *redisInfoSnapshot {
 	sections := parseRedisInfo(raw)
+	serverName, serverVersion := "redis", redisInfoString(sections, "server", "redis_version")
+	if version := redisInfoString(sections, "server", "valkey_version"); version != "" {
+		serverName, serverVersion = "valkey", version
+	}
 	obj := &redisInfoSnapshot{
+		ServerName:            serverName,
+		ServerVersion:         serverVersion,
 		RedisVersion:          redisInfoString(sections, "server", "redis_version"),
 		Role:                  redisInfoString(sections, "replication", "role"),
 		UptimeSec:             redisInfoInt(sections, "server", "uptime_in_seconds"),
@@ -440,8 +448,8 @@ func handleMgmtRedisInfo(ctx context.Context, handler *http.ServeMux) {
 			}
 			obj := buildRedisInfoSnapshot(raw)
 			ohttp.WriteData(ctx, w, r, obj)
-			logger.Tf(ctx, "redis info ok, version=%v, mem=%v, ops=%v, hits=%v, misses=%v",
-				obj.RedisVersion, obj.UsedMemory, obj.InstantaneousOps, obj.KeyspaceHits, obj.KeyspaceMisses)
+			logger.Tf(ctx, "datastore info ok, server=%v, version=%v, mem=%v, ops=%v, hits=%v, misses=%v",
+				obj.ServerName, obj.ServerVersion, obj.UsedMemory, obj.InstantaneousOps, obj.KeyspaceHits, obj.KeyspaceMisses)
 			return nil
 		}(); err != nil {
 			ohttp.WriteError(ctx, w, r, err)

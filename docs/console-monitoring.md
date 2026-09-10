@@ -66,3 +66,7 @@ window_sec, routes: [{method, route, count, rate_per_sec, avg_ms, max_ms, p95_ms
 - 后端：在 `platform/` 目录、`golang:1.26` 容器内执行 `go test -mod=vendor . -run 'TestConsoleMetrics|TestNormalizeConsoleRoute|TestBuildRedisInfoSnapshot' -count=1`，已通过，包含 JSONP 移除后的安全回归案例。
 - 前端：`npx vitest run`（含 `SrsConsole.test.js` 的 `calcRedisRates` 单测）
 - 监控页面变更需重新 build UI 并重建 Docker 映像；本次 JSONP 修正位于后端 vendored 函式库，需以 `-mod=vendor` 重建后端并更新容器，仅更新 UI 不会生效。目前尚未部署此修正，也尚未重跑 CodeQL。
+
+## Valkey 相容性
+
+现行迁移方向见 [Redis 5 直接迁移 Valkey](valkey-migration.md)。INFO 回应新增 server_name / server_version，保留 redis_version 相容字段；Valkey 的版本显示使用真实 valkey_version，不能把 Redis 相容版本当成服务版本。

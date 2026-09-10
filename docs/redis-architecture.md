@@ -4,6 +4,8 @@
 
 ## 1. 連線與基本設定
 
+現行方向是 [Redis 5 直接遷移 Valkey](valkey-migration.md)，不經 Redis 7.2/8 中繼部署。根目錄 Dockerfile 與發布 workflow 已改為產出 Valkey 映像，線上既有容器尚未切換；保留 REDIS_*、既有 key 及 /data/redis 作為相容介面。
+
 - 連線：`platform` 全域 `rdb`（`go-redis/v8`），host/port/password/db 由 `.env` 的 `REDIS_HOST`/`REDIS_PORT`/`REDIS_PASSWORD`/`REDIS_DATABASE` 控制。
 - Redis 跑在**同一容器內**（`auto/start_redis` 啟動，`redis-server --daemonize yes --dir /data/redis`），資料落在掛載的 `/data/redis`，容器重建不丟（除非清 volume）。
 - 存取一律用 `go-redis` 的 `redis.Nil` 判斷「key/field 不存在」——錯誤處理慣例：`err != nil && err != redis.Nil` 才是真錯誤。

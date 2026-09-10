@@ -708,7 +708,8 @@ function SrsRedisMetrics({active}) {
               <Card.Header>{t('console.redisServerCard')}</Card.Header>
               <Table size="sm" striped hover className="mb-0">
                 <tbody>
-                  {infoRow(t('console.redisVersion'), snap.redis_version)}
+                  {infoRow(t('console.redisVersion'), snap.server_name === 'valkey'
+                    ? `Valkey ${snap.server_version}` : snap.server_version || snap.redis_version)}
                   {infoRow(t('console.redisRole'), snap.role)}
                   {infoRow(t('console.redisUptime'), fmtUptime(snap.uptime_sec))}
                   {infoRow(t('console.redisKeys'), fmtInt(snap.db0_keys))}

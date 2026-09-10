@@ -77,6 +77,11 @@ jobs:
           docker build -t platform:latest -f Dockerfile .
           docker images
           docker save -o platform.tar platform:latest
+      - name: Verify Valkey runtime
+        run: |
+          docker run --rm --network none --entrypoint bash \
+            --mount "type=bind,source=$PWD/scripts/tools/test-kv-runtime.sh,target=/test.sh,readonly" \
+            platform:latest /test.sh
       - uses: actions/upload-artifact@v6
         with:
           name: platform-cache

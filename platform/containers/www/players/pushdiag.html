@@ -6,7 +6,9 @@
     <title>SRS 推流診斷</title>
     <link rel="stylesheet" href="css/player.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1.7.3/dist/mpegts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1.8.2/dist/mpegts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
+    <script src="js/pushdiag-hls.js"></script>
     <script src="js/adapter-7.4.0.min.js"></script>
     <script src="js/srs.sdk.js"></script>
     <script src="js/winlin.utility.js"></script>
@@ -38,6 +40,25 @@
     <div class="mode-tabs">
         <button id="tabFlv" class="mode-tab active">FLV 分析</button>
         <button id="tabRtc" class="mode-tab">WebRTC 分析</button>
+        <button id="tabHls" class="mode-tab">HLS 相容檢查</button>
+    </div>
+
+    <div id="fallbackNotice" class="card hidden" role="status">
+        <p id="fallbackReason"></p>
+        <button id="fallbackBtn" class="btn btn-primary">改用 HLS 檢查</button>
+    </div>
+    <div id="hlsPanel" class="card hidden">
+        <h2>HLS 相容檢查（Safari／行動裝置）</h2>
+        <p class="text-dim">HLS 可檢查畫面、解析度與緩衝狀態；延遲通常較高，不提供 FLV 封包、GOP 或 WebRTC RTT／丟包分析。伺服器必須啟用 HLS。</p>
+        <label for="hlsUrlInput" class="form-label">HLS 播放網址（可修正自動推導的主機或路徑）</label>
+        <input id="hlsUrlInput" class="form-input" type="url" placeholder="https://主機/live/串流.m3u8">
+        <div class="form-row">
+            <button id="hlsStartBtn" class="btn btn-primary">開始 HLS 檢查</button>
+            <button id="hlsStopBtn" class="btn btn-secondary">停止</button>
+        </div>
+        <p id="hlsStatus" role="status">尚未開始；預設靜音，可在播放器開啟聲音。</p>
+        <div class="player-wrapper"><video id="hlsVideo" controls muted playsinline webkit-playsinline></video></div>
+        <p id="hlsMetrics" class="text-dim">解析度與緩衝資料會在播放後顯示。</p>
     </div>
 
     <!-- ══════════════ FLV 分析 ══════════════ -->
@@ -377,12 +398,18 @@ if (isPreview) {
 
 // ── 模式切換 ──
 document.getElementById('tabFlv').addEventListener('click', function () {
+    hlsCheck.stop();
+    document.getElementById('hlsPanel').classList.add('hidden');
+    document.getElementById('tabHls').classList.remove('active');
     this.classList.add('active');
     document.getElementById('tabRtc').classList.remove('active');
     document.getElementById('flvPanel').classList.remove('hidden');
     document.getElementById('rtcPanel').classList.add('hidden');
 });
 document.getElementById('tabRtc').addEventListener('click', function () {
+    hlsCheck.stop();
+    document.getElementById('hlsPanel').classList.add('hidden');
+    document.getElementById('tabHls').classList.remove('active');
     this.classList.add('active');
     document.getElementById('tabFlv').classList.remove('active');
     document.getElementById('rtcPanel').classList.remove('hidden');
@@ -390,6 +417,54 @@ document.getElementById('tabRtc').addEventListener('click', function () {
 });
 
 /* ══════════════ FLV 分析 ══════════════ */
+
+var fallbackSource = '';
+var hlsCheck = PushDiagHls.create(document.getElementById('hlsVideo'), function (message, error) {
+  var status = document.getElementById('hlsStatus');
+  status.textContent = message;
+  status.className = error ? 'text-err' : 'text-dim';
+});
+function offerHlsFallback(reason, source) {
+  fallbackSource = source;
+  document.getElementById('fallbackReason').textContent = reason;
+  document.getElementById('fallbackNotice').classList.remove('hidden');
+}
+function openHlsCheck(source) {
+  stopAnalysis();
+  stopRtcAnalysis();
+  hlsCheck.stop();
+  document.getElementById('flvPanel').classList.add('hidden');
+  document.getElementById('rtcPanel').classList.add('hidden');
+  document.getElementById('tabFlv').classList.remove('active');
+  document.getElementById('tabRtc').classList.remove('active');
+  document.getElementById('tabHls').classList.add('active');
+  document.getElementById('hlsPanel').classList.remove('hidden');
+  document.getElementById('fallbackNotice').classList.add('hidden');
+  document.getElementById('hlsUrlInput').value = PushDiagHls.derive(source);
+  document.getElementById('hlsMetrics').textContent = '解析度與緩衝資料會在播放後顯示。';
+  document.getElementById('hlsStatus').textContent = '請確認 HLS 網址，再按「開始 HLS 檢查」。';
+}
+document.getElementById('fallbackBtn').addEventListener('click', function () { openHlsCheck(fallbackSource); });
+document.getElementById('tabHls').addEventListener('click', function () {
+  var source = document.getElementById('tabRtc').classList.contains('active')
+    ? document.getElementById('rtcUrlInput').value
+    : document.getElementById('hostInput').value.replace(/\/+$/, '') + '/live/' + document.getElementById('streamInput').value + '.flv';
+  openHlsCheck(source);
+});
+document.getElementById('hlsStartBtn').addEventListener('click', function () {
+  hlsCheck.start(document.getElementById('hlsUrlInput').value.trim());
+});
+document.getElementById('hlsStopBtn').addEventListener('click', function () {
+  hlsCheck.stop();
+  document.getElementById('hlsStatus').textContent = '已停止';
+});
+document.getElementById('hlsVideo').addEventListener('timeupdate', function () {
+  var buffered = 0;
+  for (var i = 0; i < this.buffered.length; i++) {
+    if (this.buffered.start(i) <= this.currentTime && this.buffered.end(i) >= this.currentTime) buffered = this.buffered.end(i) - this.currentTime;
+  }
+  document.getElementById('hlsMetrics').textContent = this.videoWidth + '×' + this.videoHeight + '｜已緩衝 ' + buffered.toFixed(1) + ' 秒';
+});
 
 // ── 全域狀態 ──
 var state = {
@@ -1347,22 +1422,50 @@ function sanitizeUrl(url) {
   return 'about:blank';
 }
 
+function reportFlvPreviewUnavailable(reason) {
+  document.getElementById('previewStatus').textContent = '僅分析 FLV 封包';
+  document.getElementById('previewStatus').className = 'text-warn';
+  var overlay = document.getElementById('previewOverlay');
+  overlay.style.display = '';
+  overlay.textContent = reason + '；FLV 原始封包分析不受影響，可繼續檢查時間戳、GOP 與封包異常。';
+}
+
 function startPreview(url) {
   url = sanitizeUrl(url);
+  stopPreview();
   var video = document.getElementById('previewVideo');
+  video.muted = true;
+  video.playsInline = true;
+  video.disableRemotePlayback = true;
   document.getElementById('previewOverlay').style.display = 'none';
   document.getElementById('previewStatus').textContent = '播放中';
   document.getElementById('previewStatus').className = 'text-ok';
-  if (previewPlayer) stopPreview();
   video.classList.remove('hidden');
-  if (typeof mpegts !== 'undefined' && mpegts.isSupported()) {
+  try {
+    if (typeof mpegts === 'undefined' || !mpegts.getFeatureList().mseLivePlayback) throw new Error('此環境不支援 FLV 預覽');
     previewPlayer = mpegts.createPlayer({ type: 'flv', isLive: true, url: url }, { enableStashBuffer: false });
+    var player = previewPlayer;
+    previewPlayer.on(mpegts.Events.ERROR, function () {
+      if (previewPlayer !== player) return;
+      stopPreview();
+      reportFlvPreviewUnavailable('FLV 預覽失敗');
+    });
     previewPlayer.attachMediaElement(video);
     previewPlayer.load();
-    previewPlayer.play();
-  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-    video.src = url;
-    video.play();
+    var pending = previewPlayer.play();
+    if (pending && pending.catch) pending.catch(function (err) {
+      if (previewPlayer !== player) return;
+      if (err.name === 'AbortError') return;
+      if (err.name === 'NotAllowedError') {
+        document.getElementById('previewStatus').textContent = '請點影片播放按鈕';
+      } else {
+        stopPreview();
+        reportFlvPreviewUnavailable('此環境無法解碼 FLV 畫面');
+      }
+    });
+  } catch (err) {
+    stopPreview();
+    reportFlvPreviewUnavailable('此環境不支援 FLV 預覽');
   }
 }
 
@@ -1416,6 +1519,11 @@ async function startAnalysis() {
 
   stopAnalysis();
   resetState();
+  document.getElementById('fallbackNotice').classList.add('hidden');
+  if (typeof fetch === 'undefined' || typeof AbortController === 'undefined') {
+    offerHlsFallback('此瀏覽器缺少 FLV 串流分析能力，請改用 HLS 檢查。', url);
+    return;
+  }
 
   document.getElementById('startBtn').classList.add('hidden');
   document.getElementById('stopBtn').classList.remove('hidden');
@@ -1445,6 +1553,10 @@ async function startAnalysis() {
     cs.className = 'stat-value text-ok';
     document.getElementById('connDetail').textContent = res.headers.get('content-type') || '';
 
+    if (!res.body || typeof res.body.getReader !== 'function') {
+      offerHlsFallback('此瀏覽器不支援串流讀取，請改用 HLS 檢查。', url);
+      return;
+    }
     var reader = res.body.getReader();
     while (state.running) {
       var chunk = await reader.read();
@@ -1475,6 +1587,7 @@ async function startAnalysis() {
     cs.textContent = '連線失敗';
     cs.className = 'stat-value text-err';
     document.getElementById('connDetail').textContent = err.message;
+    offerHlsFallback('FLV 連線失敗，可確認 HLS 網址後改用相容檢查。', url);
   } finally {
     stopAnalysis();
   }
@@ -1814,9 +1927,13 @@ function renderRtcHealth(v, a, cp, rtt, dropRate) {
   el.innerHTML = flags.join('');
 }
 
+var rtcGeneration = 0;
 async function startRtcAnalysis() {
   stopRtcAnalysis();
+  var generation = rtcGeneration;
+  var connectionTimer;
   resetRtcState();
+  document.getElementById('fallbackNotice').classList.add('hidden');
 
   document.getElementById('rtcStartBtn').classList.add('hidden');
   document.getElementById('rtcStopBtn').classList.remove('hidden');
@@ -1829,6 +1946,7 @@ async function startRtcAnalysis() {
   var overlay = document.getElementById('rtcPreviewOverlay');
 
   try {
+    if (typeof RTCPeerConnection === 'undefined') throw new Error('此環境不支援 WebRTC');
     rtcState.sdk = new SrsRtcWhipWhepAsync();
     rtcState.running = true;
     rtcState.prevTime = performance.now();
@@ -1840,14 +1958,23 @@ async function startRtcAnalysis() {
     await Promise.race([
       rtcState.sdk.play(url, options),
       new Promise(function (_, reject) {
-        setTimeout(function () { reject(new Error('連線逾時 (10s)')); }, 10000);
+        connectionTimer = setTimeout(function () { reject(new Error('連線逾時 (10s)')); }, 10000);
       })
     ]);
+
+    if (generation !== rtcGeneration) return;
 
     video.srcObject = rtcState.sdk.stream;
     video.classList.remove('hidden');
     overlay.style.display = 'none';
-    video.play();
+    video.muted = true;
+    video.playsInline = true;
+    var playResult = video.play();
+    if (playResult && playResult.catch) playResult.catch(function (err) {
+      if (generation !== rtcGeneration || err.name === 'AbortError') return;
+      if (err.name === 'NotAllowedError') document.getElementById('rtcPreviewStatus').textContent = '請點影片播放按鈕';
+      else offerHlsFallback('WebRTC 畫面無法播放，可改用 HLS 檢查。', url);
+    });
     document.getElementById('rtcPreviewStatus').textContent = '播放中';
     document.getElementById('rtcPreviewStatus').className = 'text-ok';
     cs.textContent = '已連線';
@@ -1855,16 +1982,21 @@ async function startRtcAnalysis() {
     rtcState.connected = true;
     document.getElementById('rtcIceCandidate').textContent = 'candidate 彙整中…';
   } catch (err) {
-    rtcState.running = false;
+    if (generation !== rtcGeneration) return;
+    stopRtcAnalysis();
     cs.textContent = '連線失敗';
     cs.className = 'stat-value text-err';
     document.getElementById('rtcPreviewStatus').textContent = '失敗';
     document.getElementById('rtcPreviewStatus').className = 'text-err';
     console.error('RTC connect error:', err);
+    offerHlsFallback('WebRTC 無法連線或此環境不支援，可改用 HLS 檢查（不提供 RTC 統計）。', url);
+  } finally {
+    clearTimeout(connectionTimer);
   }
 }
 
 function stopRtcAnalysis() {
+  rtcGeneration++;
   rtcState.running = false;
   rtcState.connected = false;
   if (rtcState.sdk) {

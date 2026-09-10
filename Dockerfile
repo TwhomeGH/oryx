@@ -1,4 +1,20 @@
 ARG ARCH
+ARG VALKEY_IMAGE=valkey/valkey:8.1.10@sha256:3fbd2e3e4b6e85e046c1e7c215e8f79087bc0357789184305806664e320996f3
+
+# Carry a private runtime so the focal system libraries remain unchanged.
+FROM ${VALKEY_IMAGE} AS valkey-runtime
+COPY scripts/tools/prepare-valkey-runtime.sh /prepare-valkey-runtime.sh
+RUN sh /prepare-valkey-runtime.sh
+COPY scripts/tools/valkey-COPYING /runtime/licenses/Valkey-COPYING
+
+FROM ${ARCH}ossrs/oryx:focal-1 AS valkey-base
+COPY --from=valkey-runtime /runtime /opt/oryx/valkey
+COPY scripts/tools/valkey-wrapper.sh /usr/local/bin/redis-server
+COPY scripts/tools/valkey-wrapper.sh /usr/local/bin/redis-cli
+COPY scripts/tools/valkey-wrapper.sh /usr/local/bin/valkey-server
+COPY scripts/tools/valkey-wrapper.sh /usr/local/bin/valkey-cli
+RUN chmod 755 /usr/local/bin/redis-server /usr/local/bin/redis-cli /usr/local/bin/valkey-server /usr/local/bin/valkey-cli && \
+    redis-server --version && redis-cli --version && valkey-server --version && valkey-cli --version
 
 FROM ${ARCH}node:22 AS node
 FROM ${ARCH}ossrs/srs:7 AS srs
@@ -79,7 +95,7 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends curl xz-util
 
 # http://releases.ubuntu.com/focal/
 #FROM ${ARCH}ubuntu:focal AS dist
-FROM ${ARCH}ossrs/oryx:focal-1 AS dist
+FROM valkey-base AS dist
 
 # Expose ports @see https://github.com/ossrs/oryx/blob/main/DEVELOPER.md#docker-allocated-ports
 EXPOSE 2022 2443 1935 8080 5060 9000 8000/udp 10080/udp
