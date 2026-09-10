@@ -201,19 +201,21 @@ file:///F:/oryx/platform/containers/www/tools/player.html
 
 | 模式 | 分析對象 | 診斷項目 |
 |---|---|---|
-| **FLV 分析** | HTTP-FLV 串流（`/live/<stream>.flv`） | 位元率、GOP 間隔、影音時間戳偏移、掉幀、封包檢查器、SPS/AAC 解析、原始位元組檢視 |
+| **FLV 分析** | HTTP-FLV 串流（`/<app>/<stream>.flv`） | 分層診斷（來源端 SRS API／HTTP-FLV／FLV 容器／AVC／時間戳／AAC／影音同步）、AVC sequence header 異常 banner、位元率、GOP 間隔、影音時間戳偏移、掉幀、封包檢查器、SPS/AAC 解析、原始位元組檢視 |
 | **WebRTC 分析** | WHEP URL（`/rtc/v1/whep/`） | ICE 型別（host/srflx/relay）、RTT、封包遺失、jitter、掉幀率、codec（`getStats()`） |
 
 ### 6.2 使用方式
 
 1. 從任一 player 頁面的導覽列點 **Push Diag**
-2. **FLV 模式**：填入 SRS HTTP 主機 + stream key → 開始分析
+2. **FLV 模式**：用「分析來源」下拉選一路活躍流（`跟隨來源` 或指定），或選「手動輸入」後填 SRS HTTP 主機 + app + stream key；「預覽來源」可跟隨分析或另選一路 → 開始分析
 3. **WebRTC 模式**：填入 WHEP URL → 開始分析
-4. 健康診斷會自動給出旗標（正常/警告/錯誤）
+4. 分層診斷與健康診斷會自動給出旗標（正常/警告/錯誤）
+
+> 來源下拉需要同源已登入 console（讀 `localStorage.SRS_TERRAFORM_TOKEN` 的 bearer）；未登入時退回手動輸入。選單每 5 秒、且頁面可見時更新。
 
 ### 6.3 診斷 CSS（加到 player.css）
 
-pushdiag 用到的一組診斷專用類別，全部在 `player.css` 的 `/* Diagnostics */` 區塊：
+pushdiag 用到的一組診斷專用類別，位於 `player.css` 的 `/* Diagnostics */` 與 `/* Layered diagnostics */` 區塊：
 
 | 類別 | 用途 |
 |---|---|
@@ -227,6 +229,8 @@ pushdiag 用到的一組診斷專用類別，全部在 `player.css` 的 `/* Diag
 | `.hud` / `.hud-label` / `.hud-val` | 影片疊加資訊 |
 | `.modal-overlay` / `.modal` | 原始位元組檢視彈窗 |
 | `.parse-box` / `.parse-row` | 封包結構解析 |
+| `.diag-layer*` / `.diag-layer-exp` | 分層診斷每層的「預期 → 實際」列 |
+| `.diag-banner-body` / `.diag-check*` | AVC sequence header 異常 banner 的逐欄「預期 → 實際」 |
 | `.text-ok` / `.text-warn` / `.text-err` / `.text-info` / `.text-dim` | 文字顏色 |
 | `.collapse-trigger` | 可收合區塊標題 |
 

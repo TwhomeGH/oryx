@@ -19,7 +19,7 @@
 - [Forward 轉推功能架構](forward-architecture.md) — 轉推線的代碼地圖、FFmpeg 命令剖析、Redis 資料流與後續設計候選方向。
 - [Redis 架構與 Key 設計](redis-architecture.md) — 後端 Redis 的 Key 總覽、結構慣例（CONFIG/TASK/global）、動態 map 設計與擴展準則。
 - [Redis 5 升級 Valkey](valkey-migration.md) — 更新映像、沿用既有資料、確認服務正常及失敗復原；附建置與驗證紀錄。
-- [推流診斷與 HLS 相容檢查](pushdiag.md) — Safari／行動裝置的 HLS 替代入口、播放限制與錯誤排查。
+- [推流診斷與 HLS 相容檢查](pushdiag.md) — FLV 分層診斷（來源端 SRS API／AVC 序列標頭異常 banner／fps 量測）、串流來源選單，及 Safari／行動裝置的 HLS 替代入口、播放限制與錯誤排查。
 - [版本體系與升級指南](version-and-upgrade.md) — 產品版本 vs SRS 核心兩套版本號、SRS 主伺服器升級步驟、bump-version 一鍵工具。
 - [串流查詢 API：單流精確查詢](streams-query-api.md) — streams/query 支援 vhost/app/stream 參數，精確查詢單路串流狀態。
 - [routers-console 監控：Redis / API tab](console-monitoring.md) — Redis INFO 監控與平台 HTTP 端點延遲分析：端點、資料語意、圖表與輪詢規則。

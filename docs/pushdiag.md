@@ -16,10 +16,46 @@ HLS 可檢查畫面、解析度及緩衝秒數，延遲通常較高，不能提�
 
 若載入失敗，確認 `.m3u8` 與分片皆可存取、認證、CORS、TLS 憑證及影音編碼。HTTPS 頁面不能使用 HTTP 串流。無原生 HLS 的環境還需要成功載入 CDN 的 HLS.js。等待超過 20 秒會停止並提示重試。
 
+## 分層診斷（2026-09 新增）
+
+FLV 分析頁在「連線設定」下方新增「分層診斷」卡片，把整條 RTMP/FLV 資料路徑拆成數層，每層以「預期 → 實際」呈現，狀態徽章（正常／注意／異常／待測）一眼看出哪一層異常：
+
+| 層 | 預期 | 實際來源 |
+|---|---|---|
+| 來源端 (SRS API) | `publish active`，FLV 實測 ≈ `recv_30s` | SRS `/api/v1/streams/`：publish/clients/recv_30s/send_30s/video/audio |
+| HTTP-FLV 連線 | HTTP 200 + `video/x-flv` | Fetch 狀態、Content-Type、接收緩衝 |
+| FLV 容器 | 簽章 FLV、version 1、hasVideo=1 | 解析 FLV header |
+| AVC 序列標頭 (SPS/PPS) | 首個 video tag 為 `avcPacketType=0`，含有效 SPS+PPS | 解析 AVCDecoderConfigurationRecord |
+| 視訊時間戳 (DTS) | 單調遞增，fps ≈ VUI | 近 3 秒幀率／jitter／間距 |
+| AAC 序列標頭 (ASC) | 首個 audio tag 為 `aacPacketType=0` | 解析 AudioSpecificConfig |
+| 影音同步 | \|offset\| < 1000ms，無持續漂移 | `syncSeries` 樣本 |
+
+來源端層把 SRS 的 `recv_30s`（推流端進來的碼率）與頁面 FLV 實測碼率並列；若 FLV 實測 < `recv × 0.8`，標「注意」並提示交付層可能掉包。這可用來分辨問題在 encoder／來源，還是在交付（Go proxy、consumer queue、瀏覽器）。HTTP-FLV 連線層也會顯示未消化的接收緩衝；緩衝持續變大代表解析落後，可能造成伺服器 consumer queue 溢出丟 GOP。
+
+### AVC sequence header 異常醒目提示
+
+當 AVC sequence header 缺失、結構錯誤或 SPS 解析失敗時，頁面頂端會出現紅色 banner，逐欄列出「預期 → 實際」：`configurationVersion`、`lengthSizeMinusOne`、`numOfSequenceParameterSets`、SPS/PPS 長度與截斷、首個 video tag 型別、IDR 是否早於 sequence header。若異常已恢復（例如後續收到有效 header），banner 改為藍色資訊提示並保留異常次數。
+
+### fps 量測
+
+- 只有實際影格（`avcPacketType=1`）計入 `videoTsHistory`，AVC sequence header 不再被當成一幀（先前會灌水）。
+- 「分層診斷」與健康診斷使用**近 3 秒**視窗（`recentFpsStats`，回傳 fps／jitter／間距）；另有 `measureFps` 為整個 600 幀窗的平均，兩者並列可看出來源是否在變動。判斷「波動」時以 SPS 的 VUI fps 為預期值對比。
+
+## 串流來源選單（2026-09 新增）
+
+「連線設定」最上方有兩個下拉：
+
+- **分析來源**：`跟隨來源（釘選目前這一路）`／每個活躍流 `app/stream`／`手動輸入`。
+- **預覽來源**：`跟隨分析串流`／另一路活躍流；分析進行中切換會即時重啟預覽。
+
+資料來自 SRS `/api/v1/streams/`（與 console 相同來源），每 5 秒、且只在頁面可見時更新。認證沿用同源 `localStorage.SRS_TERRAFORM_TOKEN` 的 bearer；未登入或 API 失敗時退回手動輸入，並在提示列說明。「跟隨」採**釘選**語意：選定後固定跟著該 `app/stream`，即使它暫時離線也不自動跳走。
+
+FLV URL 由 `host + '/' + app + '/' + stream + '.flv'` 組成（不再硬編 `live`，新增 `app` 輸入）。頁面預設主機為**目前開啟頁面的 origin**（`window.location.origin`），避免遠端開啟時誤連 `localhost` 而誤判「不支援 HTTP-FLV」；只有以 `file://` 直接開啟時才回退 `http://localhost:882`。
+
 ## 修正與驗證
 
 移除原本以原生 HLS 能力判斷後直接把 `.flv` 交給 video 的錯誤分支。FLV／RTC 播放 Promise 錯誤會被處理，RTC 失敗會關閉連線並恢復操作按鈕。HLS 停止、切換與失敗會清除播放器及逾時計時器。
 
-`ui/src/pages/PushDiag.test.js` 的 8 項測試涵蓋網址轉換、原生 HLS 優先、自動播放限制、HLS.js 致命錯誤清理、RTC 替代入口、FLV 播放失敗不停止分析，以及無播放能力時仍能解析跨網路區塊的原始 FLV 音訊 tag 與時間戳。在 ui 目錄執行 `npm test -- src/pages/PushDiag.test.js`。
+`ui/src/pages/PushDiag.test.js` 的 9 項測試涵蓋網址轉換、原生 HLS 優先、自動播放限制、HLS.js 致命錯誤清理、RTC 替代入口、FLV 播放失敗不停止分析、無播放能力時仍能解析跨網路區塊的原始 FLV 音訊 tag 與時間戳，以及來源選單會從 SRS stream API 填入並同步 app/stream。在 ui 目錄執行 `npm test -- src/pages/PushDiag.test.js`。
 
 本機瀏覽器已檢查頁籤與輸入錯誤提示；自動測試模擬原生 HLS 能力。尚未在實體 iPhone／Safari 與真實直播串流上驗證播放。

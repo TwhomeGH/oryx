@@ -77,12 +77,25 @@
             <div id="connBody">
                 <div class="diag-grid cols-2 mb-12">
                     <div class="form-group mb-0">
+                        <label class="form-label" for="analysisSelect">分析來源</label>
+                        <select id="analysisSelect" class="form-input"></select>
+                        <div id="analysisSelectHint" class="text-dim fs-12">&nbsp;</div>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="form-label" for="previewSelect">預覽來源</label>
+                        <select id="previewSelect" class="form-input"></select>
+                        <div id="previewSelectHint" class="text-dim fs-12">&nbsp;</div>
+                    </div>
+                </div>
+                <div class="diag-grid cols-2 mb-12">
+                    <div class="form-group mb-0">
                         <label class="form-label" for="hostInput">SRS HTTP 主機 (FLV 播放埠)</label>
                         <input id="hostInput" type="text" class="form-input" value="http://localhost:882">
                     </div>
                     <div class="form-group mb-0">
-                        <label class="form-label" for="streamInput">串流名稱 (stream key)</label>
+                        <label class="form-label" for="streamInput">app / 串流名稱 (stream key)</label>
                         <div class="form-row">
+                            <input id="appInput" type="text" class="form-input" value="live" title="app" style="max-width:96px;flex:0 0 auto;">
                             <input id="streamInput" type="password" autocomplete="off" class="form-input" value="livestream">
                             <button id="streamEye" type="button" class="btn btn-secondary btn-sm" title="顯示/隱藏 stream key">顯示</button>
                         </div>
@@ -98,6 +111,21 @@
                     <span class="text-dim fs-12">目標：<code id="flvUrl" class="text-info cursor-pointer" title="點擊顯示/隱藏 stream key">—</code></span>
                 </div>
             </div>
+        </div>
+
+        <!-- 分層診斷：一眼看出哪一層 RTMP/FLV 資料異常 -->
+        <div id="diagBanner" class="alert alert-danger hidden" role="alert">
+            <div class="diag-banner-body">
+                <strong id="diagBannerTitle"></strong>
+                <div id="diagBannerBody" class="diag-checks"></div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <h2 class="text-info">分層診斷</h2>
+                <span id="diagSummary" class="text-dim fs-12">尚未開始分析</span>
+            </div>
+            <div id="layerDiag" class="fs-13 text-dim">尚未開始分析</div>
         </div>
 
         <!-- 狀態 + 預覽 + 健康 -->
@@ -394,6 +422,13 @@ var isPreview = window.location.protocol === 'file:';
 if (isPreview) {
     document.getElementById('preview_banner').textContent = 'Running locally — 診斷需要連線 SRS 伺服器才能分析。';
     document.getElementById('preview_banner').classList.remove('hidden');
+} else if (window.location.origin && window.location.origin !== 'null') {
+    // Default the connection target to the origin that served this page, so the FLV
+    // and WHEP checks hit the SRS server the user is actually looking at. The previous
+    // hard-coded localhost made a remote page probe the viewer's own machine, fail, and
+    // wrongly report that the browser does not support HTTP-FLV.
+    document.getElementById('hostInput').value = window.location.origin;
+    document.getElementById('rtcUrlInput').value = window.location.origin + '/rtc/v1/whep/?app=live&stream=livestream';
 }
 
 // ── 模式切換 ──
@@ -448,7 +483,7 @@ document.getElementById('fallbackBtn').addEventListener('click', function () { o
 document.getElementById('tabHls').addEventListener('click', function () {
   var source = document.getElementById('tabRtc').classList.contains('active')
     ? document.getElementById('rtcUrlInput').value
-    : document.getElementById('hostInput').value.replace(/\/+$/, '') + '/live/' + document.getElementById('streamInput').value + '.flv';
+    : getFlvUrl();
   openHlsCheck(source);
 });
 document.getElementById('hlsStartBtn').addEventListener('click', function () {
@@ -505,6 +540,31 @@ var state = {
   previewUrl: null,
   _lastVct: null,
   _stallCount: 0,
+  // Layered diagnostics: each field records the observed value of one layer of the
+  // RTMP/FLV pipeline, so the UI can show expected -> actual and pinpoint which layer
+  // is abnormal (transport / container / AVC / timestamps / AAC / A-V sync).
+  diag: {
+    httpStatus: null,
+    httpType: null,
+    httpError: null,
+    flvVersion: null,
+    flvHasVideo: null,
+    flvHasAudio: null,
+    flvHeaderSize: null,
+    flvHeaderErr: false,
+    firstVideoSeq: null,
+    firstVideoKind: null,
+    seqHeaders: 0,
+    seqError: null,
+    seqAnomalies: 0,
+    seqChanged: 0,
+    lastSpsKey: null,
+    naluLenSize: null,
+    firstAudioSeq: null,
+    firstAudioKind: null,
+    aacSeqHeaders: 0,
+    aacSeqError: null,
+  },
 };
 
 var bitrateChart, packetChart, syncChart, gopChart;
@@ -749,9 +809,15 @@ function parseTags() {
     if (buf.length - off < 13) return;
     if (String.fromCharCode.apply(null, buf.subarray(off, off + 3)) !== 'FLV') {
       state.headerErr = true;
+      state.diag.flvHeaderErr = true;
       return;
     }
+    // FLV header: [0..2]="FLV", [3]=version, [4]=type flags, [5..8]=header size.
+    state.diag.flvVersion = buf[off + 3];
+    state.diag.flvHasVideo = !!(buf[off + 4] & 0x01);
+    state.diag.flvHasAudio = !!(buf[off + 4] & 0x04);
     var headerSize = (buf[off + 5] << 24) | (buf[off + 6] << 16) | (buf[off + 7] << 8) | buf[off + 8];
+    state.diag.flvHeaderSize = headerSize;
     off += headerSize + 4;
     state.headerOk = true;
     state.bufOff = off;
@@ -782,6 +848,72 @@ function parseTags() {
 
 var audioSeqInfo = null;
 
+function kindName(kind) {
+  if (kind === 'seq') return 'avcPacketType=0 (sequence header)';
+  if (kind === 'frame') return 'avcPacketType=1 (frame)';
+  if (kind === 'short') return 'codecId=7 但長度不足 5 bytes';
+  return String(kind);
+}
+
+// Record a persistent AVC sequence-header anomaly (increment the counter only when it
+// transitions from healthy to broken, so a recurring bad header is not double counted).
+function setSeqError(title, checks) {
+  if (!state.diag.seqError) state.diag.seqAnomalies++;
+  state.diag.seqError = { title: title, checks: checks, at: state.seq };
+}
+
+// Record the very first video tag, so the AVC layer can report whether the stream
+// started with a proper sequence header or jumped straight into frames/IDR.
+function recordFirstVideoTag(kind) {
+  if (state.diag.firstVideoKind !== null) return;
+  state.diag.firstVideoKind = kind;
+  state.diag.firstVideoSeq = state.seq;
+  if (kind !== 'seq') {
+    setSeqError('AVC sequence header 缺失', [{
+      name: '首個 video tag', expected: 'avcPacketType=0 (sequence header)', actual: kindName(kind), ok: false,
+    }]);
+  }
+}
+
+// Parse the AVCDecoderConfigurationRecord of an AVC sequence header and return a
+// per-field expected->actual report, so a malformed SPS/PPS is pinpointed instead of
+// silently producing a null state.sps.
+function inspectAvcSeqHeader(data) {
+  var checks = [];
+  function check(name, expected, actual, ok) { checks.push({ name: name, expected: expected, actual: actual, ok: !!ok }); }
+  function fail() { return { ok: false, checks: checks, record: null }; }
+
+  if (data.length < 5) { check('AVC sequence header 長度', '>= 5 bytes', data.length + ' bytes', false); return fail(); }
+  var cfg = data.subarray(5);
+  if (cfg.length < 7) { check('AVCDecoderConfigurationRecord', '>= 7 bytes', cfg.length + ' bytes', false); return fail(); }
+
+  var version = cfg[0];
+  check('configurationVersion', '1', String(version), version === 1);
+  var lengthSizeMinusOne = cfg[4] & 0x03;
+  check('lengthSizeMinusOne', '3 (4-byte NALU length)', String(lengthSizeMinusOne), lengthSizeMinusOne === 3);
+  var numSps = cfg[5] & 0x1f;
+  check('numOfSequenceParameterSets', '>= 1', String(numSps), numSps >= 1);
+
+  var off = 6;
+  if (off + 2 > cfg.length) { check('SPS 長度欄位', '2 bytes', '缺少', false); return fail(); }
+  var spsLen = (cfg[off] << 8) | cfg[off + 1]; off += 2;
+  check('SPS 長度', '> 0', String(spsLen), spsLen > 0);
+  if (spsLen <= 0 || off + spsLen > cfg.length) { check('SPS 內容', spsLen + ' bytes', (cfg.length - off) + ' bytes (截斷)', false); return fail(); }
+  var sps = cfg.subarray(off, off + spsLen); off += spsLen;
+
+  if (off >= cfg.length) { check('numOfPictureParameterSets', '>= 1', '缺少', false); return fail(); }
+  var numPps = cfg[off++];
+  check('numOfPictureParameterSets', '>= 1', String(numPps), numPps >= 1);
+  var ppsLens = [];
+  for (var i = 0; i < numPps; i++) {
+    if (off + 2 > cfg.length) { check('PPS[' + i + '] 長度', '2 bytes', '缺少', false); return fail(); }
+    var ppsLen = (cfg[off] << 8) | cfg[off + 1]; off += 2;
+    if (ppsLen <= 0 || off + ppsLen > cfg.length) { check('PPS[' + i + '] 內容', ppsLen + ' bytes', (cfg.length - off) + ' bytes (截斷)', false); return fail(); }
+    ppsLens.push(ppsLen); off += ppsLen;
+  }
+  return { ok: true, checks: checks, record: { version: version, lengthSizeMinusOne: lengthSizeMinusOne, numSps: numSps, spsLen: spsLen, numPps: numPps, ppsLens: ppsLens, sps: sps } };
+}
+
 function handleTag(type, ts, data) {
   state.seq++;
   var now = performance.now();
@@ -809,28 +941,53 @@ function handleTag(type, ts, data) {
     var codecId = data[0] & 0x0f;
     var avcInfo = '';
     var naluType = null;
+    var avcPacketType = null;
     if (codecId === 7 && data.length >= 5) {
-      var avcPacketType = data[1];
+      avcPacketType = data[1];
       var cts = (data[2] << 16) | (data[3] << 8) | data[4];
       if (avcPacketType === 0) {
-        var spsLen = (data[11] << 8) | data[12];
-        var sps = data.subarray(13, 13 + spsLen);
-        state.sps = parseSPS(sps);
-        state.naluLenSize = (data[9] & 0x03) + 1;
-        row.detail = 'SPS/PPS';
-        if (state.sps) {
-          var profileName = ({ 66: 'Baseline', 77: 'Main', 100: 'High' })[state.sps.profileIdc] || ('Profile ' + state.sps.profileIdc);
-          row.detail += ' ' + state.sps.width + '×' + state.sps.height + ' ' + profileName + ' L' + (state.sps.levelIdc / 10).toFixed(1);
+        recordFirstVideoTag('seq');
+        state.diag.seqHeaders++;
+        var insp = inspectAvcSeqHeader(data);
+        if (!insp.ok) {
+          setSeqError('AVC sequence header 結構錯誤', insp.checks);
+          row.detail = '⚠ SPS/PPS 結構錯誤';
+        } else {
+          var rec = insp.record;
+          state.naluLenSize = rec.lengthSizeMinusOne + 1;
+          state.diag.naluLenSize = state.naluLenSize;
+          state.sps = parseSPS(rec.sps);
+          if (!state.sps) {
+            setSeqError('SPS 解析失敗', insp.checks.concat([{ name: 'SPS RBSP 解析', expected: '可解析', actual: '失敗', ok: false }]));
+            row.detail = '⚠ SPS 解析失敗';
+          } else {
+            var spsKey = state.sps.width + 'x' + state.sps.height + '/' + state.sps.profileIdc + '/' + state.sps.levelIdc;
+            if (state.diag.lastSpsKey && state.diag.lastSpsKey !== spsKey) state.diag.seqChanged++;
+            state.diag.lastSpsKey = spsKey;
+            // A valid sequence header means the stream is decodable again.
+            state.diag.seqError = null;
+            row.detail = 'SPS/PPS';
+            var profileName = ({ 66: 'Baseline', 77: 'Main', 100: 'High' })[state.sps.profileIdc] || ('Profile ' + state.sps.profileIdc);
+            row.detail += ' ' + state.sps.width + '×' + state.sps.height + ' ' + profileName + ' L' + (state.sps.levelIdc / 10).toFixed(1);
+          }
         }
       } else if (avcPacketType === 1) {
+        recordFirstVideoTag('frame');
         var nalLenSize = state.naluLenSize || 4;
         var nalOff = 5 + nalLenSize;
         naluType = data.length > nalOff ? data[nalOff] & 0x1f : null;
         var nalNames = { 1: '非IDR', 5: 'IDR', 6: 'SEI', 7: 'SPS', 8: 'PPS' };
         avcInfo = 'AVC NALU=' + naluType + '(' + (nalNames[naluType] || '其他') + ') cts=' + cts;
         row.detail = avcInfo;
+      } else {
+        recordFirstVideoTag('type' + avcPacketType);
+        setSeqError('未知的 avcPacketType', [{
+          name: 'avcPacketType', expected: '0 (sequence header) 或 1 (frame)', actual: String(avcPacketType), ok: false,
+        }]);
+        row.detail = '未知 avcPacketType=' + avcPacketType;
       }
     } else {
+      recordFirstVideoTag(codecId === 7 ? 'short' : ('codec' + codecId));
       row.detail = 'codec=' + codecId;
     }
     if (frameType === 1) {
@@ -845,6 +1002,12 @@ function handleTag(type, ts, data) {
       state.lastKeyTs = ts;
       row.frame = 'KEY';
       row.detail = '🔴 ' + (row.detail || '關鍵影格');
+      // A keyframe that precedes any AVC sequence header cannot be decoded by a player.
+      if (codecId === 7 && state.diag.seqHeaders === 0 && !state.diag.seqError) {
+        setSeqError('關鍵影格早於 AVC sequence header', [{
+          name: 'IDR 前的 sequence header', expected: '已收到', actual: '未收到', ok: false,
+        }]);
+      }
     } else {
       row.frame = 'INTER';
     }
@@ -867,8 +1030,12 @@ function handleTag(type, ts, data) {
     });
     if (state.videoBlocks.length > 50) state.videoBlocks.shift();
 
-    state.videoTsHistory.push({ ts: ts, wall: performance.now() });
-    if (state.videoTsHistory.length > 600) state.videoTsHistory.shift();
+    // Only actual frames feed the fps measurement; an AVC sequence header is not a
+    // frame and used to inflate the measured fps (and jitter) by one tag per header.
+    if (avcPacketType !== 0) {
+      state.videoTsHistory.push({ ts: ts, wall: performance.now() });
+      if (state.videoTsHistory.length > 600) state.videoTsHistory.shift();
+    }
   } else if (type === 8) {
     state.audioTags++;
     bucket.audio += data.length;
@@ -885,6 +1052,8 @@ function handleTag(type, ts, data) {
     if (soundFormat === 10 && data.length >= 2) {
       var aacPacketType = data[1];
       if (aacPacketType === 0) {
+        if (state.diag.firstAudioKind === null) { state.diag.firstAudioKind = 'seq'; state.diag.firstAudioSeq = state.seq; }
+        state.diag.aacSeqHeaders++;
         audioSeqInfo = parseAudioSpecificConfig(data.subarray(2));
         aacTypeName = '序列頭 (ASC)';
         if (audioSeqInfo) {
@@ -892,9 +1061,25 @@ function handleTag(type, ts, data) {
           srate = audioSeqInfo.sampleRate;
           ch = audioSeqInfo.channels;
           state.aacCfg = audioSeqInfo;
+          state.diag.aacSeqError = null;
+        } else {
+          state.diag.aacSeqError = {
+            title: 'AAC sequence header 解析失敗',
+            checks: [{ name: 'AudioSpecificConfig', expected: '可解析 (5+4+4 bits)', actual: '解析失敗', ok: false }],
+            at: state.seq,
+          };
         }
         row.detail = 'AAC sequence header';
       } else if (aacPacketType === 1) {
+        if (state.diag.firstAudioKind === null) {
+          state.diag.firstAudioKind = 'frame';
+          state.diag.firstAudioSeq = state.seq;
+          state.diag.aacSeqError = {
+            title: 'AAC sequence header 缺失',
+            checks: [{ name: '首個 audio tag', expected: 'aacPacketType=0 (ASC)', actual: 'aacPacketType=1 (frame)', ok: false }],
+            at: state.seq,
+          };
+        }
         aacTypeName = 'RAW frame';
         aot = state.aacCfg ? state.aacCfg.aot : null;
         srate = state.aacCfg ? state.aacCfg.sampleRate : null;
@@ -902,6 +1087,7 @@ function handleTag(type, ts, data) {
         row.detail = 'AAC frame ' + data.length + ' B';
       }
     } else {
+      if (state.diag.firstAudioKind === null) { state.diag.firstAudioKind = 'fmt' + soundFormat; state.diag.firstAudioSeq = state.seq; }
       row.detail = 'format=' + soundFormat;
     }
 
@@ -965,6 +1151,37 @@ function measureFps() {
   var tsSpan = h[h.length - 1].ts - h[0].ts;
   if (tsSpan <= 0 || wallSpan <= 0) return null;
   return (h.length - 1) / Math.max(tsSpan, 1) * 1000;
+}
+
+// Measure fps and frame-interval jitter over a recent window (last ~3s, falling back
+// to the most recent 150 frames). measureFps() averages the whole 600-frame history,
+// which hides a source that changes its rate; this recent window makes it visible.
+function recentFpsStats() {
+  var h = state.videoTsHistory;
+  if (h.length < 10) return null;
+  var lastTs = h[h.length - 1].ts;
+  var win = h.filter(function (x) { return x.ts >= lastTs - 3000; });
+  if (win.length < 10) win = h.slice(-Math.min(h.length, 150));
+  if (win.length < 2) return null;
+
+  var count = win.length - 1;
+  var span = win[win.length - 1].ts - win[0].ts;
+  var fps = span > 0 ? count / span * 1000 : 0;
+
+  var gaps = [], sum = 0;
+  for (var i = 1; i < win.length; i++) {
+    var g = win[i].ts - win[i - 1].ts;
+    if (g > 0) { gaps.push(g); sum += g; }
+  }
+  var mean = gaps.length ? sum / gaps.length : 0;
+  var vsum = 0;
+  for (var j = 0; j < gaps.length; j++) vsum += (gaps[j] - mean) * (gaps[j] - mean);
+  var jitter = gaps.length ? Math.sqrt(vsum / gaps.length) : 0;
+  return {
+    fps: fps, jitterMs: jitter, count: win.length,
+    minGap: gaps.length ? Math.min.apply(null, gaps) : 0,
+    maxGap: gaps.length ? Math.max.apply(null, gaps) : 0,
+  };
 }
 
 function recentMediaRates(kind) {
@@ -1104,6 +1321,185 @@ function renderHealth() {
   el.innerHTML = flags.join('');
 }
 
+// ── 分層診斷 ──
+// Render each layer of the RTMP/FLV pipeline as expected -> actual, so the abnormal
+// layer is obvious. The AVC sequence header layer gets a prominent banner when broken.
+function layerRow(layer) {
+  var cls = layer.status === 'ok' ? 'badge-ok' : layer.status === 'warn' ? 'badge-warn'
+    : layer.status === 'err' ? 'badge-err' : 'badge-info';
+  var label = layer.status === 'ok' ? '正常' : layer.status === 'warn' ? '注意'
+    : layer.status === 'err' ? '異常' : '待測';
+  return '<div class="diag-layer">' +
+    '<div class="diag-layer-head">' + badge(cls, label) +
+      '<span class="diag-layer-name">' + esc(layer.name) + '</span></div>' +
+    '<div class="diag-layer-body"><span class="diag-layer-exp">預期</span> ' + esc(layer.expected) +
+      ' <span class="diag-layer-exp">→ 實際</span> ' + esc(layer.actual) + '</div>' +
+    '</div>';
+}
+
+function avcLayer() {
+  var d = state.diag;
+  var status = d.seqError ? 'err' : d.firstVideoKind === null ? 'pending'
+    : (d.seqAnomalies > 0 || d.seqChanged > 0 ? 'warn' : 'ok');
+  var actual;
+  if (d.firstVideoKind === null) {
+    actual = '尚未收到 video tag';
+  } else {
+    actual = '首個 video tag #' + d.firstVideoSeq + ' = ' + kindName(d.firstVideoKind) +
+      '；seq header x' + d.seqHeaders + (d.naluLenSize ? ('；NALU length=' + d.naluLenSize) : '');
+    if (d.seqChanged) actual += '；SPS 變更 x' + d.seqChanged;
+    if (!d.seqError && d.seqAnomalies) actual += '；曾異常 x' + d.seqAnomalies + '（已恢復）';
+  }
+  return {
+    name: 'AVC 序列標頭 (SPS/PPS)', status: status,
+    expected: '首個 video tag 為 avcPacketType=0，含有效 SPS+PPS', actual: actual,
+  };
+}
+
+function buildLayerDiag() {
+  var d = state.diag;
+  var layers = [];
+
+  // Layer 0: SRS source-side snapshot (SRS stream API). recv_30s is the ingest
+  // bitrate; comparing it with the FLV-measured bitrate isolates source vs delivery.
+  var a = resolveAnalysis();
+  var src = findSrsStream(a.app, a.stream);
+  var l0status = 'pending', l0actual = '尚未取得來源端資料（需登入且流在線）';
+  if (src) {
+    var recv = src.kbps && src.kbps.recv_30s;
+    var send = src.kbps && src.kbps.send_30s;
+    var pub = src.publish && src.publish.active;
+    var vd = src.video ? (src.video.codec + ' ' + (src.video.profile || '') + ' ' + (src.video.width || '?') + 'x' + (src.video.height || '?')).trim() : '無';
+    var ad = src.audio ? (src.audio.codec + ' ' + (src.audio.sample_rate || '?') + 'Hz ' + (src.audio.channel || src.audio.channels || '?') + 'ch').trim() : '無';
+    var measured = state.running ? (state.bytes * 8 / 1024 / Math.max((performance.now() - state.startTime) / 1000, 0.001)) : null;
+    l0status = (pub === false) ? 'err' : 'ok';
+    l0actual = '推流=' + (pub ? '是' : '否') + '、clients=' + (src.clients || 0) +
+      '、recv=' + (recv != null ? recv : '—') + 'kbps、send=' + (send != null ? send : '—') + 'kbps' +
+      (measured != null ? ('、FLV 實測=' + measured.toFixed(0) + 'kbps') : '') +
+      '；video=' + vd + '；audio=' + ad;
+    if (state.running && recv > 0 && measured != null && measured < recv * 0.8) {
+      l0status = 'warn';
+      l0actual += '（FLV 實測明顯低於來源，交付層可能掉包）';
+    }
+  }
+  layers.push({ name: '來源端 (SRS API)', status: l0status, expected: 'publish active，FLV 實測 ≈ recv_30s', actual: l0actual });
+
+  // Layer 1: HTTP-FLV transport. The receive buffer is also shown: if it keeps growing,
+  // the parser cannot keep up and the server-side consumer queue may overflow (GOP drops).
+  var bufKB = state.buffer ? Math.round(state.buffer.length / 1024) : 0;
+  var bufLag = state.buffer && state.buffer.length > 2 * 1024 * 1024;
+  var l1status = d.httpError ? 'err' : d.httpStatus === null ? 'pending'
+    : (d.httpStatus === 200 ? (/flv/i.test(d.httpType || '') ? (bufLag ? 'warn' : 'ok') : 'warn') : 'err');
+  layers.push({
+    name: 'HTTP-FLV 連線', status: l1status,
+    expected: 'HTTP 200 + Content-Type video/x-flv',
+    actual: d.httpError ? ('連線失敗：' + d.httpError)
+      : d.httpStatus === null ? '尚未連線'
+      : ('HTTP ' + d.httpStatus + ' / ' + (d.httpType || '(無 Content-Type)') +
+         '；接收緩衝 ' + bufKB + ' KB' + (bufLag ? '（解析落後，可能造成伺服器丟 GOP）' : '')),
+  });
+
+  // Layer 2: FLV container.
+  var l2status = d.flvHeaderErr ? 'err' : d.flvVersion === null ? 'pending' : 'ok';
+  layers.push({
+    name: 'FLV 容器', status: l2status,
+    expected: '簽章 FLV、version 1、hasVideo=1',
+    actual: d.flvVersion === null ? (d.flvHeaderErr ? 'header 簽章損毀' : '尚未收到 header')
+      : ('version=' + d.flvVersion + '、video=' + (d.flvHasVideo ? 1 : 0) +
+         '、audio=' + (d.flvHasAudio ? 1 : 0) + '、headerSize=' + d.flvHeaderSize),
+  });
+
+  // Layer 3: AVC sequence header.
+  layers.push(avcLayer());
+
+  // Layer 4: video timestamps (recent window vs the encoder's declared VUI rate).
+  var stats = recentFpsStats();
+  var vui = state.sps && state.sps.fps ? state.sps.fps : null;
+  var l4status = 'pending', l4actual = '尚未累積足夠影格';
+  if (stats) {
+    var dev = vui ? Math.abs(stats.fps - vui) / vui : 0;
+    l4status = (vui && dev > 0.1) ? 'warn' : (stats.jitterMs > 50 ? 'warn' : 'ok');
+    l4actual = stats.fps.toFixed(1) + ' fps（近 ' + stats.count + ' 幀）、jitter ' + stats.jitterMs.toFixed(1) +
+      'ms、間距 ' + stats.minGap + '-' + stats.maxGap + 'ms';
+    if (vui) l4actual += '；VUI ' + vui.toFixed(1);
+  }
+  layers.push({
+    name: '視訊時間戳 (DTS)', status: l4status,
+    expected: vui ? ('單調遞增，fps ≈ VUI ' + vui.toFixed(1)) : '單調遞增', actual: l4actual,
+  });
+
+  // Layer 5: AAC sequence header.
+  var l5status = d.aacSeqError ? 'err' : d.firstAudioKind === null ? 'pending'
+    : (d.firstAudioKind === 'seq' ? 'ok' : (d.firstAudioKind === 'frame' ? 'err' : 'ok'));
+  var l5actual;
+  if (d.firstAudioKind === null) l5actual = '尚未收到 audio tag';
+  else if (d.firstAudioKind === 'seq') l5actual = '首個 audio tag #' + d.firstAudioSeq + ' = ASC；ASC x' + d.aacSeqHeaders +
+    (state.aacCfg ? ('；AOT=' + state.aacCfg.aot + ' SR=' + state.aacCfg.sampleRate + ' ch=' + state.aacCfg.channels) : '');
+  else l5actual = '首個 audio tag #' + d.firstAudioSeq + ' = ' + d.firstAudioKind;
+  layers.push({
+    name: 'AAC 序列標頭 (ASC)', status: l5status,
+    expected: '首個 audio tag 為 aacPacketType=0 (ASC)', actual: l5actual,
+  });
+
+  // Layer 6: A/V sync.
+  var sync = state.syncSeries;
+  var l6status = 'pending', l6actual = '尚未累積足夠樣本';
+  if (sync.length >= 10) {
+    var cur = sync[sync.length - 1].offset;
+    var offs = sync.map(function (s) { return s.offset; });
+    var start = median(offs.slice(0, Math.min(10, offs.length)));
+    var end = median(offs.slice(-Math.min(10, offs.length)));
+    var drift = end - start;
+    l6status = (Math.abs(cur) > 1000 || Math.abs(drift) > 800) ? 'warn' : 'ok';
+    l6actual = '目前 ' + cur + 'ms、漂移 ' + drift.toFixed(0) + 'ms';
+  }
+  layers.push({
+    name: '影音同步 (audio - video)', status: l6status,
+    expected: '|偏移| < 1000ms，無持續漂移', actual: l6actual,
+  });
+
+  return layers;
+}
+
+function renderDiagnostics() {
+  var d = state.diag;
+  var layers = buildLayerDiag();
+
+  var errN = layers.filter(function (l) { return l.status === 'err'; }).length;
+  var warnN = layers.filter(function (l) { return l.status === 'warn'; }).length;
+  var pendingN = layers.filter(function (l) { return l.status === 'pending'; }).length;
+  var summary;
+  if (errN) summary = errN + ' 層異常' + (warnN ? '、' + warnN + ' 層注意' : '');
+  else if (warnN) summary = warnN + ' 層注意';
+  else if (pendingN === layers.length) summary = '尚未開始分析';
+  else summary = '全部正常';
+  document.getElementById('diagSummary').textContent = summary;
+  document.getElementById('layerDiag').innerHTML = layers.map(layerRow).join('');
+
+  // Prominent AVC sequence header banner (the most actionable error), showing the
+  // expected -> actual of every field that was inspected.
+  var banner = document.getElementById('diagBanner');
+  var titleEl = document.getElementById('diagBannerTitle');
+  var bodyEl = document.getElementById('diagBannerBody');
+  if (d.seqError) {
+    banner.className = 'alert alert-danger';
+    titleEl.textContent = '⚠ ' + d.seqError.title + '（tag #' + d.seqError.at + '）';
+    bodyEl.innerHTML = d.seqError.checks.map(function (c) {
+      return '<div class="diag-check"><span class="diag-check-name">' + esc(c.name) + '</span>' +
+        '<span class="diag-check-exp">' + esc(c.expected) + '</span>' +
+        '<span class="diag-check-arrow">→</span>' +
+        '<span class="diag-check-act ' + (c.ok ? 'text-ok' : 'text-err') + '">' + esc(c.actual) + '</span></div>';
+    }).join('');
+  } else if (d.seqAnomalies > 0 || d.seqChanged > 0) {
+    banner.className = 'alert alert-info';
+    titleEl.textContent = 'AVC sequence header 曾異常但已恢復';
+    bodyEl.textContent = 'seq header 異常 x' + d.seqAnomalies + '、SPS 變更 x' + d.seqChanged +
+      '；目前首個 video tag = ' + kindName(d.firstVideoKind);
+  } else {
+    banner.className = 'alert alert-danger hidden';
+  }
+}
+
 // ── UI 更新 ──
 function updateBitrateBuckets() {
   var now = performance.now();
@@ -1148,6 +1544,7 @@ function updateBitrateBuckets() {
   renderVideoCard();
   renderAudioCard();
   renderHealth();
+  renderDiagnostics();
 }
 
 var rowColor = { VIDEO: 'text-info', AUDIO: 'text-ok', SCRIPT: 'text-warn' };
@@ -1512,9 +1909,10 @@ function updatePreviewHud() {
 
 // ── 分析流程 ──
 async function startAnalysis() {
+  syncManualFields();
   var host = document.getElementById('hostInput').value.trim().replace(/\/+$/, '');
-  var stream = document.getElementById('streamInput').value.trim();
-  var url = host + '/live/' + stream + '.flv';
+  var a = resolveAnalysis();
+  var url = buildFlvUrl(host, a.app, a.stream);
   document.getElementById('flvUrl').textContent = url;
 
   stopAnalysis();
@@ -1533,7 +1931,8 @@ async function startAnalysis() {
   document.getElementById('connDetail').textContent = url;
 
   if (document.getElementById('previewEnabled').checked) {
-    startPreview(url);
+    var p = resolvePreview();
+    startPreview(buildFlvUrl(host, p.app, p.stream));
   }
 
   state.running = true;
@@ -1542,6 +1941,8 @@ async function startAnalysis() {
 
   try {
     var res = await fetch(url, { signal: state.controller.signal });
+    state.diag.httpStatus = res.status;
+    state.diag.httpType = res.headers.get('content-type') || '';
     if (!res.ok) {
       cs.textContent = 'HTTP ' + res.status;
       cs.className = 'stat-value text-err';
@@ -1584,6 +1985,7 @@ async function startAnalysis() {
     }
   } catch (err) {
     if (err.name === 'AbortError') return;
+    state.diag.httpError = err.message;
     cs.textContent = '連線失敗';
     cs.className = 'stat-value text-err';
     document.getElementById('connDetail').textContent = err.message;
@@ -1633,6 +2035,13 @@ function resetState() {
   state.offsetSamples = [];
   state._lastVct = null;
   state._stallCount = 0;
+  state.diag = {
+    httpStatus: null, httpType: null, httpError: null,
+    flvVersion: null, flvHasVideo: null, flvHasAudio: null, flvHeaderSize: null, flvHeaderErr: false,
+    firstVideoSeq: null, firstVideoKind: null, seqHeaders: 0, seqError: null, seqAnomalies: 0,
+    seqChanged: 0, lastSpsKey: null, naluLenSize: null,
+    firstAudioSeq: null, firstAudioKind: null, aacSeqHeaders: 0, aacSeqError: null,
+  };
   state.pendingRows = [];
   state.rawCache = new Map();
   state.rawMeta = new Map();
@@ -1641,6 +2050,11 @@ function resetState() {
   document.getElementById('audioTable').innerHTML = '';
   document.getElementById('videoTable').innerHTML = '';
   document.getElementById('healthFlags').innerHTML = '<span class="text-dim">尚未開始分析</span>';
+  document.getElementById('diagSummary').textContent = '尚未開始分析';
+  document.getElementById('layerDiag').innerHTML = '尚未開始分析';
+  document.getElementById('diagBanner').className = 'alert alert-danger hidden';
+  document.getElementById('diagBannerTitle').textContent = '';
+  document.getElementById('diagBannerBody').innerHTML = '';
   document.getElementById('metaInfo').innerHTML = '<span class="text-dim">尚未擷取</span>';
   document.getElementById('videoInfo').innerHTML = '<span class="text-dim">尚未擷取</span>';
   document.getElementById('audioInfo').innerHTML = '<span class="text-dim">尚未擷取</span>';
@@ -1675,24 +2089,175 @@ function maskStreamKey(key) {
   return key.slice(0, head) + '*'.repeat(Math.max(0, key.length - head - tail)) + key.slice(key.length - tail);
 }
 
-function getFlvUrl() {
-  var host = document.getElementById('hostInput').value.trim().replace(/\/+$/, '');
-  return host + '/live/' + getStreamKey() + '.flv';
+// ── 串流來源選單（配合平台 API）──
+// Lists the active streams from the platform mgmt API and lets the user pin the
+// analysis source and pick an independent preview source. "Follow" pins the current
+// stream: it does not auto-switch when the list changes. If there is no bearer token
+// (not logged into the console) or the API fails, it falls back to manual input.
+var sourceState = {
+  streams: [],
+  signature: null,
+  pinnedAnalysis: null,   // {vhost, app, stream} or null
+  pinnedPreview: null,    // {vhost, app, stream} or null (unused; preview resolves live)
+  timer: null,
+};
+
+function sourceKey(s) { return (s.vhost || '') + '|' + (s.app || '') + '|' + (s.stream || ''); }
+function sourceLabel(s) { return (s.app || 'live') + '/' + (s.stream || ''); }
+function sourceByKey(key) {
+  for (var i = 0; i < sourceState.streams.length; i++) {
+    if (sourceKey(sourceState.streams[i]) === key) return sourceState.streams[i];
+  }
+  return null;
+}
+
+function findSrsStream(app, stream) {
+  for (var i = 0; i < sourceState.streams.length; i++) {
+    var s = sourceState.streams[i];
+    if ((s.app || 'live') === (app || 'live') && s.stream === stream) return s;
+  }
+  return null;
+}
+
+function loadPlatformBearer() {
+  try {
+    var o = JSON.parse(localStorage.getItem('SRS_TERRAFORM_TOKEN') || '{}');
+    return o && o.bearer ? o.bearer : '';
+  } catch (e) { return ''; }
+}
+
+// Resolve the analysis source: "manual" uses the app/stream inputs; a stream key pins
+// that stream; "follow" pins the first active stream once and then stays pinned.
+function resolveAnalysis() {
+  var v = document.getElementById('analysisSelect').value;
+  if (v === 'manual') return { app: getAppKey(), stream: getStreamKey(), manual: true };
+  if (v && v !== 'follow') {
+    var s = sourceByKey(v);
+    if (s) { sourceState.pinnedAnalysis = s; return s; }
+  }
+  if (sourceState.pinnedAnalysis) return sourceState.pinnedAnalysis;
+  if (sourceState.streams.length) {
+    sourceState.pinnedAnalysis = sourceState.streams[0];
+    return sourceState.pinnedAnalysis;
+  }
+  return { app: getAppKey(), stream: getStreamKey(), manual: true };
+}
+
+// Resolve the preview source: follow the analysis, or an independent active stream.
+function resolvePreview() {
+  var v = document.getElementById('previewSelect').value;
+  if (v && v !== 'follow') {
+    var s = sourceByKey(v);
+    if (s) return s;
+  }
+  return resolveAnalysis();
+}
+
+// Keep the manual app/stream inputs in sync with the selected list source, so the URL
+// builder, masking and summary keep working unchanged.
+function syncManualFields() {
+  var a = resolveAnalysis();
+  if (!a.manual) {
+    document.getElementById('appInput').value = a.app || 'live';
+    document.getElementById('streamInput').value = a.stream || '';
+  }
+}
+
+function renderSourceSelects(errorText) {
+  var streams = sourceState.streams;
+  var asel = document.getElementById('analysisSelect');
+  var aPrev = asel.value;
+  var psel = document.getElementById('previewSelect');
+  var pPrev = psel.value;
+
+  asel.innerHTML = '';
+  asel.appendChild(new Option('跟隨來源（釘選目前這一路）', 'follow'));
+  streams.forEach(function (s) { asel.appendChild(new Option(sourceLabel(s), sourceKey(s))); });
+  asel.appendChild(new Option('手動輸入', 'manual'));
+
+  psel.innerHTML = '';
+  psel.appendChild(new Option('跟隨分析串流', 'follow'));
+  streams.forEach(function (s) { psel.appendChild(new Option(sourceLabel(s), sourceKey(s))); });
+
+  asel.value = Array.prototype.some.call(asel.options, function (o) { return o.value === aPrev; }) ? aPrev : 'follow';
+  psel.value = Array.prototype.some.call(psel.options, function (o) { return o.value === pPrev; }) ? pPrev : 'follow';
+
+  document.getElementById('analysisSelectHint').textContent = errorText || (streams.length ? '' : '目前沒有活躍流');
+  document.getElementById('previewSelectHint').textContent = errorText || '';
+}
+
+function refreshSourceSelects(errorText) {
+  var sig = sourceState.streams.map(sourceKey).sort().join(',');
+  if (sig === sourceState.signature && !errorText) return;
+  sourceState.signature = sig;
+  renderSourceSelects(errorText);
+  syncManualFields();
+  renderStreamVisibility();
+}
+
+function fetchStreamList() {
+  var bearer = loadPlatformBearer();
+  if (!bearer) {
+    sourceState.streams = [];
+    refreshSourceSelects('未登入管理後台，無法取得流清單（可手動輸入）');
+    return;
+  }
+  // The SRS stream API is richer than the platform mgmt query: besides the stream
+  // identity it reports the source-side snapshot (publish/clients/kbps/video/audio)
+  // that feeds the 來源端 diagnostic layer.
+  fetch('/api/v1/streams/', { headers: { 'Authorization': 'Bearer ' + bearer } })
+    .then(function (r) { return r.json(); }).then(function (res) {
+      if (!res || res.code !== 0) throw new Error('code ' + (res && res.code));
+      sourceState.streams = (res.streams || []).map(function (s) {
+        return {
+          vhost: s.vhost, app: s.app, stream: s.name,
+          kbps: s.kbps, video: s.video, audio: s.audio,
+          publish: s.publish, clients: s.clients,
+        };
+      });
+      refreshSourceSelects('');
+    }).catch(function (e) {
+      sourceState.streams = [];
+      refreshSourceSelects('取得流清單失敗：' + (e && e.message ? e.message : e));
+    });
+}
+
+function startSourcePolling() {
+  fetchStreamList();
+  sourceState.timer = setInterval(function () {
+    if (document.visibilityState !== 'visible') return;
+    fetchStreamList();
+  }, 5000);
+}
+
+function getAppKey() {
+  return document.getElementById('appInput').value.trim() || 'live';
 }
 
 function getStreamKey() {
   return document.getElementById('streamInput').value.trim();
 }
 
+function buildFlvUrl(host, app, stream) {
+  return host + '/' + (app || 'live') + '/' + stream + '.flv';
+}
+
+function getFlvUrl() {
+  var host = document.getElementById('hostInput').value.trim().replace(/\/+$/, '');
+  return buildFlvUrl(host, getAppKey(), getStreamKey());
+}
+
 function renderStreamVisibility() {
+  syncManualFields();
   var stream = getStreamKey();
   var masked = maskStreamKey(stream);
   document.getElementById('streamInput').type = streamRevealed ? 'text' : 'password';
   document.getElementById('streamEye').textContent = streamRevealed ? '隱藏' : '顯示';
   var host = document.getElementById('hostInput').value.trim().replace(/\/+$/, '');
-  document.getElementById('connSummary').textContent = streamRevealed ? host + '/live/' + stream + '.flv' : host + '/live/' + masked + '.flv';
+  var app = getAppKey();
+  document.getElementById('connSummary').textContent = streamRevealed ? buildFlvUrl(host, app, stream) : host + '/' + app + '/' + masked + '.flv';
   var flvEl = document.getElementById('flvUrl');
-  flvEl.textContent = streamRevealed ? getFlvUrl() : host + '/live/' + masked + '.flv';
+  flvEl.textContent = streamRevealed ? getFlvUrl() : host + '/' + app + '/' + masked + '.flv';
 }
 
 function toggleStreamReveal() {
@@ -2069,8 +2634,21 @@ document.getElementById('rtcConnToggle').addEventListener('click', function () {
 document.getElementById('streamEye').addEventListener('click', toggleStreamReveal);
 document.getElementById('flvUrl').addEventListener('click', toggleStreamReveal);
 document.getElementById('hostInput').addEventListener('input', renderStreamVisibility);
+document.getElementById('appInput').addEventListener('input', renderStreamVisibility);
 document.getElementById('streamInput').addEventListener('input', renderStreamVisibility);
+document.getElementById('analysisSelect').addEventListener('change', function () {
+  syncManualFields();
+  renderStreamVisibility();
+});
+document.getElementById('previewSelect').addEventListener('change', function () {
+  // Apply the new preview source to a running preview immediately.
+  if (!state.running || !document.getElementById('previewEnabled').checked) return;
+  var host = document.getElementById('hostInput').value.trim().replace(/\/+$/, '');
+  var p = resolvePreview();
+  startPreview(buildFlvUrl(host, p.app, p.stream));
+});
 renderStreamVisibility();
+startSourcePolling();
 
 document.getElementById('hudEnabled').addEventListener('change', function () {
   var hud = document.getElementById('previewHud');

@@ -216,6 +216,21 @@ a:hover { color: var(--accent-hover); }
 }
 .alert-dismiss:hover { opacity: 1; }
 
+/* Layered diagnostics (pushdiag): per-layer expected -> actual report. */
+.diag-banner-body { flex: 1; }
+.diag-checks { margin-top: 6px; font-family: 'SF Mono', Monaco, monospace; font-size: 12px; }
+.diag-check { display: flex; gap: 8px; align-items: baseline; padding: 2px 0; }
+.diag-check-name { color: var(--text-muted); min-width: 190px; flex-shrink: 0; }
+.diag-check-exp { color: var(--text-secondary); }
+.diag-check-arrow { color: var(--text-muted); }
+.diag-check-act { font-weight: 600; word-break: break-all; }
+.diag-layer { padding: 8px 0; border-bottom: 1px solid var(--border); }
+.diag-layer:last-child { border-bottom: none; }
+.diag-layer-head { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+.diag-layer-name { font-weight: 600; }
+.diag-layer-body { font-family: 'SF Mono', Monaco, monospace; font-size: 12px; color: var(--text-secondary); word-break: break-all; }
+.diag-layer-exp { color: var(--text-muted); }
+
 /* Share Link */
 .share-link {
     display: flex;

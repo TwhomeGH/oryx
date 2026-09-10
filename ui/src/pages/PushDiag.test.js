@@ -113,6 +113,19 @@ describe('PushDiag HLS compatibility', () => {
     expect(w.state.running).toBe(true);
     expect(w.document.getElementById('previewStatus').textContent).toBe('僅分析 FLV 封包');
   });
+  it('populates the source selectors from the SRS stream API', async () => {
+    w.localStorage.setItem('SRS_TERRAFORM_TOKEN', JSON.stringify({bearer: 'test-bearer'}));
+    w.fetch = vi.fn(async () => ({json: async () => ({code: 0, streams: [
+      {vhost: '__defaultVhost__', app: 'live', name: 'streamA', kbps: {recv_30s: 1000, send_30s: 900}, publish: {active: true}, clients: 2},
+    ]})}));
+    loadPage();
+    await vi.waitFor(() => {
+      expect([...w.document.getElementById('analysisSelect').options].some(o => o.value.includes('streamA'))).toBe(true);
+    });
+    expect(w.fetch).toHaveBeenCalledWith('/api/v1/streams/', expect.objectContaining({headers: {Authorization: 'Bearer test-bearer'}}));
+    expect(w.document.getElementById('streamInput').value).toBe('streamA');
+    expect(w.document.getElementById('appInput').value).toBe('live');
+  });
   it('restores RTC controls and offers HLS when WebRTC is unavailable', async () => {
     loadPage();
     w.console.error = vi.fn();
