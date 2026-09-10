@@ -2,6 +2,36 @@
 
 本文記錄本 fork 自 2026-08 起的 CodeQL 安全修復。各批次的程式修正、測試與重掃狀態分別列出；完成程式修正不代表 CodeQL 警告已經關閉。
 
+## 2026-09-11：移除 `statusRecorder.Write` 的反射型 XSS sink（設計根治）
+
+前幾輪（下方 2026-09-10 兩節）修的是**內容產生處**：共用 `jsonHandler()` 不再拼接 JSONP `callback`，一律 `json.Marshal` 並加上 `application/json; charset=utf-8` 與 `nosniff`。但 `go/reflected-xss` 仍標在 `platform/console-metrics.go` 的輸出點：
+
+```go
+func (v *statusRecorder) Write(b []byte) (int, error) {
+	if v.status == 0 {
+		v.status = http.StatusOK
+	}
+	return v.ResponseWriter.Write(b)
+}
+```
+
+原因是 CodeQL 的 taint 追蹤把 `r`（request，tainted）→ handler 產生的回應位元組 → `statusRecorder.Write(b)` → 底層 `ResponseWriter.Write` 當成一條 sink 路徑；它不把 `json.Marshal` 視為 XSS 淨化，因此只修內容產生處無法讓這個 sink 消失。
+
+**設計根治：** `statusRecorder` 只需要記錄狀態碼，而 `Write()` override 本身是多餘的——`Wrap()` 已經把仍是 0 的狀態視為 200（裸 `Write` 的隱式狀態）：
+
+```go
+status := rec.status
+if status == 0 {
+	status = http.StatusOK
+}
+```
+
+因此移除 `statusRecorder.Write`，讓嵌入的 `http.ResponseWriter` 直接提供 `Write`。行為不變（顯式 `WriteHeader` 仍被記錄、隱式 200 仍被 `Wrap` 補上），但被標記的 sink 在專案自有程式中整個消失。這與第七批 WHIP/WHEP 的作法一致（移除自訂 `ResponseWriter`，而非在 sink 上做轉義）。
+
+**驗證：** `GOOS=linux GOARCH=amd64 go build -mod=vendor ./...` 通過；`golang:1.26` 容器內 `go test -mod=vendor -run 'TestConsoleMetrics|TestNormalizeConsoleRoute|TestBuildRedisInfoSnapshot|TestUtils_ComputeStreamFPS' -count=1 .` 通過。專案自有程式已無任何自訂 `ResponseWriter.Write`（`grep` 僅剩 vendored 依賴）。CodeQL 尚未重掃，不能宣稱警告已關閉；需對包含此提交的版本重跑掃描確認。
+
+同一次變更也補上串流正確性：`statusRecorder` 實作 `Unwrap() http.ResponseWriter` 與 `Flush()`，讓 `http.ResponseController` 能穿透 wrapper 找到底層的 `http.Flusher`。否則被 metrics middleware 包住的 `/live/*.flv` 反向代理無法 flush，長連線 FLV 會被緩衝而非即時串流。新增 `TestConsoleMetricsFlushPassthrough` 覆蓋（`httptest.ResponseRecorder` 需收到 `Flushed`）。
+
 ## 2026-09-10 後續：移除 JSONP，固定回傳 JSON
 
 此變更取代下方歷史紀錄中的 callback 白名單方案。共用 `jsonHandler()` 不再讀取或拼接 `callback`，無論參數內容為何，都以 `json.Marshal` 產生 JSON，設定 `application/json; charset=utf-8` 與 `X-Content-Type-Options: nosniff`。一般 JSON 的資料結構、應用錯誤碼及 HTTPStatus 處理維持原有行為；非 jsonHandler 的原始文字錯誤、代理與媒體回應不在本次變更範圍。

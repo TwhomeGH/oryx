@@ -219,3 +219,21 @@ func TestBuildRedisInfoSnapshotValkey(t *testing.T) {
 		t.Fatalf("actual Valkey version must be separate from Redis compatibility version: %+v", obj)
 	}
 }
+
+// The metrics wrapper must not hide http.Flusher, or the /live/*.flv reverse proxy
+// cannot stream (the response gets buffered and playback stalls).
+func TestConsoleMetricsFlushPassthrough(t *testing.T) {
+	handler := newConsoleMetricsStore(10).Wrap(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if f, ok := w.(http.Flusher); !ok {
+			t.Fatalf("metrics wrapper must expose http.Flusher")
+		} else {
+			f.Flush()
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/live/livestream.flv", nil))
+	if !rec.Flushed {
+		t.Fatalf("Flush must reach the underlying ResponseWriter through the metrics wrapper")
+	}
+}

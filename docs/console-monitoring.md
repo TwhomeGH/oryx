@@ -12,6 +12,8 @@
 
 代码在 `platform/console-metrics.go`（单测 `console-metrics_test.go`），middleware 挂在 `httpService.Run` 的 `serviceHandler` 外层（`consoleMetrics.Wrap(...)`），因此 mgmt API、SRS proxy、静态页全部被计时；两支 endpoint 在 `handleHTTPService` 注册，都走 `middlewareAuthTokenInBody`（UI 带 Bearer）。
 
+`statusRecorder` 只覆写 `WriteHeader` 记录状态码（不覆写 `Write`，避免给 CodeQL 一个 `go/reflected-xss` 输出点）；它同时实作 `Unwrap()` 与 `Flush()`，让被包住的 `http.ResponseWriter` 的选配介面（`http.Flusher` 等）仍可达。否则 `/live/*.flv` 反向代理无法 flush，长连线 FLV 会被缓冲而非串流。回归测试 `TestConsoleMetricsFlushPassthrough`。
+
 ### 2.1 `/terraform/v1/mgmt/redis/info`
 
 `rdb.Info()`（默认 sections）解析为 typed snapshot：
@@ -61,7 +63,7 @@ window_sec, routes: [{method, route, count, rate_per_sec, avg_ms, max_ms, p95_ms
 
 ## 4. 测试与验证
 
-安全说明：2026-09 的 CodeQL 曾将 `statusRecorder.Write()` 标为反射型 XSS 输出点。程序检查发现，共用 HTTP 函式库原本会将未经验证的 JSONP `callback` 拼入 JavaScript；后续已移除共用 writer 的 JSONP 支持，忽略 callback 并固定回传 JSON，加入 nosniff；`console-metrics_test.go` 覆盖经过 middleware 的攻击、正常 JSON 与错误回应案例。CodeQL 尚待重扫确认。完整成因、修正范围及验证状态见 [CodeQL 安全漏洞修复说明](security-fix-codeql.md)。
+安全说明：2026-09 的 CodeQL 曾将 `statusRecorder.Write()` 标为反射型 XSS 输出点。程序检查发现，共用 HTTP 函式库原本会将未经验证的 JSONP `callback` 拼入 JavaScript；后续已移除共用 writer 的 JSONP 支持，忽略 callback 并固定回传 JSON，加入 nosniff。2026-09-11 进一步做设计根治：`statusRecorder` 只需要记录状态码，`Write()` override 本身多余（`Wrap()` 已把状态 0 视为 200），且正是被标记的 sink，故直接移除该 override，让嵌入的 `ResponseWriter` 提供 `Write`，sink 在自有程式中消失。`console-metrics_test.go` 覆盖经过 middleware 的攻击、正常 JSON 与错误回应案例。CodeQL 尚待重扫确认。完整成因、修正范围及验证状态见 [CodeQL 安全漏洞修复说明](security-fix-codeql.md)。
 
 - 后端：在 `platform/` 目录、`golang:1.26` 容器内执行 `go test -mod=vendor . -run 'TestConsoleMetrics|TestNormalizeConsoleRoute|TestBuildRedisInfoSnapshot' -count=1`，已通过，包含 JSONP 移除后的安全回归案例。
 - 前端：`npx vitest run`（含 `SrsConsole.test.js` 的 `calcRedisRates` 单测）

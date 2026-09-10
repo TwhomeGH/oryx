@@ -55,6 +55,14 @@ func newConsoleMetricsStore(maxTotal int) *consoleMetricsStore {
 var consoleMetrics = newConsoleMetricsStore(100000)
 
 // statusRecorder captures the response status so the middleware can count 5xx.
+//
+// It deliberately overrides only WriteHeader: the status is recorded from the first
+// explicit WriteHeader, and Wrap treats a still-zero status as 200 (the implicit status
+// of a bare Write). Implementing Write() here is redundant and, more importantly, it
+// gave CodeQL a "user-provided value flows into an HTTP response" sink
+// (go/reflected-xss) inside our own code, even though the method only forwarded bytes.
+// Leaving Write to the embedded ResponseWriter removes that sink without changing
+// behavior (the same root fix used for the WHIP/WHEP proxy in 第七批).
 type statusRecorder struct {
 	http.ResponseWriter
 	status int
@@ -67,11 +75,18 @@ func (v *statusRecorder) WriteHeader(code int) {
 	v.ResponseWriter.WriteHeader(code)
 }
 
-func (v *statusRecorder) Write(b []byte) (int, error) {
-	if v.status == 0 {
-		v.status = http.StatusOK
+// Unwrap exposes the wrapped ResponseWriter to http.ResponseController, so optional
+// interfaces (Flusher for streaming, Hijacker, ...) stay reachable through the metrics
+// wrapper. Without it the /live/*.flv reverse proxy cannot flush: the wrapper hides the
+// underlying http.Flusher, so a long-lived FLV response is buffered instead of streamed.
+func (v *statusRecorder) Unwrap() http.ResponseWriter { return v.ResponseWriter }
+
+// Flush forwards to the wrapped writer so the wrapper also satisfies http.Flusher
+// directly (httputil.ReverseProxy type-asserts it on some Go versions).
+func (v *statusRecorder) Flush() {
+	if f, ok := v.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
 	}
-	return v.ResponseWriter.Write(b)
 }
 
 // Wrap returns a handler that measures the request latency and records it, then
