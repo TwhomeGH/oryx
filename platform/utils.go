@@ -2253,21 +2253,35 @@ func computeStreamFPS(deltas []float64) (*StreamFPS, error) {
 	}, nil
 }
 
+// fpsProbeSampleSeconds is the length of the live sample window. Sampling a fixed
+// wall-clock window instead of a fixed frame count keeps the probe latency bounded for
+// any frame rate: a 150-frame sample needs 6s on a 25fps stream, which overran the old
+// 5s probe timeout, so every stream below 30fps failed with a 500. A time window also
+// yields more frames (and thus a better jitter estimate) for high-fps streams.
+const fpsProbeSampleSeconds = 3
+
+// fpsProbeTimeout bounds the whole probe: the sample window plus the time to open the
+// RTMP player and decode the frames. A stalled stream (no frames arriving) is killed
+// here instead of hanging the API request forever.
+const fpsProbeTimeout = 6 * time.Second
+
 // ProbeStreamFPS samples the frames of a live stream via ffprobe and computes the
 // frame-rate statistics. The abnormal flag is set when the frame intervals vary too much
 // (coefficient of variation > abnormalFPSJitterCV and jitter > abnormalFPSJitterMS),
 // which makes the fps jump around and may cause playback stutter.
 func ProbeStreamFPS(ctx context.Context, app, stream string) (*StreamFPS, error) {
-	// Sample the local stream, e.g. rtmp://127.0.0.1:1935/live/livestream.
+	// Sample the local stream, e.g. rtmp://127.0.0.1:1935/live/livestream. Read the
+	// first fpsProbeSampleSeconds of media (%+N) so the probe duration is independent
+	// of the frame rate.
 	url := fmt.Sprintf("rtmp://127.0.0.1:1935/%v/%v", app, stream)
 	args := []string{
 		"-v", "error", "-select_streams", "v:0",
 		"-show_entries", "frame=pts_time", "-of", "csv=p=0",
-		"-read_intervals", "%+#150",
+		"-read_intervals", fmt.Sprintf("%%+%d", fpsProbeSampleSeconds),
 		url,
 	}
 
-	probeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	probeCtx, cancel := context.WithTimeout(ctx, fpsProbeTimeout)
 	defer cancel()
 
 	stdout, err := exec.CommandContext(probeCtx, "ffprobe", args...).Output()
