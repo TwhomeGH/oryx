@@ -126,6 +126,25 @@ describe('PushDiag HLS compatibility', () => {
     expect(w.document.getElementById('streamInput').value).toBe('streamA');
     expect(w.document.getElementById('appInput').value).toBe('live');
   });
+  it('smooths the WebRTC frame-drop rate over a rolling window', () => {
+    loadPage();
+    const fn = w.computeFrameDropRates;
+    expect(typeof fn).toBe('function');
+    // Below the minimum window: no recent rate yet, cumulative still reported.
+    let r = fn([{t: 0, decoded: 0, dropped: 0}, {t: 1000, decoded: 5, dropped: 5}], 1000, 3000, 1500);
+    expect(r.recent).toBeNull();
+    expect(r.cumulative).toBeCloseTo(50);
+    // The 3s window excludes the early spike (t=0); the cumulative keeps it.
+    const samples = [
+      {t: 0, decoded: 0, dropped: 10},
+      {t: 2000, decoded: 100, dropped: 10},
+      {t: 3000, decoded: 150, dropped: 11},
+      {t: 5000, decoded: 250, dropped: 12},
+    ];
+    r = fn(samples, 5000, 3000, 1500);
+    expect(r.recent).toBeCloseTo(2 / 152 * 100);
+    expect(r.cumulative).toBeCloseTo(12 / 262 * 100);
+  });
   it('restores RTC controls and offers HLS when WebRTC is unavailable', async () => {
     loadPage();
     w.console.error = vi.fn();

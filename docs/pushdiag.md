@@ -52,10 +52,21 @@ FLV 分析頁新增「分層診斷」卡片，與「即時預覽」並排（`.di
 
 FLV URL 由 `host + '/' + app + '/' + stream + '.flv'` 組成（不再硬編 `live`，新增 `app` 輸入）。頁面預設主機為**目前開啟頁面的 origin**（`window.location.origin`），避免遠端開啟時誤連 `localhost` 而誤判「不支援 HTTP-FLV」；只有以 `file://` 直接開啟時才回退 `http://localhost:882`。
 
+## WebRTC 掉幀量測（2026-09 修正）
+
+WebRTC 分析的「掉幀率」來自 `inbound-rtp` 的 `framesDecoded` / `framesDropped`。`framesDropped` 是**解碼前**被丟棄的幀（不完整／太晚，通常源於封包遺失或延遲），不是 CPU 解不動。
+
+先前的算法用**每次 getStats 間隔（250ms）的差值**當「近期掉幀」，樣本太小：30fps 下一個窗只有約 7 幀，掉 1 幀就是 14%，容易誤報（曾出現 60%）。現改為：
+
+- **近期**：以 3 秒滾動窗計算（`computeFrameDropRates`，取「至少 3 秒前的最新樣本」為基準），窗未滿 1.5 秒前不顯示，避免早期小樣本。
+- **累積**：自開台至今的 `framesDropped / (framesDecoded + framesDropped)`，作為對照。
+
+表格欄位改為「掉幀率(近3s/累積)」，健康旗標也同時顯示近期與累積。另修掉 `v` 缺失時把基準歸零、導致拿累積值當近期值的 bug（改為只在有 `v` 時取樣）。
+
 ## 修正與驗證
 
 移除原本以原生 HLS 能力判斷後直接把 `.flv` 交給 video 的錯誤分支。FLV／RTC 播放 Promise 錯誤會被處理，RTC 失敗會關閉連線並恢復操作按鈕。HLS 停止、切換與失敗會清除播放器及逾時計時器。
 
-`ui/src/pages/PushDiag.test.js` 的 9 項測試涵蓋網址轉換、原生 HLS 優先、自動播放限制、HLS.js 致命錯誤清理、RTC 替代入口、FLV 播放失敗不停止分析、無播放能力時仍能解析跨網路區塊的原始 FLV 音訊 tag 與時間戳，以及來源選單會從 SRS stream API 填入並同步 app/stream。在 ui 目錄執行 `npm test -- src/pages/PushDiag.test.js`。
+`ui/src/pages/PushDiag.test.js` 的 10 項測試涵蓋網址轉換、原生 HLS 優先、自動播放限制、HLS.js 致命錯誤清理、RTC 替代入口、FLV 播放失敗不停止分析、無播放能力時仍能解析跨網路區塊的原始 FLV 音訊 tag 與時間戳、來源選單會從 SRS stream API 填入並同步 app/stream，以及 WebRTC 掉幀率以滾動窗平滑（`computeFrameDropRates`）。在 ui 目錄執行 `npm test -- src/pages/PushDiag.test.js`。
 
 本機瀏覽器已檢查頁籤與輸入錯誤提示；自動測試模擬原生 HLS 能力。尚未在實體 iPhone／Safari 與真實直播串流上驗證播放。

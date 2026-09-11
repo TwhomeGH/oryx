@@ -384,7 +384,7 @@
             <div class="diag-table-wrap">
                 <table class="diag-table">
                     <thead>
-                        <tr><th>型別</th><th>packetsReceived</th><th>packetsLost</th><th>遺失率</th><th>jitter(ms)</th><th>bytesReceived</th><th>framesDecoded</th><th>framesDropped</th><th>掉幀率(近期)</th><th>解析度</th><th>codec</th></tr>
+                        <tr><th>型別</th><th>packetsReceived</th><th>packetsLost</th><th>遺失率</th><th>jitter(ms)</th><th>bytesReceived</th><th>framesDecoded</th><th>framesDropped</th><th>掉幀率(近3s/累積)</th><th>解析度</th><th>codec</th></tr>
                     </thead>
                     <tbody id="rtcStatsTable"></tbody>
                 </table>
@@ -2277,7 +2277,7 @@ var rtcState = {
   sdk: null,
   prevStats: null,
   prevTime: 0,
-  prevVFrame: null,
+  frameSamples: [],
   rttSeries: [],
   bitrateSeries: [],
   jitterSeries: [],
@@ -2310,6 +2310,36 @@ function buildRtcCharts() {
     ]},
     options: { ...chartCommon },
   });
+}
+
+// The getStats poll runs every 250ms, far too short for a frame-drop rate: at 30fps
+// that window holds ~7 frames, so one drop reads as 14%. Compute the "recent" rate over
+// a rolling window instead (and expose the cumulative rate for context).
+var rtcFrameDropWindowMs = 3000;
+var rtcFrameDropMinWindowMs = 1500;
+
+// Compute frame-drop rates from cumulative getStats samples. `recent` uses a rolling
+// window (the newest sample that is at least windowMs old) so a single dropped frame is
+// not amplified; it stays null until the window spans minWindowMs. `cumulative` is since
+// the stream started, for context.
+function computeFrameDropRates(samples, now, windowMs, minWindowMs) {
+  if (!samples || !samples.length) return { recent: null, cumulative: null };
+  var newest = samples[samples.length - 1];
+  var cumTotal = newest.decoded + newest.dropped;
+  var cumulative = cumTotal > 0 ? newest.dropped / cumTotal * 100 : null;
+
+  var oldest = samples[0];
+  for (var i = 0; i < samples.length; i++) {
+    if (now - samples[i].t >= windowMs) oldest = samples[i];
+    else break;
+  }
+  var recent = null;
+  if (now - oldest.t >= minWindowMs) {
+    var dDec = newest.decoded - oldest.decoded;
+    var dDrop = newest.dropped - oldest.dropped;
+    if (dDec + dDrop > 0) recent = dDrop / (dDec + dDrop) * 100;
+  }
+  return { recent: recent, cumulative: cumulative };
 }
 
 async function pollRtcStats() {
@@ -2364,15 +2394,20 @@ async function pollRtcStats() {
     }
 
     renderRtcCharts();
-    var dropRate = null;
-    if (v && rtcState.prevVFrame) {
-      var dDec = v.framesDecoded - rtcState.prevVFrame.decoded;
-      var dDrop = v.framesDropped - rtcState.prevVFrame.dropped;
-      if (dDec + dDrop > 0) dropRate = dDrop / (dDec + dDrop) * 100;
+    var dropRate = null;     // recent rate over the rolling window
+    var dropRateCum = null;  // rate since the stream started
+    if (v && v.framesDecoded != null && v.framesDropped != null) {
+      var nowFrame = performance.now();
+      rtcState.frameSamples.push({ t: nowFrame, decoded: v.framesDecoded, dropped: v.framesDropped });
+      while (rtcState.frameSamples.length > 2 && nowFrame - rtcState.frameSamples[0].t > rtcFrameDropWindowMs + 2000) {
+        rtcState.frameSamples.shift();
+      }
+      var rates = computeFrameDropRates(rtcState.frameSamples, nowFrame, rtcFrameDropWindowMs, rtcFrameDropMinWindowMs);
+      dropRate = rates.recent;
+      dropRateCum = rates.cumulative;
     }
-    rtcState.prevVFrame = { decoded: v ? v.framesDecoded : 0, dropped: v ? v.framesDropped : 0 };
-    renderRtcStats(v, a, cp, transport, rtt, vBitrate, aBitrate, localCand, remoteCand, codecs, dropRate);
-    renderRtcHealth(v, a, cp, rtt, dropRate);
+    renderRtcStats(v, a, cp, transport, rtt, vBitrate, aBitrate, localCand, remoteCand, codecs, dropRate, dropRateCum);
+    renderRtcHealth(v, a, cp, rtt, dropRate, dropRateCum);
   } catch (e) {
     console.warn('getStats error:', e);
   }
@@ -2393,7 +2428,7 @@ function renderRtcCharts() {
   rtcJitterChart.update('none');
 }
 
-function renderRtcStats(v, a, cp, transport, rtt, vBitrate, aBitrate, localCand, remoteCand, codecs, dropRate) {
+function renderRtcStats(v, a, cp, transport, rtt, vBitrate, aBitrate, localCand, remoteCand, codecs, dropRate, dropRateCum) {
   var conn = document.getElementById('rtcConnState');
   if (rtcState.connected) {
     conn.textContent = transport ? (transport.iceState || '—') : '—';
@@ -2432,7 +2467,13 @@ function renderRtcStats(v, a, cp, transport, rtt, vBitrate, aBitrate, localCand,
     return c ? (c.mimeType || '—') : (id || '—');
   };
   if (v) {
-    var dropCell = dropRate !== null ? '<span class="' + (dropRate > 5 ? 'text-err' : (dropRate > 1 ? 'text-warn' : 'text-ok')) + '">' + dropRate.toFixed(1) + '%</span>' : '—';
+    var dropCell = '—';
+    if (dropRate !== null || dropRateCum !== null) {
+      var recentTxt = dropRate !== null ? dropRate.toFixed(1) + '%' : '—';
+      var cumTxt = dropRateCum !== null ? dropRateCum.toFixed(1) + '%' : '—';
+      var dropCls = dropRate !== null && dropRate > 5 ? 'text-err' : (dropRate !== null && dropRate > 1 ? 'text-warn' : 'text-ok');
+      dropCell = '<span class="' + dropCls + '">' + recentTxt + '</span> <span class="text-dim">/ ' + cumTxt + '</span>';
+    }
     rows.push('<tr><td>video</td><td>' + v.packetsReceived + '</td><td>' + v.packetsLost + '</td><td>' + lossRate.toFixed(2) + '%</td><td>' + (v.jitter ? (v.jitter * 1000).toFixed(1) : '—') + '</td><td>' + fmtBytes(v.bytesReceived) + '</td><td>' + (v.framesDecoded != null ? v.framesDecoded : '—') + '</td><td>' + (v.framesDropped != null ? v.framesDropped : '—') + '</td><td>' + dropCell + '</td><td>' + res + '</td><td>' + codecName(v.codecId) + '</td></tr>');
   }
   if (a) {
@@ -2453,7 +2494,7 @@ function renderRtcStats(v, a, cp, transport, rtt, vBitrate, aBitrate, localCand,
   document.getElementById('rtcHudRtt').textContent = rtt !== null ? rtt.toFixed(0) + 'ms' : '—';
 }
 
-function renderRtcHealth(v, a, cp, rtt, dropRate) {
+function renderRtcHealth(v, a, cp, rtt, dropRate, dropRateCum) {
   var el = document.getElementById('rtcHealthFlags');
   var flags = [];
 
@@ -2484,9 +2525,10 @@ function renderRtcHealth(v, a, cp, rtt, dropRate) {
     }
 
     if (dropRate !== null) {
-      if (dropRate > 10) flags.push(badge('badge-err', '近期掉幀 ' + dropRate.toFixed(1) + '%'));
-      else if (dropRate > 2) flags.push(badge('badge-warn', '近期掉幀 ' + dropRate.toFixed(1) + '%'));
-      else flags.push(badge('badge-ok', '掉幀正常'));
+      var cumTxt = dropRateCum !== null ? '（累積 ' + dropRateCum.toFixed(1) + '%）' : '';
+      if (dropRate > 10) flags.push(badge('badge-err', '近 3 秒掉幀 ' + dropRate.toFixed(1) + '%' + cumTxt));
+      else if (dropRate > 2) flags.push(badge('badge-warn', '近 3 秒掉幀 ' + dropRate.toFixed(1) + '%' + cumTxt));
+      else flags.push(badge('badge-ok', '掉幀正常' + cumTxt));
     } else if (v.freezeCount != null && v.freezeCount > 0) {
       flags.push(badge('badge-warn', '卡頓 ' + v.freezeCount + ' 次'));
     }
@@ -2582,6 +2624,7 @@ function stopRtcAnalysis() {
 function resetRtcState() {
   rtcState.prevStats = null;
   rtcState.prevTime = 0;
+  rtcState.frameSamples = [];
   rtcState.rttSeries = [];
   rtcState.bitrateSeries = [];
   rtcState.jitterSeries = [];
