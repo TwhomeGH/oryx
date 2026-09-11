@@ -316,7 +316,6 @@ a:hover { color: var(--accent-hover); }
 .fs-13 { font-size: 13px; }
 .cursor-pointer { cursor: pointer; }
 .flex-between { display: flex; justify-content: space-between; gap: 12px; }
-.single-col { grid-template-columns: 1fr; }
 .center-overlay {
     position: absolute;
     inset: 0;
@@ -346,7 +345,10 @@ a:hover { color: var(--accent-hover); }
 .diag-grid { display: grid; gap: 24px; margin-bottom: 24px; }
 .diag-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
 .diag-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
-.diag-grid.cols-3-2 { grid-template-columns: 2fr 1fr; }
+.diag-grid.cols-3-2 { grid-template-columns: 3fr 2fr; align-items: start; }
+/* Vertical stack used as a column inside .cols-3-2; no margin so the outer grid's
+   gap is the only spacing (a nested .diag-grid would double the gap). */
+.stack { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
 @media (max-width: 1000px) {
     .diag-grid.cols-3, .diag-grid.cols-2, .diag-grid.cols-3-2 { grid-template-columns: 1fr; }
 }

@@ -221,7 +221,8 @@ pushdiag 用到的一組診斷專用類別，位於 `player.css` 的 `/* Diagnos
 |---|---|
 | `.diag-full` | 全寬容器（覆蓋 sidebar flex 佈局） |
 | `.mode-tabs` / `.mode-tab` | 模式切換按鈕 |
-| `.diag-grid` / `.cols-3` / `.cols-2` / `.cols-3-2` | 響應式格線 |
+| `.diag-grid` / `.cols-3` / `.cols-2` / `.cols-3-2` | 響應式格線（`cols-3-2`＝3:2，用於「預覽＋分層診斷」；≤1000px 堆疊） |
+| `.stack` | `.cols-3-2` 內的直向欄（flex column，gap 24px；避免巢狀 `.diag-grid` 造成雙倍間距） |
 | `.stat-card` / `.stat-value` | 數據卡片 |
 | `.badge` / `.badge-ok` / `.badge-warn` / `.badge-err` / `.badge-info` | 健康旗標 |
 | `.diag-table-wrap` / `.diag-table` | 診斷表格 |

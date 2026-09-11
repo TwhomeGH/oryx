@@ -115,43 +115,36 @@
             </div>
         </div>
 
-        <!-- 分層診斷：一眼看出哪一層 RTMP/FLV 資料異常 -->
+        <!-- 分層診斷警示：一眼看出哪一層 RTMP/FLV 資料異常 -->
         <div id="diagBanner" class="alert alert-danger hidden" role="alert">
             <div class="diag-banner-body">
                 <strong id="diagBannerTitle"></strong>
                 <div id="diagBannerBody" class="diag-checks"></div>
             </div>
         </div>
-        <div class="card">
-            <div class="card-header">
-                <h2 class="text-info">分層診斷</h2>
-                <span id="diagSummary" class="text-dim fs-12">尚未開始分析</span>
-            </div>
-            <div id="layerDiag" class="fs-13 text-dim">尚未開始分析</div>
-        </div>
 
-        <!-- 狀態 + 預覽 + 健康 -->
+        <!-- 即時預覽 + 分層診斷：並排，方便邊看畫面邊看診斷 -->
         <div class="diag-grid cols-3-2">
-            <div class="card mb-0">
-                <div class="card-header">
-                    <h2 class="text-ok">即時預覽</h2>
-                    <span id="previewStatus" class="text-dim fs-12">未啟動</span>
-                </div>
-                <div class="player-wrapper">
-                    <video id="previewVideo" class="hidden" controls webkit-playsinline></video>
-                    <div id="previewOverlay" class="text-dim center-overlay">點擊「開始分析」後播放</div>
-                    <div id="previewHud" class="hud hidden">
-                        <div class="text-ok">LIVE</div>
-                        <div><span class="hud-label">fps</span> <span id="hudFps" class="hud-val">—</span></div>
-                        <div><span class="hud-label">res</span> <span id="hudRes" class="hud-val">—</span></div>
-                        <div><span class="hud-label">bitrate</span> <span id="hudBitrate" class="hud-val">—</span></div>
-                        <div><span class="hud-label">GOP</span> <span id="hudGop" class="hud-val">—</span></div>
-                        <div><span class="hud-label">pkts</span> <span id="hudPkts" class="hud-val">—</span></div>
-                        <div><span class="hud-label">sync</span> <span id="hudSync" class="hud-val">—</span></div>
+            <div class="stack">
+                <div class="card mb-0">
+                    <div class="card-header">
+                        <h2 class="text-ok">即時預覽</h2>
+                        <span id="previewStatus" class="text-dim fs-12">未啟動</span>
+                    </div>
+                    <div class="player-wrapper">
+                        <video id="previewVideo" class="hidden" controls webkit-playsinline></video>
+                        <div id="previewOverlay" class="text-dim center-overlay">點擊「開始分析」後播放</div>
+                        <div id="previewHud" class="hud hidden">
+                            <div class="text-ok">LIVE</div>
+                            <div><span class="hud-label">fps</span> <span id="hudFps" class="hud-val">—</span></div>
+                            <div><span class="hud-label">res</span> <span id="hudRes" class="hud-val">—</span></div>
+                            <div><span class="hud-label">bitrate</span> <span id="hudBitrate" class="hud-val">—</span></div>
+                            <div><span class="hud-label">GOP</span> <span id="hudGop" class="hud-val">—</span></div>
+                            <div><span class="hud-label">pkts</span> <span id="hudPkts" class="hud-val">—</span></div>
+                            <div><span class="hud-label">sync</span> <span id="hudSync" class="hud-val">—</span></div>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class="diag-grid single-col">
                 <div class="stat-grid" id="connCards">
                     <div class="stat-card">
                         <div class="stat-label">連線狀態</div>
@@ -173,6 +166,15 @@
                         <div id="statTags" class="stat-value">0</div>
                         <div id="statTagsSub" class="stat-sub">&nbsp;</div>
                     </div>
+                </div>
+            </div>
+            <div class="stack">
+                <div class="card mb-0">
+                    <div class="card-header">
+                        <h2 class="text-info">分層診斷</h2>
+                        <span id="diagSummary" class="text-dim fs-12">尚未開始分析</span>
+                    </div>
+                    <div id="layerDiag" class="fs-13 text-dim">尚未開始分析</div>
                 </div>
                 <div class="card mb-0">
                     <h2 class="text-ok mb-12">健康診斷</h2>
@@ -320,7 +322,7 @@
                     </div>
                 </div>
             </div>
-            <div class="diag-grid single-col">
+            <div class="stack">
                 <div class="stat-grid">
                     <div class="stat-card">
                         <div class="stat-label">連線狀態</div>
