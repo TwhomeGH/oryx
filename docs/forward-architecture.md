@@ -243,3 +243,10 @@ Linux-only 的 `syscall.Kill`，Windows 本機直接 `go test` 會被既有代�
 4. **B5 來源斷流感知**（中）——✅ 已實作：來源從 active stream 消失後主動 cancel FFmpeg
 5. **B9 UI 狀態接線**（小）——待做：把新增 API 欄位顯示到轉播頁
 6. **軌道二 native forward**（大，獨立 feature flag，驗證 SRS7 多目的地後再上）
+
+### 7.5 長線設計：Program Bus + Slate（斷源不斷線）
+
+上面 7.3/7.4 是「同一條 forward 線」的穩定性補強。若要真正**斷源不斷下游連線**，
+需把下游 publisher 的生命週期與來源解耦，導入一條常駐的 **program 節目流**，
+由平台在 live relay 與 slate 之間交接。完整設計（含已驗證的 SRS 行為、拓撲、分期）
+見 [`forward-program-bus.md`](./forward-program-bus.md)。
