@@ -27,6 +27,26 @@ func TestForward_RetryDelay(t *testing.T) {
 	}
 }
 
+func TestForward_ProgramStream(t *testing.T) {
+	if got := forwardProgramStreamName("live", "livestream"); got != "__forward_live_livestream" {
+		t.Fatalf("forwardProgramStreamName=%v", got)
+	}
+
+	for _, e := range []struct {
+		app, stream string
+		expect      bool
+	}{
+		{app: "live", stream: "__forward_live_livestream", expect: true},
+		{app: "live", stream: "__forward_auto_live", expect: true},
+		{app: "live", stream: "livestream", expect: false},
+		{app: "live", stream: "forward_livestream", expect: false},
+	} {
+		if got := isForwardProgramStream(e.app, e.stream); got != e.expect {
+			t.Fatalf("isForwardProgramStream(%v, %v)=%v, expect %v", e.app, e.stream, got, e.expect)
+		}
+	}
+}
+
 func TestForward_TaskHealthState(t *testing.T) {
 	task := &ForwardTask{config: &ForwardConfigure{Enabled: true}}
 

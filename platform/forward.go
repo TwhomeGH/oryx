@@ -44,12 +44,17 @@ type ForwardWorker struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
+	// The program worker keeps the internal program streams alive, so that downstream
+	// forwarding is not interrupted when a source stream goes offline, see
+	// docs/forward-program-bus.md.
+	programWorker *ProgramWorker
+
 	// The tasks we have started to forward streams,, key is platform in string, value is *ForwardTask.
 	tasks sync.Map
 }
 
 func NewForwardWorker() *ForwardWorker {
-	return &ForwardWorker{}
+	return &ForwardWorker{programWorker: NewProgramWorker()}
 }
 
 func (v *ForwardWorker) GetTask(platform string) *ForwardTask {
@@ -119,6 +124,12 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 				// Allow pasting a full RTMP(S) ingest URL into the Server field, split it
 				// into server and secret automatically.
 				userConf.Server, userConf.Secret = NormalizeRTMPConfig(userConf.Server, userConf.Secret)
+
+				// Validate the failover mode, empty means the default hold-last-frame.
+				if userConf.Failover != "" && userConf.Failover != forwardFailoverHold &&
+					userConf.Failover != forwardFailoverSlate {
+					return errors.Errorf("invalid failover=%v", userConf.Failover)
+				}
 
 				var targetConf ForwardConfigure
 				if config, err := rdb.HGet(ctx, SRS_FORWARD_CONFIG, userConf.Platform).Result(); err != nil && err != redis.Nil {
@@ -220,6 +231,17 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 					if status.Input != "" {
 						elem["stream"] = status.Input
 					}
+					if status.Program != "" {
+						elem["program"] = status.Program
+					}
+					if status.ProgramMode != "" {
+						elem["programMode"] = status.ProgramMode
+						elem["programFailover"] = status.ProgramFailover
+						// The fallback is active when the program is holding the last frame or
+						// showing the slate because the source is temporarily offline.
+						elem["fallback"] = !status.ProgramSourceActive
+					}
+					elem["programSwitches"] = status.ProgramSwitches
 					if status.Start != "" {
 						elem["start"] = status.Start
 					}
@@ -267,6 +289,9 @@ func (v *ForwardWorker) Close() error {
 		v.cancel()
 	}
 	v.wg.Wait()
+	if v.programWorker != nil {
+		v.programWorker.Close()
+	}
 	return nil
 }
 
@@ -278,6 +303,13 @@ func (v *ForwardWorker) Start(ctx context.Context) error {
 
 	ctx = logger.WithContext(ctx)
 	logger.Tf(ctx, "forward start a worker")
+
+	// Start the program worker, which keeps the internal program streams alive.
+	if v.programWorker != nil {
+		if err := v.programWorker.Start(ctx); err != nil {
+			return errors.Wrapf(err, "start program worker")
+		}
+	}
 
 	// Load tasks from redis and force to kill all.
 	if objs, err := rdb.HGetAll(ctx, SRS_FORWARD_TASK).Result(); err != nil && err != redis.Nil {
@@ -395,11 +427,14 @@ type ForwardConfigure struct {
 	Customed bool `json:"custom"`
 	// The label for this configure.
 	Label string `json:"label"`
+	// The failover mode when the source is offline: empty or "hold" holds the last frame
+	// (default), "slate" switches the program to a fallback slate image.
+	Failover string `json:"failover"`
 }
 
 func (v *ForwardConfigure) String() string {
-	return fmt.Sprintf("platform=%v, stream=%v, server=%v, secret=%v, enabled=%v, customed=%v, label=%v",
-		v.Platform, v.Stream, v.Server, v.Secret, v.Enabled, v.Customed, v.Label,
+	return fmt.Sprintf("platform=%v, stream=%v, server=%v, secret=%v, enabled=%v, customed=%v, label=%v, failover=%v",
+		v.Platform, v.Stream, v.Server, v.Secret, v.Enabled, v.Customed, v.Label, v.Failover,
 	)
 }
 
@@ -411,6 +446,7 @@ func (v *ForwardConfigure) Update(u *ForwardConfigure) error {
 	v.Label = u.Label
 	v.Enabled = u.Enabled
 	v.Customed = u.Customed
+	v.Failover = u.Failover
 	return nil
 }
 
@@ -449,6 +485,10 @@ type ForwardTask struct {
 	// The context for current task.
 	cancel context.CancelFunc
 
+	// The bound source stream and its internal program bus. When bound, the task forwards the
+	// internal program stream instead of the source directly, see docs/forward-program-bus.md.
+	sourceApp, sourceStream string
+
 	// The configure for forwarding task.
 	config *ForwardConfigure
 	// The forward worker.
@@ -462,6 +502,11 @@ type ForwardTaskStatus struct {
 	PID                 int32
 	State               string
 	Input               string
+	Program             string
+	ProgramMode         string
+	ProgramFailover     string
+	ProgramSourceActive bool
+	ProgramSwitches     int
 	Frame               string
 	FrameUpdate         string
 	Start               string
@@ -511,7 +556,6 @@ func (v *ForwardTask) cleanup(ctx context.Context) error {
 
 func (v *ForwardTask) Restart(ctx context.Context) error {
 	v.lock.Lock()
-	defer v.lock.Unlock()
 
 	if v.cancel != nil {
 		v.cancel()
@@ -521,12 +565,27 @@ func (v *ForwardTask) Restart(ctx context.Context) error {
 	v.LastError = ""
 	v.LastErrorAt = nil
 	v.ConsecutiveFailures = 0
+	// A restarted task is a fresh start, reset the accumulated restart counter.
+	v.RestartCount = 0
+
+	// Unbind the program, it is re-bound from the reloaded config on the next cycle.
+	app, stream := v.sourceApp, v.sourceStream
+	v.sourceApp, v.sourceStream = "", ""
 
 	// Reload config from redis.
 	if b, err := rdb.HGet(ctx, SRS_FORWARD_CONFIG, v.Platform).Result(); err != nil {
+		v.lock.Unlock()
 		return errors.Wrapf(err, "hget %v %v", SRS_FORWARD_CONFIG, v.Platform)
 	} else if err = json.Unmarshal([]byte(b), v.config); err != nil {
+		v.lock.Unlock()
 		return errors.Wrapf(err, "unmarshal %v", b)
+	}
+
+	v.lock.Unlock()
+
+	// Release the old program outside the lock, to avoid a lock cycle.
+	if app != "" && v.forwardWorker != nil && v.forwardWorker.programWorker != nil {
+		v.forwardWorker.programWorker.ReleaseProgram(app, stream)
 	}
 
 	return nil
@@ -549,7 +608,8 @@ func (v *ForwardTask) queryStatus() ForwardTaskStatus {
 	status := ForwardTaskStatus{
 		PID:                 v.PID,
 		State:               v.State,
-		Input:               v.inputStreamURL,
+		Input:               v.Input,
+		Program:             v.inputStreamURL,
 		Frame:               strings.TrimSpace(v.frame),
 		RestartCount:        v.RestartCount,
 		ConsecutiveFailures: v.ConsecutiveFailures,
@@ -572,6 +632,15 @@ func (v *ForwardTask) queryStatus() ForwardTaskStatus {
 	}
 	if v.NextRetryAt != nil {
 		status.NextRetryAt = v.NextRetryAt.Format(time.RFC3339)
+	}
+	if v.forwardWorker != nil && v.forwardWorker.programWorker != nil && v.sourceApp != "" {
+		if bus := v.forwardWorker.programWorker.GetProgram(v.sourceApp, v.sourceStream); bus != nil {
+			ps := bus.queryStatus()
+			status.ProgramMode = ps.Mode
+			status.ProgramFailover = ps.Failover
+			status.ProgramSourceActive = ps.SourceActive
+			status.ProgramSwitches = ps.Switches
+		}
 	}
 	return status
 }
@@ -701,6 +770,8 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 		}
 
 		streamName := v.config.Stream
+		// Never select this task's own output stream, otherwise forwarding would loop.
+		ownOutput := v.ownOutputStream()
 
 		var best *SrsStream
 		for _, v := range streams {
@@ -708,6 +779,11 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 			if err := json.Unmarshal([]byte(v), &stream); err != nil {
 				return nil, errors.Wrapf(err, "unmarshal %v", v)
 			}
+
+			if ownOutput != "" && stream.Stream == ownOutput {
+				continue
+			}
+
 			if streamName != "" {
 				if stream.Stream == streamName {
 					best = &stream
@@ -748,23 +824,30 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 	pfn := func(ctx context.Context) error {
 		// Ignore when not enabled.
 		if !v.config.Enabled {
+			v.releaseProgram()
 			v.markHealthy()
 			return nil
 		}
 
-		// Use a active stream as input.
-		input, err := selectActiveStream()
-		if err != nil {
-			return errors.Wrapf(err, "select input")
-		}
+		// Bind the source and its internal program bus on first use. Once bound, we keep
+		// forwarding the program even when the source is temporarily offline, because the
+		// program bus keeps the program published (the downstream holds the last frame).
+		if !v.hasProgram() {
+			input, err := selectActiveStream()
+			if err != nil {
+				return errors.Wrapf(err, "select input")
+			}
 
-		if input == nil {
-			v.markWaitingInput()
-			return nil
+			if input == nil {
+				v.markWaitingInput()
+				return nil
+			}
+
+			v.bindProgram(ctx, input.App, input.Stream)
 		}
 
 		// Start forward task.
-		if err := v.doForward(ctx, input); err != nil {
+		if err := v.doForward(ctx); err != nil {
 			return errors.Wrapf(err, "do forward")
 		}
 
@@ -793,15 +876,124 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 	return nil
 }
 
-func (v *ForwardTask) doForward(ctx context.Context, input *SrsStream) error {
+func (v *ForwardTask) hasProgram() bool {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	return v.sourceApp != ""
+}
+
+func (v *ForwardTask) programSource() (string, string) {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	return v.sourceApp, v.sourceStream
+}
+
+// waitStreamReady polls the HTTP-FLV URL until it returns 200, or the timeout is reached.
+func waitStreamReady(ctx context.Context, url string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	for {
+		err := func() error {
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+			if err != nil {
+				return err
+			}
+
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				return errors.Errorf("status %v", resp.StatusCode)
+			}
+			return nil
+		}()
+		if err == nil {
+			return nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return errors.Wrapf(ctx.Err(), "wait %v", url)
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+}
+
+// ownOutputStream returns the local stream name this task publishes to, used to avoid
+// selecting our own output stream as the source (which would loop). It only makes sense for
+// a local target, so it returns empty for remote platforms.
+func (v *ForwardTask) ownOutputStream() string {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+
+	if v.config == nil || !strings.Contains(v.config.Server, "localhost") {
+		return ""
+	}
+
+	secret := v.config.Secret
+	if i := strings.Index(secret, "?"); i >= 0 {
+		secret = secret[:i]
+	}
+	full := fmt.Sprintf("%v/%v", strings.TrimSuffix(v.config.Server, "/"), strings.TrimPrefix(secret, "/"))
+	if i := strings.LastIndex(full, "/"); i >= 0 {
+		return full[i+1:]
+	}
+	return full
+}
+
+// bindProgram binds the source stream and starts (or joins) its internal program bus, so the
+// task can forward a stable program stream instead of the volatile source.
+func (v *ForwardTask) bindProgram(ctx context.Context, app, stream string) {
+	v.lock.Lock()
+	v.sourceApp, v.sourceStream = app, stream
+	v.lock.Unlock()
+
+	failover := ""
+	if v.config != nil {
+		failover = v.config.Failover
+	}
+	if v.forwardWorker != nil && v.forwardWorker.programWorker != nil {
+		v.forwardWorker.programWorker.EnsureProgram(app, stream, failover)
+	}
+
+	logger.Tf(ctx, "forward bind program, platform=%v, source=%v/%v, program=%v, failover=%v",
+		v.Platform, app, stream, forwardProgramStreamName(app, stream), failover)
+}
+
+// releaseProgram drops the program bus reference, called when the task stops forwarding.
+func (v *ForwardTask) releaseProgram() {
+	v.lock.Lock()
+	app, stream := v.sourceApp, v.sourceStream
+	v.sourceApp, v.sourceStream = "", ""
+	v.lock.Unlock()
+
+	if app != "" && v.forwardWorker != nil && v.forwardWorker.programWorker != nil {
+		v.forwardWorker.programWorker.ReleaseProgram(app, stream)
+	}
+}
+
+func (v *ForwardTask) doForward(ctx context.Context) error {
 	// Create context for current task.
 	parentCtx := ctx
 	ctx, cancel := context.WithCancel(ctx)
 	v.cancel = cancel
 
-	// Build input URL.
+	// The program bus keeps the internal program stream alive, so we always read from the
+	// program instead of the source directly, see docs/forward-program-bus.md.
+	sourceApp, sourceStream := v.programSource()
 	host := "localhost"
-	inputURL := fmt.Sprintf("rtmp://%v/%v/%v", host, input.App, input.Stream)
+	programStream := forwardProgramStreamName(sourceApp, sourceStream)
+	programURL := fmt.Sprintf("rtmp://%v/%v/%v", host, sourceApp, programStream)
+	sourceURL := fmt.Sprintf("%v/%v", sourceApp, sourceStream)
+	// Read the program as HTTP-FLV with reconnect (HTTP is the only protocol FFmpeg can
+	// auto-reconnect), so a program publisher handoff (e.g. the fallback slate) or a relay
+	// restart does not kill the fanout and drop the downstream: the fanout keeps its output
+	// connection and simply holds the last frame until the input comes back.
+	programInputURL := fmt.Sprintf("http://localhost:%v/%v/%v.flv", forwardProgramHTTPPort, sourceApp, programStream)
 
 	// Build output URL.
 	outputServer := strings.ReplaceAll(v.config.Server, "localhost", host)
@@ -822,31 +1014,33 @@ func (v *ForwardTask) doForward(ctx context.Context, input *SrsStream) error {
 		return errors.Wrapf(err, "output precheck")
 	}
 
-	// Create a heartbeat to poll and manage the status of FFmpeg process.
-	heartbeat := NewFFmpegHeartbeat(cancel)
+	// Create a heartbeat to poll and manage the status of FFmpeg process. The fanout reads the
+	// program, which holds the last frame during a source outage, so use a longer no-update
+	// timeout to avoid killing the fanout and dropping the downstream.
+	heartbeat := NewFFmpegHeartbeat(cancel, func(h *FFmpegHeartbeat) {
+		h.MaxNoUpdateTime = forwardFanoutNoUpdateTime
+	})
 	v.starttime, v.firstReadyTime = &heartbeat.starttime, nil
 	defer func() {
 		v.starttime = nil
 	}()
 
+	// Wait for the program to be published before reading it. The fanout reads HTTP-FLV, whose
+	// initial connection fails hard (FFmpeg does not auto-retry a failed initial open) when the
+	// program is not published yet (the platform proxy returns 502), which would cause a
+	// spurious restart.
+	if err := waitStreamReady(ctx, programInputURL, 10*time.Second); err != nil {
+		return errors.Wrapf(err, "wait program %v ready", programInputURL)
+	}
+
 	// Start FFmpeg process.
 	args := []string{}
-	args = append(args, "-re")
-	// For RTSP stream source, always use TCP transport.
-	if strings.HasPrefix(inputURL, "rtsp://") {
-		args = append(args, "-rtsp_transport", "tcp")
-	}
-	// Rebuild the stream url, because it may contain special characters.
-	if strings.Contains(inputURL, "://") {
-		if u, err := RebuildStreamURL(inputURL); err != nil {
-			return errors.Wrapf(err, "rebuild %v", inputURL)
-		} else {
-			args = append(args, "-i", u.String())
-			heartbeat.Parse(u)
-		}
-	} else {
-		args = append(args, "-i", inputURL)
-	}
+	args = append(args,
+		"-reconnect", "1", "-reconnect_at_eof", "1", "-reconnect_streamed", "1",
+		"-reconnect_on_http_error", forwardReconnectHTTPError,
+		"-reconnect_delay_max", fmt.Sprintf("%v", forwardReconnectDelayMax),
+		"-i", programInputURL,
+	)
 	args = append(args, "-c", "copy")
 	// If RTMP use flv, if SRT use mpegts, otherwise do not set.
 	if strings.HasPrefix(outputURL, "rtmp://") || strings.HasPrefix(outputURL, "rtmps://") {
@@ -867,7 +1061,7 @@ func (v *ForwardTask) doForward(ctx context.Context, input *SrsStream) error {
 		return errors.Wrapf(err, "execute ffmpeg %v", strings.Join(args, " "))
 	}
 
-	v.markRunning(int32(cmd.Process.Pid), inputURL, input.StreamURL(), outputURL)
+	v.markRunning(int32(cmd.Process.Pid), sourceURL, programURL, outputURL)
 	defer func() {
 		// If we got a PID, sleep for a while, to avoid too fast restart.
 		if v.PID > 0 {
@@ -881,33 +1075,16 @@ func (v *ForwardTask) doForward(ctx context.Context, input *SrsStream) error {
 		v.cleanup(parentCtx)
 		v.saveTask(parentCtx)
 	}()
-	logger.Tf(ctx, "forward start, platform=%v, stream=%v, pid=%v", v.Platform, input.StreamURL(), v.PID)
+	logger.Tf(ctx, "forward start, platform=%v, stream=%v, program=%v, pid=%v",
+		v.Platform, sourceURL, programURL, v.PID)
 
 	if err := v.saveTask(ctx); err != nil {
 		return errors.Wrapf(err, "save task %v", v.String())
 	}
 
-	inputGone := make(chan struct{})
-	go func() {
-		ticker := time.NewTicker(time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				if _, err := rdb.HGet(ctx, SRS_STREAM_ACTIVE, input.StreamURL()).Result(); err == redis.Nil {
-					logger.Tf(ctx, "forward input stream gone, platform=%v, stream=%v", v.Platform, input.StreamURL())
-					close(inputGone)
-					cancel()
-					return
-				} else if err != nil {
-					logger.Wf(ctx, "ignore forward input stream check err %+v", err)
-				}
-			}
-		}
-	}()
+	// Note that we no longer watch the source stream here. The program bus keeps the program
+	// published across source outages (the downstream holds the last frame), so the FFmpeg
+	// output persists until it fails or is cancelled, keeping the downstream session alive.
 
 	// Pull the latest log frame.
 	heartbeat.Polling(ctx, stderr)
@@ -933,22 +1110,15 @@ func (v *ForwardTask) doForward(ctx context.Context, input *SrsStream) error {
 	select {
 	case <-parentCtx.Done():
 	case <-ctx.Done():
-	case <-inputGone:
 	case <-heartbeat.PollingCtx.Done():
 	}
 	logger.Tf(ctx, "Forward: Cycle stopping, platform=%v, stream=%v, pid=%v",
-		v.Platform, input.StreamURL(), v.PID)
+		v.Platform, sourceURL, v.PID)
 
 	err = cmd.Wait()
 	logger.Tf(ctx, "forward done, platform=%v, stream=%v, pid=%v, err=%v",
-		v.Platform, input.StreamURL(), v.PID, err,
+		v.Platform, sourceURL, v.PID, err,
 	)
-
-	select {
-	case <-inputGone:
-		return nil
-	default:
-	}
 
 	return err
 }

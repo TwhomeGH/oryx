@@ -130,6 +130,15 @@ func handleHooksService(ctx context.Context, handler *http.ServeMux) error {
 				}
 			}
 
+			// Internal program bus streams are kept alive by the platform itself, and must be
+			// hidden from the platform: never stored in Redis, so they never show up in the
+			// stream list or any other feature, see docs/forward-program-bus.md.
+			if isForwardProgramStream(streamObj.App, streamObj.Stream) {
+				ohttp.WriteData(ctx, w, r, nil)
+				logger.Tf(ctx, "srs hooks ignore program stream, action=%v, %v", action, streamObj.String())
+				return nil
+			}
+
 			// Verify some actions, before all other hooks.
 			preAllHook := action == SrsActionOnPublish
 			if preAllHook {

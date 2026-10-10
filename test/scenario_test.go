@@ -1644,6 +1644,195 @@ func TestScenario_WithStream_PublishRtmpForwardPlatform(t *testing.T) {
 	}
 }
 
+// testForwardKeepalive verifies that a source outage does not interrupt the downstream publish.
+// With failover="" (hold) the downstream holds the last frame; with failover="slate" the program
+// switches to a fallback slate. In both cases the fanout must not restart.
+func testForwardKeepalive(t *testing.T, failover string, expectSlate bool) {
+	desc := "轉推：來源中斷時下游不斷線（hold last frame）"
+	if expectSlate {
+		desc = "轉推：來源中斷時切換備用畫面（slate）且下游不斷線"
+	}
+	tc(t, desc)
+	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)
+	defer cancel()
+
+	if *noMediaTest {
+		return
+	}
+
+	var r0, r1, r2, r3, r4 error
+	defer func(ctx context.Context) {
+		if err := filterTestError(ctx.Err(), r0, r1, r2, r3, r4); err != nil {
+			t.Errorf("Fail for err %+v", err)
+		} else {
+			logger.Tf(ctx, "test done")
+		}
+	}(ctx)
+
+	var pubSecret string
+	if err := NewApi().WithAuth(ctx, "/terraform/v1/hooks/srs/secret/query", nil, &struct {
+		Publish *string `json:"publish"`
+	}{Publish: &pubSecret}); err != nil {
+		r0 = err
+		return
+	}
+
+	type ForwardConfig struct {
+		Action   string `json:"action"`
+		Enabled  bool   `json:"enabled"`
+		Custom   bool   `json:"custom"`
+		Label    string `json:"label"`
+		Platform string `json:"platform"`
+		Secret   string `json:"secret"`
+		Server   string `json:"server"`
+		Failover string `json:"failover"`
+	}
+	conf := make(map[string]*ForwardConfig)
+	if err := NewApi().WithAuth(ctx, "/terraform/v1/ffmpeg/forward/secret", nil, &conf); err != nil {
+		r0 = errors.Wrapf(err, "request forward query failed")
+		return
+	}
+
+	forwardStreamID := fmt.Sprintf("forward-keepalive-%v-%v", os.Getpid(), rand.Int())
+	bilibili, ok := conf["bilibili"]
+	if !ok || bilibili == nil {
+		bilibili = &ForwardConfig{
+			Enabled:  false,
+			Custom:   true,
+			Label:    "Test",
+			Platform: "bilibili",
+			Server:   "rtmp://localhost/live/",
+		}
+		conf["bilibili"] = bilibili
+	}
+
+	// Restore the state of forward.
+	backup := *bilibili
+	defer func() {
+		backup.Action = "update"
+		ctx := context.Background()
+		NewApi().WithAuth(ctx, "/terraform/v1/ffmpeg/forward/secret", backup, nil)
+	}()
+
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	// Must be after wg.Wait, so it runs before it and stops the source FFmpeg.
+	defer cancel()
+
+	streamID := fmt.Sprintf("stream-keepalive-%v-%v", os.Getpid(), rand.Int())
+	streamURL := fmt.Sprintf("%v/live/%v?secret=%v", *endpointRTMP, streamID, pubSecret)
+
+	// Publish the source for a while, then it exits to simulate an outage.
+	runSource := func(duration time.Duration) {
+		ffmpeg := NewFFmpeg(func(v *ffmpegClient) {
+			v.args = []string{
+				"-re", "-stream_loop", "-1", "-i", *srsInputFile, "-c", "copy",
+				"-f", "flv", streamURL,
+			}
+			// Do not cancel the case when the source quits, we simulate an outage.
+			v.cancelCaseWhenQuit = false
+			v.ffmpegDuration = duration
+		})
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_ = ffmpeg.Run(ctx, cancel)
+		}()
+	}
+
+	forwardStatus := func() map[string]interface{} {
+		var streams []map[string]interface{}
+		if err := NewApi().WithAuth(ctx, "/terraform/v1/ffmpeg/forward/streams", nil, &streams); err != nil {
+			return nil
+		}
+		for _, m := range streams {
+			if m["platform"] == "bilibili" {
+				return m
+			}
+		}
+		return nil
+	}
+
+	waitStatus := func(desc string, pfn func(m map[string]interface{}) bool) bool {
+		for i := 0; i < 30; i++ {
+			if m := forwardStatus(); m != nil && pfn(m) {
+				logger.Tf(ctx, "forward status matched %v, %v", desc, m)
+				return true
+			}
+			select {
+			case <-ctx.Done():
+				return false
+			case <-time.After(time.Second):
+			}
+		}
+		return false
+	}
+
+	// Start the source and wait it to be active.
+	runSource(9 * time.Second)
+	select {
+	case <-ctx.Done():
+		return
+	case <-time.After(3 * time.Second):
+	}
+
+	// Enable the forward to the local target.
+	bilibili.Secret = fmt.Sprintf("%v?secret=%v", forwardStreamID, pubSecret)
+	bilibili.Server = "rtmp://localhost/live/"
+	bilibili.Enabled = true
+	bilibili.Action = "update"
+	bilibili.Failover = failover
+	if err := NewApi().WithAuth(ctx, "/terraform/v1/ffmpeg/forward/secret", bilibili, nil); err != nil {
+		r0 = errors.Wrapf(err, "request forward apply failed")
+		return
+	}
+
+	// The program should be live, and the fanout running.
+	if !waitStatus("live", func(m map[string]interface{}) bool {
+		return m["status"] == "running" && m["programMode"] == "live" && m["fallback"] == false
+	}) {
+		r1 = errors.Errorf("forward not live, status=%v", forwardStatus())
+		return
+	}
+	// Record the restart count once the fanout is running, to assert the outage causes no restart.
+	baseRestart := forwardStatus()["restartCount"].(float64)
+
+	// The source exits now. The program must keep the downstream alive: hold the last frame
+	// (hold mode) or switch to the fallback slate (slate mode). The fanout must not restart.
+	expectMode := "live"
+	if expectSlate {
+		expectMode = "slate"
+	}
+	if !waitStatus("fallback", func(m map[string]interface{}) bool {
+		return m["status"] == "running" && m["programMode"] == expectMode && m["fallback"] == true
+	}) {
+		r2 = errors.Errorf("forward not fallback, status=%v", forwardStatus())
+		return
+	}
+	// The fanout must not have restarted, which proves the downstream never dropped.
+	if m := forwardStatus(); m == nil || m["restartCount"].(float64) != baseRestart {
+		r3 = errors.Errorf("downstream restarted during outage, status=%v", m)
+		return
+	}
+
+	// Bring the source back, the program bus must switch back to live.
+	runSource(20 * time.Second)
+	if !waitStatus("live again", func(m map[string]interface{}) bool {
+		return m["status"] == "running" && m["programMode"] == "live" && m["fallback"] == false
+	}) {
+		r4 = errors.Errorf("forward not recovered, status=%v", forwardStatus())
+		return
+	}
+}
+
+func TestScenario_WithStream_PublishRtmpForwardKeepalive(t *testing.T) {
+	testForwardKeepalive(t, "", false)
+}
+
+func TestScenario_WithStream_PublishRtmpForwardSlate(t *testing.T) {
+	testForwardKeepalive(t, "slate", true)
+}
+
 func TestScenario_WithStream_PublishRtmpTranscodeDefault(t *testing.T) {
 	tc(t, "轉碼：預設參數（profile/preset）輸出驗證")
 	ctx, cancel := context.WithTimeout(logger.WithContext(context.Background()), time.Duration(*srsTimeout)*time.Millisecond)

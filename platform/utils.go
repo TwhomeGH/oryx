@@ -1925,6 +1925,10 @@ type FFmpegHeartbeat struct {
 	MaxStreamDuration time.Duration
 	// The abnormal slow speed, such as 0.5x.
 	AbnormalFastSpeed float64
+	// Restart FFmpeg if it does not update for this duration. Defaults to 10 seconds, some
+	// callers (e.g. the forward fanout reading a program that may hold the last frame during a
+	// source outage) use a longer duration.
+	MaxNoUpdateTime time.Duration
 }
 
 // NewFFmpegHeartbeat create a new FFmpeg heartbeat manager, with cancelFFmpeg to cancel the FFmpeg
@@ -1940,6 +1944,8 @@ func NewFFmpegHeartbeat(cancelFFmpeg context.CancelFunc, opts ...func(*FFmpegHea
 		MaxStreamDuration: time.Duration(0),
 		// Set the default abnormal fast speed to the global const.
 		AbnormalFastSpeed: FFmpegAbnormalFastSpeed,
+		// Restart FFmpeg if it does not update for a while.
+		MaxNoUpdateTime: 10 * time.Second,
 	}
 	for _, opt := range opts {
 		opt(v)
@@ -1992,7 +1998,7 @@ func (v *FFmpegHeartbeat) Polling(ctx context.Context, stderr io.Reader) {
 			case <-time.After(3 * time.Second):
 			}
 
-			if v.update.Add(10 * time.Second).Before(time.Now()) {
+			if v.update.Add(v.MaxNoUpdateTime).Before(time.Now()) {
 				logger.Wf(ctx, "FFmpeg: not update for %v, restart it", time.Since(v.update))
 				v.cancelFFmpeg()
 				return
