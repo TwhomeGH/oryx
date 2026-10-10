@@ -78,6 +78,12 @@
       "failures": "Failures",
       "nextRetry": "Next Retry",
       "lastError": "Last Error",
+      "fallback": "Source Offline",
+      "failover": "Source Outage",
+      "failoverHint": "Behavior when the source goes offline",
+      "failoverHold": "Hold last frame (default)",
+      "failoverSlate": "Show fallback slate",
+      "switches": "Switches",
       "status": {
         "idle": "Idle",
         "running": "Forwarding",

@@ -207,7 +207,7 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
   }, [configs, setConfigs]);
 
   // Update the forward config to server.
-  const updateSecrets = React.useCallback((e, action, platform, stream, server, secret, enabled, custom, label, onSuccess) => {
+  const updateSecrets = React.useCallback((e, action, platform, stream, server, secret, enabled, custom, label, failover, onSuccess) => {
     e.preventDefault();
     if (!server) return alert(t('plat.com.addr'));
     if (custom && !label) return alert(t('plat.com.label'));
@@ -216,7 +216,7 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
       setSubmiting(true);
 
       axios.post('/terraform/v1/ffmpeg/forward/secret', {
-        action, platform, stream, server, secret, enabled: !!enabled, custom: !!custom, label,
+        action, platform, stream, server, secret, enabled: !!enabled, custom: !!custom, label, failover,
       }, {
         headers: Token.loadBearerHeader(),
       }).then(res => {
@@ -237,7 +237,7 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
     const rindex = configs.length ? Math.max(...configs.map(e => Number(e.index) || 0)) + 1 : 1;
     setConfigs([...configs, {
       platform: `forwarding-${Date.now().toString(36)}-${rid}`, enabled: false, index: String(rindex), allowCustom: false,
-      server: null, secret: null, custom: true, label: `${t('forward.defaultLabel')} ${rindex}`,
+      server: null, secret: null, custom: true, label: `${t('forward.defaultLabel')} ${rindex}`, failover: '',
     }]);
   }, [configs, env, t]);
 
@@ -333,6 +333,14 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
                   {!conf.custom && <Form.Text> * {t('plat.com.server3')} <a href={conf?.locale?.link} target='_blank' rel='noreferrer'>{conf?.locale?.link2}</a>, {t('plat.com.key2')}</Form.Text>}
                   <SecretInput value={conf.secret} onChange={(v) => updateConfigObject({ ...conf, secret: v })} />
                 </Form.Group>
+                <Form.Group className="mb-3">
+                  <Form.Label>{t('forward.failover')}</Form.Label>
+                  <Form.Text> * {t('forward.failoverHint')}</Form.Text>
+                  <Form.Select defaultValue={conf.failover || ''} onChange={(e) => updateConfigObject({ ...conf, failover: e.target.value })}>
+                    <option value=''>{t('forward.failoverHold')}</option>
+                    <option value='slate'>{t('forward.failoverSlate')}</option>
+                  </Form.Select>
+                </Form.Group>
                 {conf?.allowCustom && (
                   <Row>
                     <Col xs='auto'>
@@ -347,7 +355,7 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
                   type="submit"
                   disabled={submiting}
                   onClick={(e) => {
-                    updateSecrets(e, 'update', conf.platform, conf.stream, conf.server, conf.secret, !conf.enabled, conf.custom, conf.label, () => {
+                    updateSecrets(e, 'update', conf.platform, conf.stream, conf.server, conf.secret, !conf.enabled, conf.custom, conf.label, conf.failover || '', () => {
                       updateConfigObject({ ...conf, enabled: !conf.enabled });
                     });
                   }}
@@ -398,6 +406,9 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
                         <td>{file.custom ? (file.label ? '' : t('plat.com.custom')) : file.name} {file.label}</td>
                         <td>
                           <Badge bg={status.bg}>{status.label}</Badge>
+                          {file.fallback && <div className="mt-1">
+                            <Badge bg="dark">{t('forward.fallback')}</Badge>
+                          </div>}
                           {!!file.consecutiveFailures && <div className="small text-muted">
                             {t('forward.failures')}: {file.consecutiveFailures}
                           </div>}

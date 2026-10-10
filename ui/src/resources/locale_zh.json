@@ -684,6 +684,12 @@
       "failures": "连续失败",
       "nextRetry": "下次重试",
       "lastError": "最近错误",
+      "fallback": "來源中斷",
+      "failover": "來源中斷處理",
+      "failoverHint": "來源中斷時的處理方式",
+      "failoverHold": "凍結最後畫面（預設）",
+      "failoverSlate": "切換備用畫面",
+      "switches": "切换",
       "status": {
         "idle": "空闲",
         "running": "转播中",

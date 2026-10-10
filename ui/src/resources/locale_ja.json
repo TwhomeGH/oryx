@@ -423,6 +423,12 @@
       "failures": "連続失敗",
       "nextRetry": "次回再試行",
       "lastError": "最新エラー",
+      "fallback": "ソース断",
+      "failover": "ソース断時",
+      "failoverHint": "ソースがオフラインになったときの動作",
+      "failoverHold": "最後のフレームを保持（デフォルト）",
+      "failoverSlate": "代替映像を表示",
+      "switches": "切替",
       "status": {
         "idle": "待機中",
         "running": "転送中",
