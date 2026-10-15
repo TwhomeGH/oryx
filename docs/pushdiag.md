@@ -21,7 +21,7 @@ HLS 可檢查畫面、解析度及緩衝秒數，延遲通常較高，不能提�
 FLV 分析頁新增「分層診斷」卡片，與「即時預覽」並排（`.diag-grid.cols-3-2`，桌機 3:2；左欄＝即時預覽＋連線統計，右欄＝分層診斷＋健康診斷），方便一邊看畫面一邊看診斷；窄版（≤1000px）自動堆疊。卡片把整條 RTMP/FLV 資料路徑拆成數層，每層以「預期 → 實際」呈現，狀態徽章（正常／注意／異常／待測）一眼看出哪一層異常：
 
 | 層 | 預期 | 實際來源 |
-|---|---|---|
+| --- | --- | --- |
 | 來源端 (SRS API) | `publish active`，FLV 實測 ≈ `recv_30s` | SRS `/api/v1/streams/`：publish/clients/recv_30s/send_30s/video/audio |
 | HTTP-FLV 連線 | HTTP 200 + `video/x-flv` | Fetch 狀態、Content-Type、接收緩衝 |
 | FLV 容器 | 簽章 FLV、version 1、hasVideo=1 | 解析 FLV header |
@@ -65,8 +65,12 @@ WebRTC 分析的「掉幀率」來自 `inbound-rtp` 的 `framesDecoded` / `frame
 
 ## 修正與驗證
 
+GOP 以收到的 FLV 關鍵影格 DTS 差值計算，AVC sequence header／end tag 不計入關鍵影格。健康提示顯示最近最多 200 個有效間隔的最大值，不代表最新一次；影片資訊另列中位數、最近一次及最大值。5 秒為目前警告門檻，不代表符合推流端設定的 2 秒目標。「已收到影音封包」僅表示觀察到影音 tag，不保證播放、同步與 GOP 全部正常。
+
+2026-10-15 區網串流抽樣：解碼後的連續關鍵影格間隔為 2.474、2.454、2.472、2.474、2.456、2.436 秒，未重現畫面曾顯示的 5.9 秒。這只能說明採樣期間的行為，不能排除先前停頓、丟幀或診斷接收端落後。
+
 移除原本以原生 HLS 能力判斷後直接把 `.flv` 交給 video 的錯誤分支。FLV／RTC 播放 Promise 錯誤會被處理，RTC 失敗會關閉連線並恢復操作按鈕。HLS 停止、切換與失敗會清除播放器及逾時計時器。
 
-`ui/src/pages/PushDiag.test.js` 的 10 項測試涵蓋網址轉換、原生 HLS 優先、自動播放限制、HLS.js 致命錯誤清理、RTC 替代入口、FLV 播放失敗不停止分析、無播放能力時仍能解析跨網路區塊的原始 FLV 音訊 tag 與時間戳、來源選單會從 SRS stream API 填入並同步 app/stream，以及 WebRTC 掉幀率以滾動窗平滑（`computeFrameDropRates`）。在 ui 目錄執行 `npm test -- src/pages/PushDiag.test.js`。
+`ui/src/pages/PushDiag.test.js` 的 12 項測試涵蓋網址轉換、原生 HLS 優先、自動播放限制、HLS.js 致命錯誤清理、RTC 替代入口、FLV 播放失敗不停止分析、無播放能力時仍能解析跨網路區塊的原始 FLV 音訊 tag 與時間戳、來源選單會從 SRS stream API 填入並同步 app/stream，以及 WebRTC 掉幀率以滾動窗平滑（`computeFrameDropRates`）。另涵蓋 AVC 設定封包排除、短 GOP 保留及最大值提示語意。在 ui 目錄執行 `npm test -- src/pages/PushDiag.test.js`。
 
 本機瀏覽器已檢查頁籤與輸入錯誤提示；自動測試模擬原生 HLS 能力。尚未在實體 iPhone／Safari 與真實直播串流上驗證播放。

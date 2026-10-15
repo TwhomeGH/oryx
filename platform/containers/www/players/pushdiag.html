@@ -994,11 +994,13 @@ function handleTag(type, ts, data) {
       recordFirstVideoTag(codecId === 7 ? 'short' : ('codec' + codecId));
       row.detail = 'codec=' + codecId;
     }
-    if (frameType === 1) {
+    // AVC configuration/end tags also carry frameType=1, but are not pictures.
+    // Counting them would move the GOP boundary away from the encoded keyframe.
+    if (frameType === 1 && (codecId !== 7 || (data.length > 5 && data[1] === 1))) {
       state.keyframes++;
       if (state.lastKeyTs !== null) {
         var gap = ts - state.lastKeyTs;
-        if (gap >= 200 && gap < 600000) {
+        if (gap > 0 && gap < 600000) {
           state.keyGaps.push(gap);
           if (state.keyGaps.length > 200) state.keyGaps.shift();
         }
@@ -1235,7 +1237,8 @@ function renderVideoCard() {
   if (fps) rows.push(infoRow('量測 FPS', fps.toFixed(1)));
   rows.push(infoRow('關鍵影格', state.keyframes));
   if (state.keyGaps.length) {
-    rows.push(infoRow('GOP 平均', (median(state.keyGaps) / 1000).toFixed(2) + 's'));
+    rows.push(infoRow('GOP 中位數', (median(state.keyGaps) / 1000).toFixed(2) + 's'));
+    rows.push(infoRow('GOP 最近一次', (state.keyGaps[state.keyGaps.length - 1] / 1000).toFixed(2) + 's'));
     rows.push(infoRow('GOP 最大', (Math.max.apply(null, state.keyGaps) / 1000).toFixed(2) + 's'));
   }
   el.innerHTML = rows.join('');
@@ -1278,16 +1281,19 @@ function renderHealth() {
     if (state.videoTags === 0 && state.audioTags === 0) flags.push(badge('badge-err', '無媒體封包'));
     else if (videoOnly) flags.push(badge('badge-warn', '只有影片'));
     else if (audioOnly) flags.push(badge('badge-warn', '只有音訊'));
-    else flags.push(badge('badge-ok', '影音正常'));
+    else flags.push(badge('badge-ok', '已收到影音封包'));
   }
 
   if (elapsed > 10) {
     if (!state.keyframes) flags.push(badge('badge-err', '10 秒無關鍵影格'));
-    else {
+    else if (!state.keyGaps.length) {
+      flags.push(badge('badge-warn', 'GOP 樣本不足'));
+    } else {
       var maxGap = Math.max.apply(null, state.keyGaps);
-      if (maxGap > 10000) flags.push(badge('badge-err', 'GOP 最大間隔 ' + (maxGap / 1000).toFixed(1) + 's'));
-      else if (maxGap > 5000) flags.push(badge('badge-warn', 'GOP 間隔偏大 ' + (maxGap / 1000).toFixed(1) + 's'));
-      else flags.push(badge('badge-ok', 'GOP 間隔正常'));
+      var gopWindow = '最近 ' + state.keyGaps.length + ' 個 GOP 最大 ';
+      if (maxGap > 10000) flags.push(badge('badge-err', gopWindow + (maxGap / 1000).toFixed(1) + 's'));
+      else if (maxGap > 5000) flags.push(badge('badge-warn', gopWindow + (maxGap / 1000).toFixed(1) + 's（偏大）'));
+      else flags.push(badge('badge-ok', gopWindow + (maxGap / 1000).toFixed(1) + 's（≤5s）'));
     }
 
     var kbps = state.bytes * 8 / 1024 / Math.max(elapsed, 0.001);

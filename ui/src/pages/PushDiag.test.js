@@ -25,6 +25,34 @@ function loadPage() {
   w.eval(script.textContent);
 }
 
+describe('PushDiag GOP diagnostics', () => {
+  it('excludes AVC configuration tags and keeps short real GOP intervals', () => {
+    loadPage();
+    w.handleTag(9, 0, new w.Uint8Array([0x17, 1, 0, 0, 0, 0, 0, 0, 1, 0x65]));
+    w.handleTag(9, 1500, new w.Uint8Array([0x17, 0, 0, 0, 0]));
+    w.handleTag(9, 2000, new w.Uint8Array([0x17, 1, 0, 0, 0, 0, 0, 0, 1, 0x65]));
+    w.handleTag(9, 2100, new w.Uint8Array([0x17, 1, 0, 0, 0, 0, 0, 0, 1, 0x65]));
+    expect(w.state.keyframes).toBe(3);
+    expect(Array.from(w.state.keyGaps)).toEqual([2000, 100]);
+  });
+
+  it('identifies retained maximum rather than claiming current GOP or overall health', () => {
+    loadPage();
+    w.state.startTime = w.performance.now() - 15000;
+    w.state.videoTags = w.state.audioTags = 10;
+    w.state.keyframes = 3;
+    w.state.keyGaps = [5900, 2450];
+    w.renderHealth();
+    const text = w.document.getElementById('healthFlags').textContent;
+    expect(text).toContain('最近 2 個 GOP 最大 5.9s');
+    expect(text).toContain('已收到影音封包');
+    expect(text).not.toContain('影音正常');
+    w.state.keyGaps = [];
+    w.renderHealth();
+    expect(w.document.getElementById('healthFlags').textContent).toContain('GOP 樣本不足');
+  });
+});
+
 describe('PushDiag HLS compatibility', () => {
   it('converts only the stream path while preserving authentication parameters', () => {
     expect(w.PushDiagHls.derive('https://example.test/live/key.flv?token=a%2Bb')).toBe('https://example.test/live/key.m3u8?token=a%2Bb');
