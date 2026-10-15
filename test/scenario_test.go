@@ -1794,6 +1794,19 @@ func testForwardKeepalive(t *testing.T, failover string, expectSlate bool) {
 		r1 = errors.Errorf("forward not live, status=%v", forwardStatus())
 		return
 	}
+	// The local output metrics must be reported while running.
+	if !waitStatus("metrics", func(m map[string]interface{}) bool {
+		metrics, ok := m["metrics"].(map[string]interface{})
+		if !ok {
+			return false
+		}
+		frame, _ := metrics["frame"].(float64)
+		sec, _ := metrics["mediaSeconds"].(float64)
+		return frame > 0 && sec > 0
+	}) {
+		r1 = errors.Errorf("missing forward metrics, status=%v", forwardStatus())
+		return
+	}
 	// Record the restart count once the fanout is running, to assert the outage causes no restart.
 	baseRestart := forwardStatus()["restartCount"].(float64)
 

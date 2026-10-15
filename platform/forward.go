@@ -257,6 +257,9 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 					}
 					elem["restartCount"] = status.RestartCount
 					elem["consecutiveFailures"] = status.ConsecutiveFailures
+					if status.Metrics != nil {
+						elem["metrics"] = status.Metrics
+					}
 
 					if status.PID > 0 {
 						elem["frame"] = map[string]string{
@@ -468,6 +471,11 @@ type ForwardTask struct {
 	PID int32 `json:"pid"`
 	// FFmpeg last frame.
 	frame string
+	// The parsed metrics of the last fanout FFmpeg progress line.
+	metrics forwardProgress
+	// The first valid progress sample of the current fanout run, to measure media-clock drift.
+	metricsFirstSec float64
+	metricsFirstAt  time.Time
 	// The last update time.
 	update *time.Time
 	// The task start time.
@@ -516,6 +524,7 @@ type ForwardTaskStatus struct {
 	NextRetryAt         string
 	RestartCount        int
 	ConsecutiveFailures int
+	Metrics             *ForwardMetrics
 }
 
 func (v *ForwardTask) String() string {
@@ -597,8 +606,18 @@ func (v *ForwardTask) updateFrame(frame string) {
 
 	v.frame = strings.TrimSpace(frame)
 
-	var now = time.Now()
+	now := time.Now()
 	v.update = &now
+
+	// Parse the progress line into metrics. Unparsable lines (e.g. error logs) keep the last
+	// valid progress, so the metrics never regress to zero on a transient log line.
+	if progress, ok := parseFFmpegProgress(v.frame); ok {
+		progress.at = now
+		if !v.metrics.valid {
+			v.metricsFirstSec, v.metricsFirstAt = progress.mediaSec, now
+		}
+		v.metrics = progress
+	}
 }
 
 func (v *ForwardTask) queryStatus() ForwardTaskStatus {
@@ -633,16 +652,51 @@ func (v *ForwardTask) queryStatus() ForwardTaskStatus {
 	if v.NextRetryAt != nil {
 		status.NextRetryAt = v.NextRetryAt.Format(time.RFC3339)
 	}
+	var ps *ProgramStatus
 	if v.forwardWorker != nil && v.forwardWorker.programWorker != nil && v.sourceApp != "" {
 		if bus := v.forwardWorker.programWorker.GetProgram(v.sourceApp, v.sourceStream); bus != nil {
-			ps := bus.queryStatus()
-			status.ProgramMode = ps.Mode
-			status.ProgramFailover = ps.Failover
-			status.ProgramSourceActive = ps.SourceActive
-			status.ProgramSwitches = ps.Switches
+			p := bus.queryStatus()
+			ps = &p
+			status.ProgramMode, status.ProgramFailover = ps.Mode, ps.Failover
+			status.ProgramSourceActive, status.ProgramSwitches = ps.SourceActive, ps.Switches
 		}
 	}
+	status.Metrics = v.queryMetrics(ps)
+
 	return status
+}
+
+// queryMetrics builds the local output-progress metrics. It must be called with v.lock held.
+func (v *ForwardTask) queryMetrics(ps *ProgramStatus) *ForwardMetrics {
+	if !v.metrics.valid {
+		return nil
+	}
+
+	m := &ForwardMetrics{
+		Frame:           v.metrics.frame,
+		OutputFPS:       v.metrics.fps,
+		Speed:           v.metrics.speed,
+		BitrateKbps:     v.metrics.bitrateKbps,
+		SizeBytes:       v.metrics.sizeBytes,
+		MediaTime:       v.metrics.mediaTime,
+		MediaSecond:     v.metrics.mediaSec,
+		NoOutputSeconds: time.Since(v.metrics.at).Seconds(),
+	}
+	if v.metrics.mediaSec > 0 && v.metrics.frame > 0 {
+		m.AvgFPS = float64(v.metrics.frame) / v.metrics.mediaSec
+	}
+	// The media clock ahead of the wall clock since the first sample of this run. A sustained
+	// positive drift indicates timestamp jumps (e.g. after a relay reconnect); ~0 means the
+	// output advances at realtime.
+	if !v.metricsFirstAt.IsZero() {
+		m.MediaClockDrift = (v.metrics.mediaSec - v.metricsFirstSec) - v.metrics.at.Sub(v.metricsFirstAt).Seconds()
+	}
+	if ps != nil {
+		m.RelayReconnects = ps.Reconnects
+		m.LastReconnectAt = ps.LastReconnectAt
+		m.ReconnectReason = ps.ReconnectReason
+	}
+	return m
 }
 
 func (v *ForwardTask) markWaitingInput() {
@@ -659,6 +713,8 @@ func (v *ForwardTask) markRunning(pid int32, inputURL, inputStreamURL, outputURL
 	v.Input, v.inputStreamURL, v.Output = inputURL, inputStreamURL, outputURL
 	v.State = forwardStateRunning
 	v.NextRetryAt = nil
+	// Reset the output metrics of the previous run.
+	v.metrics, v.metricsFirstSec, v.metricsFirstAt = forwardProgress{}, 0, time.Time{}
 }
 
 func (v *ForwardTask) markFailure(err error) time.Duration {

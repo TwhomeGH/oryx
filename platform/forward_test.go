@@ -82,3 +82,54 @@ func TestForward_TaskHealthState(t *testing.T) {
 		t.Fatalf("health reset failed %+v", status)
 	}
 }
+
+func TestForward_ProgressMetrics(t *testing.T) {
+	// A real fanout progress line (FrameLogs normalizes "= " to "=").
+	line := "frame=53731 fps=60 q=-1.0 size=444182KiB time=00:18:33.45 bitrate=3268.0kbits/s speed=1.24x"
+
+	progress, ok := parseFFmpegProgress(line)
+	if !ok {
+		t.Fatalf("parse failed for %v", line)
+	}
+	if progress.frame != 53731 || progress.fps != 60 || progress.speed != 1.24 {
+		t.Fatalf("invalid progress %+v", progress)
+	}
+	if progress.mediaTime != "00:18:33.45" || progress.mediaSec != 1113.45 {
+		t.Fatalf("invalid media time %+v", progress)
+	}
+	if progress.sizeBytes != 444182*1024 || progress.bitrateKbps != 3268.0 {
+		t.Fatalf("invalid size/bitrate %+v", progress)
+	}
+
+	// The raw line may still carry spaces after '='.
+	spaced := "frame= 180 fps= 90 q=-1.0 size=   1024kB time=00:00:03.00 bitrate=2796.2kbits/s speed= 1.5x"
+	if p, ok := parseFFmpegProgress(spaced); !ok || p.frame != 180 || p.speed != 1.5 || p.sizeBytes != 1024*1000 {
+		t.Fatalf("invalid spaced progress %+v, ok=%v", p, ok)
+	}
+
+	// Unavailable values must not look like real zero.
+	for _, bad := range []string{"", "fps=N/A time=N/A speed=N/A", "Exiting normally, received signal 2."} {
+		if _, ok := parseFFmpegProgress(bad); ok {
+			t.Fatalf("expected unparsable: %q", bad)
+		}
+	}
+
+	// updateFrame populates the status metrics, and an unparsable line keeps the last value.
+	task := &ForwardTask{config: &ForwardConfigure{Enabled: true}}
+	now := time.Now()
+	task.starttime = &now
+	task.updateFrame(line)
+
+	status := task.queryStatus()
+	if status.Metrics == nil {
+		t.Fatalf("missing metrics")
+	}
+	if status.Metrics.OutputFPS != 60 || status.Metrics.Speed != 1.24 || status.Metrics.AvgFPS == 0 {
+		t.Fatalf("invalid metrics %+v", status.Metrics)
+	}
+
+	task.updateFrame("Exiting normally, received signal 2.")
+	if m := task.queryStatus().Metrics; m == nil || m.Speed != 1.24 {
+		t.Fatalf("metrics must survive an unparsable line: %+v", m)
+	}
+}

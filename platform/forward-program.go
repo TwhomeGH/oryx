@@ -4,9 +4,9 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -193,6 +193,11 @@ type ProgramBus struct {
 	sourceActive bool
 	lastSwitchAt *time.Time
 	lastError    string
+
+	// Source reconnect evidence from the relay FFmpeg stderr.
+	reconnects      int
+	lastReconnectAt *time.Time
+	reconnectReason string
 }
 
 // ProgramStatus is a snapshot of a program bus for the API.
@@ -206,6 +211,10 @@ type ProgramStatus struct {
 	SourceActive bool
 	LastSwitchAt string
 	LastError    string
+
+	Reconnects      int
+	LastReconnectAt string
+	ReconnectReason string
 }
 
 func (v *ProgramBus) String() string {
@@ -279,19 +288,43 @@ func (v *ProgramBus) setLastError(err error) {
 	v.lastError = err.Error()
 }
 
+// onRelayLog records the source reconnect evidence from the relay FFmpeg stderr, for example:
+//
+//	[http @ ...] Will reconnect at 408673 in 0 second(s), error=End of file.
+//	[http @ ...] HTTP error 502 Bad Gateway
+//
+// Each "Will reconnect" is one reconnect attempt against the source.
+func (v *ProgramBus) onRelayLog(line string) {
+	if !strings.Contains(line, "Will reconnect") && !strings.Contains(line, "HTTP error") {
+		return
+	}
+
+	v.lock.Lock()
+	defer v.lock.Unlock()
+
+	if strings.Contains(line, "Will reconnect") {
+		v.reconnects++
+	}
+	now := time.Now()
+	v.lastReconnectAt = &now
+	v.reconnectReason = strings.TrimSpace(line)
+}
+
 func (v *ProgramBus) queryStatus() ProgramStatus {
 	v.lock.Lock()
 	defer v.lock.Unlock()
 
 	status := ProgramStatus{
-		Source:       fmt.Sprintf("%v/%v", v.sourceApp, v.sourceStream),
-		Program:      fmt.Sprintf("%v/%v", v.programApp, v.programStream),
-		Mode:         v.mode,
-		Failover:     v.failover,
-		PID:          v.pid,
-		Switches:     v.switches,
-		SourceActive: v.sourceActive,
-		LastError:    v.lastError,
+		Source:          fmt.Sprintf("%v/%v", v.sourceApp, v.sourceStream),
+		Program:         fmt.Sprintf("%v/%v", v.programApp, v.programStream),
+		Mode:            v.mode,
+		Failover:        v.failover,
+		PID:             v.pid,
+		Switches:        v.switches,
+		SourceActive:    v.sourceActive,
+		LastError:       v.lastError,
+		Reconnects:      v.reconnects,
+		ReconnectReason: v.reconnectReason,
 	}
 	if status.Mode == "" {
 		status.Mode = programModeIdle
@@ -301,6 +334,9 @@ func (v *ProgramBus) queryStatus() ProgramStatus {
 	}
 	if v.lastSwitchAt != nil {
 		status.LastSwitchAt = v.lastSwitchAt.Format(time.RFC3339)
+	}
+	if v.lastReconnectAt != nil {
+		status.LastReconnectAt = v.lastReconnectAt.Format(time.RFC3339)
 	}
 	return status
 }
@@ -486,9 +522,14 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 	v.setPID(int32(cmd.Process.Pid))
 	defer v.setPID(0)
 
-	// Drain the stderr, otherwise FFmpeg blocks when the pipe buffer is full.
+	// Drain the stderr (otherwise FFmpeg blocks when the pipe buffer is full) and count the
+	// reconnect attempts, the source-side evidence of a flaky upstream.
 	go func() {
-		_, _ = io.Copy(io.Discard, stderr)
+		scanner := bufio.NewScanner(stderr)
+		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+		for scanner.Scan() {
+			v.onRelayLog(scanner.Text())
+		}
 	}()
 
 	err = cmd.Wait()
