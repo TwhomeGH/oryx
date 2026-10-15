@@ -1841,10 +1841,14 @@ func testForwardKeepalive(t *testing.T, failover string, expectSlate bool) {
 		r2 = errors.Errorf("forward not fallback, status=%v", forwardStatus())
 		return
 	}
-	// The fanout must not have restarted, which proves the downstream never dropped.
-	if m := forwardStatus(); m == nil || m["restartCount"].(float64) != baseRestart {
-		r3 = errors.Errorf("downstream restarted during outage, status=%v", m)
-		return
+	// In hold mode the fanout must not have restarted during the outage (it freezes on the last
+	// frame), which proves the downstream never dropped. Slate mode restarts the fanout to show
+	// the slate (FFmpeg copy cannot switch inputs), so this is asserted only for hold.
+	if !expectSlate {
+		if m := forwardStatus(); m == nil || m["restartCount"].(float64) != baseRestart {
+			r3 = errors.Errorf("downstream restarted during outage, status=%v", m)
+			return
+		}
 	}
 
 	// Bring the source back, the program bus must switch back to live.
@@ -1853,6 +1857,20 @@ func testForwardKeepalive(t *testing.T, failover string, expectSlate bool) {
 		return m["status"] == "running" && m["programMode"] == "live" && m["fallback"] == false
 	}) {
 		r4 = errors.Errorf("forward not recovered, status=%v", forwardStatus())
+		return
+	}
+	// The output must actually resume (frames flow), not stay frozen on the last frame. This
+	// covers the bug where FFmpeg's HTTP-FLV reconnect never recovers after the stream returns.
+	if !waitStatus("output resumed", func(m map[string]interface{}) bool {
+		metrics, ok := m["metrics"].(map[string]interface{})
+		if !ok {
+			return false
+		}
+		frame, _ := metrics["frame"].(float64)
+		noOutput, _ := metrics["noOutputSeconds"].(float64)
+		return frame > 0 && noOutput < 3
+	}) {
+		r4 = errors.Errorf("forward did not resume output, status=%v", forwardStatus())
 		return
 	}
 }

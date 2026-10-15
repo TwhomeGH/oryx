@@ -114,3 +114,18 @@ fanout 改讀 HTTP-FLV+reconnect（使 program 可切換 publisher 而下游不�
 - 平台代理在串流未發布時可能回 502，故 reconnect 需含 `5xx`。
 - slate 固定 1280x720；來源解析度不同時切換瞬間下游可能觸發解碼器重建。
 - 自動來源（`config.Stream` 空）目前「首次綁定後固定」，尚未跟隨最新來源。
+
+## 7. 恢復：為何要重啟 fanout（實測修正）
+
+隔離實驗發現：**FFmpeg 的 HTTP-FLV `-reconnect` 在串流被取消發布再重新發布後，不會恢復**
+——consumer 會卡在失敗的重連迴圈（`Will reconnect … error=Input/output error`），即使直連
+SRS:8080 也一樣。因此「靠 relay 的 HTTP-FLV 重連撐住 program」無法撐過恢復階段，fanout 也
+不會自動讀到換 publisher 後的新內容（曾造成恢復後永久凍結）。
+
+修正：
+- `runHold`：來源恢復（sourceActive false→true）時**重啟 relay**，讓 program 乾淨地重新發布。
+- `doForward`：偵測到 **program 換 publisher**（`programSwitches` 變動）時**重啟 fanout**，
+  以全新連線讀到恢復後的 program。
+
+代價：恢復時下游會**重連一次**；中斷期間下游仍**不斷線**（凍結最後一幀）。
+整合測試 `TestScenario_WithStream_PublishRtmpForwardKeepalive` 已加入「輸出必須恢復」斷言。

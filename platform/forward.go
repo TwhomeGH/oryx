@@ -1026,6 +1026,16 @@ func (v *ForwardTask) programSource() (string, string) {
 	return v.sourceApp, v.sourceStream
 }
 
+// programBus returns the program bus of the bound source, or nil.
+func (v *ForwardTask) programBus() *ProgramBus {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	if v.forwardWorker == nil || v.forwardWorker.programWorker == nil || v.sourceApp == "" {
+		return nil
+	}
+	return v.forwardWorker.programWorker.GetProgram(v.sourceApp, v.sourceStream)
+}
+
 // waitStreamReady polls the HTTP-FLV URL until it returns 200, or the timeout is reached.
 func waitStreamReady(ctx context.Context, url string, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
@@ -1246,6 +1256,30 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 			}
 		}
 	}()
+
+	// FFmpeg's HTTP-FLV reconnect does not recover a consumer after the program is republished
+	// (verified: it stays in a failing reconnect loop). So restart the fanout when the program
+	// publisher changes, e.g. the relay is restarted when the source recovers. The downstream
+	// reconnects once, instead of staying frozen forever.
+	if bus := v.programBus(); bus != nil {
+		startSwitches := bus.queryStatus().Switches
+		go func() {
+			ticker := time.NewTicker(2 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					if bus.queryStatus().Switches != startSwitches {
+						logger.Tf(ctx, "forward: program publisher changed, restart fanout, platform=%v", v.Platform)
+						cancel()
+						return
+					}
+				}
+			}
+		}()
+	}
 
 	// Process terminated, or user cancel the process.
 	select {

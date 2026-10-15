@@ -398,14 +398,29 @@ func (v *ProgramBus) runHold(ctx context.Context) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
+	wasActive := true
 	for {
+		active := v.isSourceActive(ctx)
+		v.setSourceActive(active)
+
+		// FFmpeg's HTTP-FLV reconnect does not reliably re-publish the program output after the
+		// source returns (the program stays un-published and the fanout never resumes), so
+		// restart the relay on recovery (false->true) for a clean re-publish. The fanout reads
+		// the program via HTTP-FLV with reconnect, so it survives this publisher change.
+		if active && !wasActive {
+			logger.Tf(ctx, "forward program source recovered, restart relay")
+			if err := v.switchPublisher(ctx, programModeLive); err != nil {
+				logger.Wf(ctx, "forward program restart relay err %+v", err)
+			}
+		}
+		wasActive = active
+
 		select {
 		case <-ctx.Done():
 			v.stopPublisher()
 			logger.Tf(ctx, "forward program bus done, %v", v.String())
 			return
 		case <-ticker.C:
-			v.setSourceActive(v.isSourceActive(ctx))
 		}
 	}
 }
