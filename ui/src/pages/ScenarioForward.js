@@ -430,7 +430,7 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
                             {file.lastErrorAt?.format('YYYY-MM-DD HH:mm:ss')}
                           </div>}
                         </td>
-                        <td style={{ maxWidth: 360, wordBreak: 'break-word' }}><ForwardProgress log={file.frame?.log} /></td>
+                        <td style={{ maxWidth: 360, wordBreak: 'break-word' }}><ForwardProgress log={file.frame?.log} metrics={file.metrics} events={file.events} logs={file.logs} /></td>
                       </tr>;
                     })
                   }

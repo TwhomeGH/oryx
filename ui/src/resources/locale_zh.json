@@ -699,6 +699,12 @@
       },
       "progress": {
         "fps": "FFmpeg 累計處理 FPS",
+        "avgFps": "平均輸出 FPS",
+        "noOutput": "無輸出時間",
+        "drift": "媒體時鐘漂移",
+        "reconnects": "來源重連次數",
+        "events": "診斷時間線",
+        "logs": "近期日誌",
         "speed": "累計處理速度",
         "time": "輸出媒體時間",
         "raw": "展開原始日誌",

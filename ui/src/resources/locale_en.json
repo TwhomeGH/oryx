@@ -93,6 +93,12 @@
       },
       "progress": {
         "fps": "FFmpeg cumulative processing FPS",
+        "avgFps": "Average output FPS",
+        "noOutput": "No-output time",
+        "drift": "Media clock drift",
+        "reconnects": "Source reconnects",
+        "events": "Diagnostics timeline",
+        "logs": "Recent logs",
         "speed": "Cumulative processing speed",
         "time": "Output media time",
         "raw": "Show raw log",
