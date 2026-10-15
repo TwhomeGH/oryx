@@ -260,6 +260,12 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 					if status.Metrics != nil {
 						elem["metrics"] = status.Metrics
 					}
+					if len(status.Events) > 0 {
+						elem["events"] = status.Events
+					}
+					if len(status.Logs) > 0 {
+						elem["logs"] = status.Logs
+					}
 
 					if status.PID > 0 {
 						elem["frame"] = map[string]string{
@@ -476,6 +482,9 @@ type ForwardTask struct {
 	// The first valid progress sample of the current fanout run, to measure media-clock drift.
 	metricsFirstSec float64
 	metricsFirstAt  time.Time
+	// The diagnostics timeline and recent FFmpeg logs (bounded rings).
+	logs   []string
+	events []ForwardEvent
 	// The last update time.
 	update *time.Time
 	// The task start time.
@@ -525,7 +534,19 @@ type ForwardTaskStatus struct {
 	RestartCount        int
 	ConsecutiveFailures int
 	Metrics             *ForwardMetrics
+	Events              []ForwardEvent
+	Logs                []string
 }
+
+// ForwardEvent is one entry of the diagnostics timeline (task or program).
+type ForwardEvent struct {
+	At     string `json:"at"`
+	Name   string `json:"name"`
+	Detail string `json:"detail,omitempty"`
+}
+
+// forwardDiagRingSize bounds the retained diagnostics per forward target.
+const forwardDiagRingSize = 50
 
 func (v *ForwardTask) String() string {
 	return fmt.Sprintf("uuid=%v, platform=%v, input=%v, output=%v, pid=%v, frame=%vB, config is %v",
@@ -662,6 +683,12 @@ func (v *ForwardTask) queryStatus() ForwardTaskStatus {
 		}
 	}
 	status.Metrics = v.queryMetrics(ps)
+	status.Logs = append([]string(nil), v.logs...)
+	status.Events = append([]ForwardEvent(nil), v.events...)
+	if ps != nil && len(ps.Events) > 0 {
+		status.Events = append(status.Events, ps.Events...)
+		sort.Slice(status.Events, func(i, j int) bool { return status.Events[i].At < status.Events[j].At })
+	}
 
 	return status
 }
@@ -699,6 +726,56 @@ func (v *ForwardTask) queryMetrics(ps *ProgramStatus) *ForwardMetrics {
 	return m
 }
 
+// forwardDiagnosticMarkers select the FFmpeg stderr lines worth retaining for diagnostics; the
+// banner and routine lines are dropped to keep the API payload small.
+var forwardDiagnosticMarkers = []string{
+	"Will reconnect", "HTTP error", "Exiting", "Connection refused",
+	"Input/output error", "Server returned", "Broken pipe", "No such file",
+	"Invalid data", "error", "Error",
+}
+
+func isForwardDiagnosticLine(line string) bool {
+	for _, m := range forwardDiagnosticMarkers {
+		if strings.Contains(line, m) {
+			return true
+		}
+	}
+	return false
+}
+
+func (v *ForwardTask) addLogLocked(line string) {
+	line = strings.TrimSpace(line)
+	if !isForwardDiagnosticLine(line) {
+		return
+	}
+	if len(line) > 300 {
+		line = line[:300]
+	}
+	v.logs = append(v.logs, fmt.Sprintf("%v %v", time.Now().Format("15:04:05"), line))
+	if len(v.logs) > forwardDiagRingSize {
+		v.logs = v.logs[len(v.logs)-forwardDiagRingSize:]
+	}
+}
+
+func (v *ForwardTask) addLog(line string) {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	v.addLogLocked(line)
+}
+
+func (v *ForwardTask) addEventLocked(name, detail string) {
+	v.events = append(v.events, ForwardEvent{At: time.Now().Format(time.RFC3339), Name: name, Detail: detail})
+	if len(v.events) > forwardDiagRingSize {
+		v.events = v.events[len(v.events)-forwardDiagRingSize:]
+	}
+}
+
+func (v *ForwardTask) addEvent(name, detail string) {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	v.addEventLocked(name, detail)
+}
+
 func (v *ForwardTask) markWaitingInput() {
 	v.lock.Lock()
 	defer v.lock.Unlock()
@@ -715,6 +792,7 @@ func (v *ForwardTask) markRunning(pid int32, inputURL, inputStreamURL, outputURL
 	v.NextRetryAt = nil
 	// Reset the output metrics of the previous run.
 	v.metrics, v.metricsFirstSec, v.metricsFirstAt = forwardProgress{}, 0, time.Time{}
+	v.addEventLocked("start", outputURL)
 }
 
 func (v *ForwardTask) markFailure(err error) time.Duration {
@@ -726,6 +804,7 @@ func (v *ForwardTask) markFailure(err error) time.Duration {
 	now := time.Now()
 	v.LastError = err.Error()
 	v.LastErrorAt = &now
+	v.addEventLocked("failure", err.Error())
 	delay := forwardRetryDelay(v.ConsecutiveFailures)
 	next := now.Add(delay)
 	v.NextRetryAt = &next
@@ -740,6 +819,9 @@ func (v *ForwardTask) markFailure(err error) time.Duration {
 func (v *ForwardTask) markHealthy() {
 	v.lock.Lock()
 	defer v.lock.Unlock()
+	if v.ConsecutiveFailures > 0 {
+		v.addEventLocked("recovered", "")
+	}
 	v.ConsecutiveFailures = 0
 	v.LastError = ""
 	v.LastErrorAt = nil
@@ -1150,6 +1232,7 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 			return
 		case <-heartbeat.firstReadyCtx.Done():
 			v.firstReadyTime = &heartbeat.firstReadyTime
+			v.addEvent("ready", "")
 		}
 
 		for {
@@ -1158,6 +1241,8 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 				return
 			case frame := <-heartbeat.FrameLogs:
 				v.updateFrame(frame)
+			case line := <-heartbeat.ExtraLogs:
+				v.addLog(line)
 			}
 		}
 	}()

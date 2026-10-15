@@ -133,3 +133,28 @@ func TestForward_ProgressMetrics(t *testing.T) {
 		t.Fatalf("metrics must survive an unparsable line: %+v", m)
 	}
 }
+
+func TestForward_Diagnostics(t *testing.T) {
+	task := &ForwardTask{config: &ForwardConfigure{Enabled: true}}
+	task.markRunning(1, "live/src", "live/__forward_live_src", "rtmp://localhost/live/out")
+	task.markFailure(errors.Errorf("boom"))
+	task.markHealthy()
+
+	status := task.queryStatus()
+	var names []string
+	for _, e := range status.Events {
+		names = append(names, e.Name)
+	}
+	if len(names) != 3 || names[0] != "start" || names[1] != "failure" || names[2] != "recovered" {
+		t.Fatalf("invalid events %v", names)
+	}
+
+	// Recent logs keep only diagnostic lines, bounded and timestamped.
+	task.addLog("ffmpeg version N-127259 ...") // banner noise is dropped
+	for i := 0; i < forwardDiagRingSize+10; i++ {
+		task.addLog("HTTP error 502 Bad Gateway")
+	}
+	if len(task.queryStatus().Logs) != forwardDiagRingSize {
+		t.Fatalf("logs not bounded: %v", len(task.queryStatus().Logs))
+	}
+}

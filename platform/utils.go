@@ -1916,6 +1916,9 @@ type FFmpegHeartbeat struct {
 
 	// FFmpeg frame logs.
 	FrameLogs chan string
+	// FFmpeg extra logs (non-progress lines: errors, reconnect, exit), forwarded to
+	// real-time consumers without blocking the reader.
+	ExtraLogs chan string
 	// Whether FFmpeg is EOF polling.
 	PollingCtx context.Context
 	// To cancel the FFmpeg.
@@ -1939,6 +1942,7 @@ func NewFFmpegHeartbeat(cancelFFmpeg context.CancelFunc, opts ...func(*FFmpegHea
 		starttime:    time.Now(),
 		update:       time.Now(),
 		FrameLogs:    make(chan string, 1),
+		ExtraLogs:    make(chan string, 1),
 		cancelFFmpeg: cancelFFmpeg,
 		// Set the default duration to 0, no timeout duration.
 		MaxStreamDuration: time.Duration(0),
@@ -1962,6 +1966,16 @@ func (v *FFmpegHeartbeat) Parse(u *url.URL) {
 	}
 	if qv := q.Get("abnormal-fast-speed"); qv != "" {
 		v.AbnormalFastSpeed, _ = strconv.ParseFloat(qv, 64)
+	}
+}
+
+// emitExtraLog stores an extra (non-progress) FFmpeg log line and forwards it to real-time
+// consumers without blocking the stderr reader.
+func (v *FFmpegHeartbeat) emitExtraLog(line string) {
+	v.extraLogs = append(v.extraLogs, line)
+	select {
+	case v.ExtraLogs <- line:
+	default:
 	}
 }
 
@@ -2026,11 +2040,11 @@ func (v *FFmpegHeartbeat) Polling(ctx context.Context, stderr io.Reader) {
 
 		// Handle the extra logs.
 		if !strings.Contains(line, "size=") && !strings.Contains(line, "time=") {
-			v.extraLogs = append(v.extraLogs, line)
+			v.emitExtraLog(line)
 			return
 		}
 		if strings.Contains(line, "time=N/A") || strings.Contains(line, "speed=N/A") {
-			v.extraLogs = append(v.extraLogs, line)
+			v.emitExtraLog(line)
 			return
 		}
 

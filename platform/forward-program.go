@@ -198,6 +198,9 @@ type ProgramBus struct {
 	reconnects      int
 	lastReconnectAt *time.Time
 	reconnectReason string
+
+	// The program diagnostics timeline (bounded ring).
+	events []ForwardEvent
 }
 
 // ProgramStatus is a snapshot of a program bus for the API.
@@ -215,6 +218,8 @@ type ProgramStatus struct {
 	Reconnects      int
 	LastReconnectAt string
 	ReconnectReason string
+
+	Events []ForwardEvent
 }
 
 func (v *ProgramBus) String() string {
@@ -293,10 +298,19 @@ func (v *ProgramBus) setLastError(err error) {
 //	[http @ ...] Will reconnect at 408673 in 0 second(s), error=End of file.
 //	[http @ ...] HTTP error 502 Bad Gateway
 //
-// Each "Will reconnect" is one reconnect attempt against the source.
+// Each "Will reconnect" is one reconnect attempt against the source. The buffered stderr line
+// may contain a long progress blob, so the reason is trimmed to the [http @ ...] marker.
 func (v *ProgramBus) onRelayLog(line string) {
 	if !strings.Contains(line, "Will reconnect") && !strings.Contains(line, "HTTP error") {
 		return
+	}
+
+	reason := strings.TrimSpace(line)
+	if i := strings.Index(reason, "[http @"); i >= 0 {
+		reason = reason[i:]
+	}
+	if len(reason) > 200 {
+		reason = reason[:200]
 	}
 
 	v.lock.Lock()
@@ -304,10 +318,18 @@ func (v *ProgramBus) onRelayLog(line string) {
 
 	if strings.Contains(line, "Will reconnect") {
 		v.reconnects++
+		v.addEventLocked("program-reconnect", reason)
 	}
 	now := time.Now()
 	v.lastReconnectAt = &now
-	v.reconnectReason = strings.TrimSpace(line)
+	v.reconnectReason = reason
+}
+
+func (v *ProgramBus) addEventLocked(name, detail string) {
+	v.events = append(v.events, ForwardEvent{At: time.Now().Format(time.RFC3339), Name: name, Detail: detail})
+	if len(v.events) > forwardDiagRingSize {
+		v.events = v.events[len(v.events)-forwardDiagRingSize:]
+	}
 }
 
 func (v *ProgramBus) queryStatus() ProgramStatus {
@@ -338,6 +360,7 @@ func (v *ProgramBus) queryStatus() ProgramStatus {
 	if v.lastReconnectAt != nil {
 		status.LastReconnectAt = v.lastReconnectAt.Format(time.RFC3339)
 	}
+	status.Events = append([]ForwardEvent(nil), v.events...)
 	return status
 }
 
@@ -454,6 +477,7 @@ func (v *ProgramBus) switchPublisher(parent context.Context, mode string) error 
 	now := time.Now()
 	v.lastSwitchAt = &now
 	switches := v.switches
+	v.addEventLocked("program-switch", mode)
 	v.lock.Unlock()
 
 	logger.Tf(parent, "forward program switch, program=%v/%v, mode=%v, switches=%v",

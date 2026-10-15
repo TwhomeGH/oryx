@@ -1807,6 +1807,25 @@ func testForwardKeepalive(t *testing.T, failover string, expectSlate bool) {
 		r1 = errors.Errorf("missing forward metrics, status=%v", forwardStatus())
 		return
 	}
+	// The diagnostics timeline must record the run start and the first output.
+	if !waitStatus("events", func(m map[string]interface{}) bool {
+		evs, ok := m["events"].([]interface{})
+		if !ok {
+			return false
+		}
+		names := map[string]bool{}
+		for _, e := range evs {
+			if em, ok := e.(map[string]interface{}); ok {
+				if name, ok := em["name"].(string); ok {
+					names[name] = true
+				}
+			}
+		}
+		return names["start"] && names["ready"]
+	}) {
+		r1 = errors.Errorf("missing forward events, status=%v", forwardStatus())
+		return
+	}
 	// Record the restart count once the fanout is running, to assert the outage causes no restart.
 	baseRestart := forwardStatus()["restartCount"].(float64)
 
