@@ -90,6 +90,21 @@
         "waitingInput": "Waiting Input",
         "retrying": "Retrying",
         "degraded": "Degraded"
+      },
+      "progress": {
+        "fps": "FFmpeg cumulative processing FPS",
+        "speed": "Cumulative processing speed",
+        "time": "Output media time",
+        "raw": "Show raw log",
+        "outputReported": "Output reported",
+        "starting": "Process running, awaiting output",
+        "unknown": "Awaiting status",
+        "title": "Local output progress",
+        "start": "Process started",
+        "ready": "First output report",
+        "update": "Last output report",
+        "hint": "Processing FPS is not source frame rate. Buffered data may raise it at startup. Speed is also cumulative, not a recent rate; neither alone indicates a fault. Source FPS is not sampled in this table.",
+        "destination": "These are local FFmpeg reports, not confirmation of destination reception or playback. Check the destination platform."
       }
     },
     "camera": {

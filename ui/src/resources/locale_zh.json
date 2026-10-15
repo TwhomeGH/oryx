@@ -696,6 +696,21 @@
         "waitingInput": "等待来源",
         "retrying": "重试中",
         "degraded": "异常降级"
+      },
+      "progress": {
+        "fps": "FFmpeg 累計處理 FPS",
+        "speed": "累計處理速度",
+        "time": "輸出媒體時間",
+        "raw": "展開原始日誌",
+        "outputReported": "已回報輸出",
+        "starting": "程序執行中，等待輸出",
+        "unknown": "等待狀態回報",
+        "title": "本機輸出進度",
+        "start": "程序啟動",
+        "ready": "首次輸出回報",
+        "update": "最近輸出回報",
+        "hint": "處理 FPS 並非來源影格率。啟動時可能因緩衝資料而偏高；累計處理速度也不是近期速度，不能單憑數字判斷異常。來源 FPS 尚未在此表採樣。",
+        "destination": "本表顯示本機 FFmpeg 的輸出回報，不代表目的平台已確認接收或播放正常；請至目的平台確認。"
       }
     },
     "vle": {

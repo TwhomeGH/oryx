@@ -13,6 +13,7 @@ import { useSrsLanguage } from "../components/LanguageSwitch";
 import { useTranslation } from "react-i18next";
 import { SecretInput } from "../components/SecretInput";
 import { SrsEnvContext } from "../components/SrsEnvContext";
+import ForwardProgress from "../components/ForwardProgress";
 
 export default function ScenarioForward() {
   const [init, setInit] = React.useState();
@@ -182,7 +183,9 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
 
     switch (file.status) {
       case 'running':
-        return {bg: 'success', label: t('forward.status.running')};
+        return file.ready
+          ? {bg: 'success', label: t('forward.progress.outputReported')}
+          : {bg: 'primary', label: t('forward.progress.starting')};
       case 'waiting_input':
         return {bg: 'primary', label: t('forward.status.waitingInput')};
       case 'retrying':
@@ -192,7 +195,7 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
       case 'idle':
         return {bg: 'secondary', label: t('forward.status.idle')};
       default:
-        return {bg: file.frame ? 'success' : 'primary', label: file.frame ? t('plat.com.s0') : t('plat.com.s1')};
+        return {bg: 'primary', label: t('forward.progress.unknown')};
     }
   };
   const updateConfigObject = React.useCallback((conf) => {
@@ -379,22 +382,24 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
       <Accordion.Item eventKey="99">
         <Accordion.Header>{t('plat.com.status')}</Accordion.Header>
         <Accordion.Body>
+          <p className="text-muted small">{t('forward.progress.hint')}</p>
+          <p className="text-muted small">{t('forward.progress.destination')}</p>
           {
             forwards?.length ? (
-              <Table striped bordered hover>
+              <Table striped bordered hover responsive>
                 <thead>
                   <tr>
                     <th>#</th>
                     <th>{t('plat.com.platform')}</th>
                     <th>{t('plat.com.status2')}</th>
-                    <th>Start</th>
-                    <th>Ready</th>
-                    <th>{t('plat.com.update')}</th>
+                    <th>{t('forward.progress.start')}</th>
+                    <th>{t('forward.progress.ready')}</th>
+                    <th>{t('forward.progress.update')}</th>
                     <th>{t('plat.com.source')}</th>
                     <th>{t('forward.restarts')}</th>
                     <th>{t('forward.nextRetry')}</th>
                     <th>{t('forward.lastError')}</th>
-                    <th>{t('plat.com.log')}</th>
+                    <th>{t('forward.progress.title')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -425,7 +430,7 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
                             {file.lastErrorAt?.format('YYYY-MM-DD HH:mm:ss')}
                           </div>}
                         </td>
-                        <td style={{ maxWidth: 360, wordBreak: 'break-word' }}>{file.frame?.log}</td>
+                        <td style={{ maxWidth: 360, wordBreak: 'break-word' }}><ForwardProgress log={file.frame?.log} /></td>
                       </tr>;
                     })
                   }
