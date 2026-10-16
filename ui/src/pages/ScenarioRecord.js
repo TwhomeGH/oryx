@@ -5,7 +5,7 @@
 //
 import React from "react";
 import {Accordion, Form, Button, Table} from "react-bootstrap";
-import {Token, StreamURL, Clipboard} from "../utils";
+import {Token, StreamURL, Clipboard, isZh} from "../utils";
 import axios from "axios";
 import moment from "moment";
 import {useRecordStatus} from "../components/DvrStatus";
@@ -200,7 +200,7 @@ function ScenarioRecordImpl({activeKeys, defaultApplyAll, defaultGlobs, defaultP
   return (
     <Accordion defaultActiveKey={activeKeys}>
       <React.Fragment>
-        {language === 'zh' ?
+        {isZh(language) ?
           <Accordion.Item eventKey="0">
             <Accordion.Header>场景介绍</Accordion.Header>
             <Accordion.Body>

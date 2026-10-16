@@ -12,7 +12,7 @@ import {Container, Card, Spinner} from "react-bootstrap";
 import axios from "axios";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import {Token} from "../utils";
+import {Token, isZh} from "../utils";
 import {useSrsLanguage} from "../components/LanguageSwitch";
 import {useErrorHandler} from "react-error-boundary";
 
@@ -49,7 +49,7 @@ function overlayMarkdown(base, overlay) {
 
 export default function Contact() {
   const language = useSrsLanguage();
-  return <ContactImpl locale={language === 'zh' ? 'zh' : 'en'} />;
+  return <ContactImpl locale={isZh(language) ? 'zh' : 'en'} />;
 }
 
 function ContactImpl({locale}) {

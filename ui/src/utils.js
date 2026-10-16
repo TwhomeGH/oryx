@@ -1,3 +1,6 @@
+// Whether the language is a Chinese variant (zh, zh-CN, zh-TW, ...).
+export const isZh = (lang) => typeof lang === 'string' && (lang === 'zh' || lang.startsWith('zh-'));
+
 //
 // Copyright (c) 2022-2024 Winlin
 //

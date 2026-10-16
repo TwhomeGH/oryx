@@ -2,7 +2,7 @@ import React from "react";
 import {Accordion, Button, Form, Nav, Spinner, Table, Card} from "react-bootstrap";
 import {useSrsLanguage} from "../components/LanguageSwitch";
 import {useTranslation} from "react-i18next";
-import {Locale, Token} from "../utils";
+import {Locale, Token, isZh} from "../utils";
 import axios from "axios";
 import {useErrorHandler} from "react-error-boundary";
 import {OpenAISecretSettings} from "../components/OpenAISettings";
@@ -52,7 +52,7 @@ function ScenarioOCRImpl({activeKey, defaultEnabled, defaultConf, defaultUuid}) 
   const [aiProvider, setAiProvider] = React.useState(defaultConf.aiProvider || 'openai');
   const [aiSecretKey, setAiSecretKey] = React.useState(defaultConf.aiSecretKey);
   const [aiOrganization, setAiOrganization] = React.useState(defaultConf.aiOrganization);
-  const [aiBaseURL, setAiBaseURL] = React.useState(defaultConf.aiBaseURL || (language === 'zh' ? '' : 'https://api.openai.com/v1'));
+  const [aiBaseURL, setAiBaseURL] = React.useState(defaultConf.aiBaseURL || (isZh(language) ? '' : 'https://api.openai.com/v1'));
   const [aiChatEnabled, setAiChatEnabled] = React.useState(defaultConf.aiChatEnabled);
   const [aiChatModel, setAiChatModel] = React.useState(defaultConf.aiChatModel || 'gpt-4o');
   const [aiChatPrompt, setAiChatPrompt] = React.useState(defaultConf.aiChatPrompt || 'Recognize the text in the image. Output the identified text directly.');
@@ -223,7 +223,7 @@ function ScenarioOCRImpl({activeKey, defaultEnabled, defaultConf, defaultUuid}) 
   return (
     <Accordion defaultActiveKey={activeKey}>
       <React.Fragment>
-        {language === 'zh' ?
+        {isZh(language) ?
           <Accordion.Item eventKey="0">
             <Accordion.Header>场景介绍</Accordion.Header>
             <Accordion.Body>

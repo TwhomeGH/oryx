@@ -5,7 +5,7 @@
 //
 import { Accordion, Badge, Button, Col, Form, Row, Table } from "react-bootstrap";
 import React from "react";
-import { Token } from "../utils";
+import { Token , isZh} from "../utils";
 import axios from "axios";
 import moment from "moment";
 import { useErrorHandler } from "react-error-boundary";
@@ -89,7 +89,7 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
         },
       },
     }, {
-      platform: 'kuaishou', enabled: false, index: String(index++), allowCustom: true, custom: language === 'zh',
+      platform: 'kuaishou', enabled: false, index: String(index++), allowCustom: true, custom: isZh(language),
       ...defaultSecrets?.kuaishou,
       locale: {
         label: null, link: t('plat.ks.link'), link2: t('plat.ks.link2'),
@@ -262,7 +262,7 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
   return (
     <Accordion defaultActiveKey={[defaultActiveKey]}>
       <React.Fragment>
-        {language === 'zh' ?
+        {isZh(language) ?
           <Accordion.Item eventKey="0">
             <Accordion.Header>场景介绍</Accordion.Header>
             <Accordion.Body>

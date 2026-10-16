@@ -1,3 +1,4 @@
+import { isZh } from '../utils';
 //
 // Copyright (c) 2022-2024 Winlin
 //
@@ -12,7 +13,7 @@ import {useSrsLanguage} from "../components/LanguageSwitch";
 
 export default function ScenarioSrt(props) {
   const language = useSrsLanguage();
-  return language === 'zh' ? <ScenarioSrtCn {...props} /> : <ScenarioSrtEn {...props} />;
+  return isZh(language) ? <ScenarioSrtCn {...props} /> : <ScenarioSrtEn {...props} />;
 }
 
 function ScenarioSrtCn({copyToClipboard, urls}) {

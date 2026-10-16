@@ -5,7 +5,7 @@
 //
 import React from "react";
 import {Accordion, Form, Button, Table} from "react-bootstrap";
-import {Token, StreamURL, Clipboard} from "../utils";
+import {Token, StreamURL, Clipboard, isZh} from "../utils";
 import axios from "axios";
 import SetupCamSecret from '../components/SetupCamSecret';
 import useDvrVodStatus from "../components/DvrStatus";
@@ -17,7 +17,7 @@ import {useSrsLanguage} from "../components/LanguageSwitch";
 
 export default function ScenarioRecordVod() {
   const language = useSrsLanguage();
-  return language === 'zh' ? <ScenarioRecordVodCn /> : <ScenarioRecordVodEn />;
+  return isZh(language) ? <ScenarioRecordVodCn /> : <ScenarioRecordVodEn />;
 }
 
 function ScenarioRecordVodCn() {

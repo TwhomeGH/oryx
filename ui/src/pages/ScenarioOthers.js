@@ -8,7 +8,7 @@ import {useSrsLanguage} from "../components/LanguageSwitch";
 import {Accordion, Tab, Tabs} from "react-bootstrap";
 import {useSearchParams} from "react-router-dom";
 import {useTranslation} from "react-i18next";
-import {Clipboard} from "../utils";
+import {Clipboard, isZh} from "../utils";
 import ScenarioSrt from "./ScenarioSrt";
 import ScenarioRecordCos from "./ScenarioRecordCos";
 import ScenarioRecordVod from "./ScenarioRecordVod";
@@ -48,7 +48,7 @@ export function ScenarioVxOthers({urls}) {
 function ScenarioOther({urls}) {
   const {t} = useTranslation();
   const language = useSrsLanguage();
-  const isZh = language === 'zh';
+  const zh = isZh(language);
 
   const copyToClipboard = React.useCallback((e, text) => {
     e.preventDefault();
@@ -63,10 +63,10 @@ function ScenarioOther({urls}) {
   return <>
     <Accordion defaultActiveKey='0'>
       <Accordion.Item eventKey="0">
-        <Accordion.Header>{isZh ? '场景介绍' : 'Introduction'}</Accordion.Header>
+        <Accordion.Header>{zh ? '场景介绍' : 'Introduction'}</Accordion.Header>
         <Accordion.Body>
           <div>
-            {isZh ? '其他较少使用的低频场景，请用其他常用场景替代。' : 'Other less common used scenarios, please use other common scenarios instead.'}
+            {zh ? '其他较少使用的低频场景，请用其他常用场景替代。' : 'Other less common used scenarios, please use other common scenarios instead.'}
             <p></p>
           </div>
         </Accordion.Body>
@@ -74,7 +74,7 @@ function ScenarioOther({urls}) {
       <Accordion.Item eventKey="1">
         <Accordion.Header>{t('scenario.srt')}</Accordion.Header>
         <Accordion.Body>
-          <p>{isZh ? '可使用基本的推拉流场景实现，已经支持了SRT协议的教程。' : 'You can implement basic streaming scenarios with a tutorial that already supports the SRT protocol.'}</p>
+          <p>{zh ? '可使用基本的推拉流场景实现，已经支持了SRT协议的教程。' : 'You can implement basic streaming scenarios with a tutorial that already supports the SRT protocol.'}</p>
           <ScenarioSrt {...{copyToClipboard, urls}} />
         </Accordion.Body>
       </Accordion.Item>
@@ -85,15 +85,15 @@ function ScenarioOther({urls}) {
 function ScenarioDeprecated() {
   const {t} = useTranslation();
   const language = useSrsLanguage();
-  const isZh = language === 'zh';
+  const zh = isZh(language);
 
   return <>
     <Accordion defaultActiveKey='0'>
       <Accordion.Item eventKey="0">
-        <Accordion.Header>{isZh ? '场景介绍' : 'Introduction'}</Accordion.Header>
+        <Accordion.Header>{zh ? '场景介绍' : 'Introduction'}</Accordion.Header>
         <Accordion.Body>
           <div>
-            {isZh ? '其他废弃场景，未来会移除，请不要使用。' : 'Other deprecated scenarios, will be removed in the future, please do not use.'}
+            {zh ? '其他废弃场景，未来会移除，请不要使用。' : 'Other deprecated scenarios, will be removed in the future, please do not use.'}
             <p></p>
           </div>
         </Accordion.Body>

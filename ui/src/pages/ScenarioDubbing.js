@@ -5,7 +5,7 @@ import {useSrsLanguage} from "../components/LanguageSwitch";
 import {useTranslation} from "react-i18next";
 import {useErrorHandler} from "react-error-boundary";
 import axios from "axios";
-import {Token} from "../utils";
+import {Token, isZh} from "../utils";
 import PopoverConfirm from "../components/PopoverConfirm";
 import {OpenAISecretSettings} from "../components/OpenAISettings";
 import { saveAs } from 'file-saver';
@@ -98,7 +98,7 @@ function ScenarioDubbingList({setDubbingId}) {
   return (
     <Accordion defaultActiveKey={['1', '2']}>
       <React.Fragment>
-        {language === 'zh' ? <>
+        {isZh(language) ? <>
           <Accordion.Item eventKey="0">
             <Accordion.Header>场景介绍</Accordion.Header>
             <Accordion.Body>
@@ -318,7 +318,7 @@ function DubbingSettings({project, requesting, updateProject}) {
 
     if (obj) {
       setAiSecretKey(obj.aiSecretKey);
-      setAiBaseURL(obj.aiBaseURL || (language === 'zh' ? '' : 'https://api.openai.com/v1'));
+      setAiBaseURL(obj.aiBaseURL || (isZh(language) ? '' : 'https://api.openai.com/v1'));
       setAiOrganization(obj.aiOrganization);
     }
 

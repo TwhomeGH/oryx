@@ -2,7 +2,7 @@ import React from "react";
 import {Accordion, Button, Form, Nav, Spinner, Table, Card} from "react-bootstrap";
 import {useSrsLanguage} from "../components/LanguageSwitch";
 import {useTranslation} from "react-i18next";
-import {Token} from "../utils";
+import {Token, isZh} from "../utils";
 import axios from "axios";
 import {useErrorHandler} from "react-error-boundary";
 import PopoverConfirm from "../components/PopoverConfirm";
@@ -50,7 +50,7 @@ function ScenarioTranscriptImpl({activeKey, defaultEnabled, defaultConf, default
   const [transcriptEnabled, setTranscriptEnabled] = React.useState(defaultEnabled);
   const [secretKey, setSecretKey] = React.useState(defaultConf.secretKey);
   const [organization, setOrganization] = React.useState(defaultConf.organization);
-  const [baseURL, setBaseURL] = React.useState(defaultConf.baseURL || (language === 'zh' ? '' : 'https://api.openai.com/v1'));
+  const [baseURL, setBaseURL] = React.useState(defaultConf.baseURL || (isZh(language) ? '' : 'https://api.openai.com/v1'));
   const [model, setModel] = React.useState(defaultConf.model);
   const [chatModel, setChatModel] = React.useState(defaultConf.chatModel);
   const [targetLanguage, setTargetLanguage] = React.useState(defaultConf.lang || language);
@@ -346,7 +346,7 @@ function ScenarioTranscriptImpl({activeKey, defaultEnabled, defaultConf, default
   return (
     <Accordion defaultActiveKey={activeKey}>
       <React.Fragment>
-        {language === 'zh' ?
+        {isZh(language) ?
           <Accordion.Item eventKey="0">
             <Accordion.Header>场景介绍</Accordion.Header>
             <Accordion.Body>

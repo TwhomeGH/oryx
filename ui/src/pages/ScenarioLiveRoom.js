@@ -8,7 +8,7 @@ import {useSrsLanguage} from "../components/LanguageSwitch";
 import {Accordion, Button, Card, Form, Nav, Spinner, Table} from "react-bootstrap";
 import {useTranslation} from "react-i18next";
 import axios from "axios";
-import {Clipboard, Locale, Token} from "../utils";
+import {Clipboard, Locale, Token, isZh} from "../utils";
 import {useErrorHandler} from "react-error-boundary";
 import {useSearchParams} from "react-router-dom";
 import {buildUrls} from "../components/UrlGenerator";
@@ -135,7 +135,7 @@ function ScenarioLiveRoomList({setRoomId}) {
   return (
     <Accordion defaultActiveKey={['1', '2']}>
       <React.Fragment>
-        {language === 'zh' ?
+        {isZh(language) ?
           <Accordion.Item eventKey="0">
             <Accordion.Header>场景介绍</Accordion.Header>
             <Accordion.Body>
@@ -423,7 +423,7 @@ function LiveRoomAssistant({room, requesting, updateRoom}) {
   const [aiProvider, setAiProvider] = React.useState(room.aiProvider || 'openai');
   const [aiSecretKey, setAiSecretKey] = React.useState(room.aiSecretKey);
   const [aiOrganization, setAiOrganization] = React.useState(room.aiOrganization);
-  const [aiBaseURL, setAiBaseURL] = React.useState(room.aiBaseURL || (language === 'zh' ? '' : 'https://api.openai.com/v1'));
+  const [aiBaseURL, setAiBaseURL] = React.useState(room.aiBaseURL || (isZh(language) ? '' : 'https://api.openai.com/v1'));
   const [aiAsrEnabled, setAiAsrEnabled] = React.useState(room.aiAsrEnabled);
   const [aiChatEnabled, setAiChatEnabled] = React.useState(room.aiChatEnabled);
   const [aiPostEnabled, setAiPostEnabled] = React.useState(room.aiPostEnabled);

@@ -7,7 +7,7 @@ import React from "react";
 import {Card, Col, Row} from "react-bootstrap";
 import logo from '../resources/logo.svg';
 import * as Icon from 'react-bootstrap-icons';
-import {Token} from "../utils";
+import {Token, isZh} from "../utils";
 import axios from "axios";
 import Container from "react-bootstrap/Container";
 import {useTranslation} from "react-i18next";
@@ -51,8 +51,10 @@ function useTutorials(key) {
       const list = (manifest[key] || []).filter(e => {
         if (!e.langs || !e.langs.length) return true;
         if (e.langs.includes(language)) return true;
-        // Preserve the legacy behavior: non-Chinese languages fall back to the English list.
-        return language !== 'zh' && e.langs.includes('en');
+        // Chinese-script languages (zh, zh-CN, zh-TW, ...) share the Chinese list; other
+        // languages fall back to the English list.
+        if (isZh(language)) return e.langs.some(isZh);
+        return e.langs.includes('en');
       });
       setTutorials(list);
     }).catch(() => {

@@ -3,7 +3,7 @@ import {useSrsLanguage} from "../components/LanguageSwitch";
 import {Accordion, Badge, Button, Form, Stack} from "react-bootstrap";
 import {useTranslation} from "react-i18next";
 import {useErrorHandler} from "react-error-boundary";
-import {Token} from "../utils";
+import {Token, isZh} from "../utils";
 import axios from "axios";
 import {buildUrls} from "../components/UrlGenerator";
 import moment from "moment/moment";
@@ -148,7 +148,7 @@ function ScenarioTranscodeImpl({activeKey, urls, defaultEnabled, defaultConf}) {
   return (
     <Accordion defaultActiveKey={[activeKey]}>
       <React.Fragment>
-        {language === 'zh' ?
+        {isZh(language) ?
           <Accordion.Item eventKey="0">
             <Accordion.Header>场景介绍</Accordion.Header>
             <Accordion.Body>

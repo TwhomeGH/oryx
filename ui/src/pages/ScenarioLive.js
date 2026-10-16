@@ -11,7 +11,7 @@ import {TutorialsButton, useTutorials} from "../components/TutorialsButton";
 import SrsQRCode from "../components/SrsQRCode";
 import * as Icon from 'react-bootstrap-icons';
 import {useSrsLanguage} from "../components/LanguageSwitch";
-import {Clipboard} from "../utils";
+import {Clipboard, isZh} from "../utils";
 import {useTranslation} from "react-i18next";
 import {useSearchParams} from "react-router-dom";
 import {SrsEnvContext} from "../components/SrsEnvContext";
@@ -89,7 +89,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
     <Accordion defaultActiveKey="1">
       <React.Fragment>
         {
-          language === 'zh' ?
+          isZh(language) ?
             <Accordion.Item eventKey="0">
               <Accordion.Header>场景介绍</Accordion.Header>
               <Accordion.Body>
@@ -135,7 +135,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
         <Accordion.Body>
           <div>
             <p style={{display: 'inline-block'}}><strong>{t('live.share.step')}</strong></p>
-            {language === 'zh' && <TutorialsButton prefixLine={false} tutorials={movieTutorials}/>}
+            {isZh(language) && <TutorialsButton prefixLine={false} tutorials={movieTutorials}/>}
           </div>
           <ol>
             <li>{t('live.share.fw')} <code>TCP/1935</code></li>
@@ -231,7 +231,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
         <Accordion.Body>
           <div>
             <p style={{display: 'inline-block'}}><strong>{t('live.share.step')}</strong></p>
-            {language === 'zh' && <TutorialsButton prefixLine={false} tutorials={movieTutorials} />}
+            {isZh(language) && <TutorialsButton prefixLine={false} tutorials={movieTutorials} />}
           </div>
           <ol>
             <li>{t('live.share.fw')} <code>TCP/1935</code></li>
@@ -256,7 +256,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
                 <Icon.Clipboard size={20} onClick={(e) => copyToClipboard(e, rtmpPublishUrl)} />
               </div>
               <br/>
-              {language === 'zh' && <SrsQRCode url={rtmpPublishUrl} />}
+              {isZh(language) && <SrsQRCode url={rtmpPublishUrl} />}
             </li>
             <li>
               {t('live.share.title')}
@@ -328,7 +328,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
         <Accordion.Body>
           <div>
             <p style={{display: 'inline-block'}}><strong>{t('live.share.step')}</strong></p>
-            {language === 'zh' && <TutorialsButton prefixLine={false} tutorials={movieTutorials} />}
+            {isZh(language) && <TutorialsButton prefixLine={false} tutorials={movieTutorials} />}
           </div>
           <ol>
             <li>{t('live.share.fw')} <code>UDP/10080</code></li>
@@ -450,7 +450,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
         <Accordion.Body>
           <div>
             <p style={{display: 'inline-block'}}><strong>{t('live.share.step')}</strong></p>
-            {language === 'zh' && <TutorialsButton prefixLine={false} tutorials={movieTutorials} />}
+            {isZh(language) && <TutorialsButton prefixLine={false} tutorials={movieTutorials} />}
           </div>
           <ol>
             <li>{t('live.share.fw')} <code>UDP/10080</code></li>
@@ -475,7 +475,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
                 <Icon.Clipboard size={20} onClick={(e) => copyToClipboard(e, srtPublishUrl)} />
               </div>
               <br/>
-              {language === 'zh' && <SrsQRCode url={srtPublishUrl} />}
+              {isZh(language) && <SrsQRCode url={srtPublishUrl} />}
             </li>
             <li>
               {t('live.share.title')}
@@ -577,7 +577,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
         <Accordion.Body>
           <div>
             <p style={{display: 'inline-block'}}><strong>{t('live.share.step')}</strong></p>
-            {language === 'zh' && <TutorialsButton prefixLine={false} tutorials={movieTutorials} />}
+            {isZh(language) && <TutorialsButton prefixLine={false} tutorials={movieTutorials} />}
           </div>
           <ol>
             <li>{t('live.share.fw')} <code>UDP/8000</code>, {t('live.rtc.check')} <a href={t('live.rtc.connectivity')} target='_blank' rel='noreferrer'>{t('helper.link')}</a></li>
@@ -685,7 +685,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
         <Accordion.Body>
           <div>
             <p style={{display: 'inline-block'}}><strong>{t('live.share.step')}</strong></p>
-            {language === 'zh' && <TutorialsButton prefixLine={false} tutorials={movieTutorials} />}
+            {isZh(language) && <TutorialsButton prefixLine={false} tutorials={movieTutorials} />}
           </div>
           <ol>
             <li>{t('live.share.fw')} <code>UDP/8000</code>, {t('live.rtc.check')} <a href={t('live.rtc.connectivity')} target='_blank' rel='noreferrer'>{t('helper.link')}</a></li>

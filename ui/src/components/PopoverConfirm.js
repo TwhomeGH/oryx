@@ -1,3 +1,4 @@
+import { isZh } from '../utils';
 //
 // Copyright (c) 2022-2024 Winlin
 //
@@ -29,7 +30,7 @@ export default function PopoverConfirm({onClick, trigger, children, placement}) 
               variant="danger"
               onClick={onHandleClick}
             >
-              {language === 'zh' ? '确认' : 'Continue'}
+              {isZh(language) ? '确认' : 'Continue'}
             </Button>
           </div>
           <div className="col-12">
@@ -37,7 +38,7 @@ export default function PopoverConfirm({onClick, trigger, children, placement}) 
               variant="primary"
               onClick={() => setStartUpgrade(false)}
             >
-              {language === 'zh' ? '取消' : 'Abort'}
+              {isZh(language) ? '取消' : 'Abort'}
             </Button>
           </div>
         </div>
