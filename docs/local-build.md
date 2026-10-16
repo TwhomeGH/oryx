@@ -27,16 +27,18 @@ docker build -t oryx:local .
 打包最終映像。
 
 | 情境 | 預計耗時 |
-|---|---|
+| --- | --- |
 | 第一次（無快取） | 30~60 分鐘（下載基底映像 + 全量編譯） |
 | 之後再打包（有快取，程式有改動） | 15~30 分鐘（基底層走快取，但 make 階段會重跑） |
 | 完全沒改程式再打包 | < 1 分鐘（全部命中快取） |
 
+> [!WARNING]
 > 注意：所有原始碼是在**同一個 RUN 層**裡編譯的，所以任何 Go/UI 檔案變動
 > 都會重新觸發整個 make（含 UI）。Docker 快取主要省下的是基底映像、apt、
 > youtube-dl 那些前置層。
-
+>
 > 2026-08：Dockerfile 已**移除 UPX 壓縮**（`upx --best --lzma` 那段）。
+>
 > 原因：UPX-LZMA 壓縮的 `srs`/`platform` binary 在程序啟動時自解壓，
 > 在 GitHub Actions runner kernel 上會偶發 SIGSEGV（零輸出立即退出），
 > 導致 CI 整合測試偶發失敗（`Start SRS failed`）。詳細見
@@ -92,7 +94,7 @@ docker load -i oryx-local.tar
 ## 本地 vs CI 的分工
 
 | 用途 | 用哪個 |
-|---|---|
+| --- | --- |
 | 改碼後快速驗證、自用部署 | 本地打包（即建即用） |
 | 正式發布版號、給其他機器匿名拉取 | push 觸發 CI（產 GHCR 版號映像 + latest） |
 
