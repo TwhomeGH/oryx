@@ -31,6 +31,10 @@ const (
 	programModeIdle  = "idle"
 	programModeLive  = "live"
 	programModeSlate = "slate"
+	// The composite publisher renders the fallback slate itself (base + source overlay with
+	// eof_action=pass), so a source outage never changes the publisher: no republish, and thus
+	// no multi-second downstream gap (see runComposite).
+	programModeComposite = "composite"
 
 	// The failover mode: hold the last frame (default) or switch to a fallback slate.
 	forwardFailoverHold  = "hold"
@@ -385,7 +389,7 @@ func (v *ProgramBus) Run(ctx context.Context) {
 	logger.Tf(ctx, "forward program bus run, %v", v.String())
 
 	if v.failoverMode() == forwardFailoverSlate {
-		v.runWithSlate(ctx)
+		v.runComposite(ctx)
 	} else {
 		v.runHold(ctx)
 	}
@@ -429,36 +433,36 @@ func (v *ProgramBus) runHold(ctx context.Context) {
 	}
 }
 
-// runWithSlate switches the program publisher between the live relay and a fallback slate, so
-// the downstream shows a slate instead of a frozen frame. The fanout reads the program via
-// HTTP-FLV with reconnect, so it survives these handoffs without dropping the downstream.
-func (v *ProgramBus) runWithSlate(ctx context.Context) {
+// runComposite runs a single persistent publisher that renders the picture itself: a base (dark
+// colour + clock) with the source overlaid, end-on-EOF. When the source goes away the overlay
+// passes the base, so the program keeps flowing with NO publisher change — unlike switching to a
+// separate slate publisher, which republishes the program and was the cause of the multi-second
+// downstream gap. The fanout therefore never sees a republish, and the outage is seamless. On
+// recovery the composite is restarted to read the source again (a source that ended cannot be
+// re-added to a running filtergraph), which is the only remaining (brief) reconnect.
+func (v *ProgramBus) runComposite(ctx context.Context) {
+	// Learn the source size/fps while it is live, so the slate base matches it.
+	v.probeSourceSize(ctx)
+	if err := v.switchPublisher(ctx, programModeComposite); err != nil {
+		logger.Wf(ctx, "forward program start composite err %+v", err)
+	}
+
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
-	var inactiveSince time.Time
+	wasActive := true
 	for {
-		if v.isSourceActive(ctx) {
-			inactiveSince = time.Time{}
-			v.setSourceActive(true)
-			if v.currentMode() != programModeLive {
-				if err := v.switchPublisher(ctx, programModeLive); err != nil {
-					logger.Wf(ctx, "forward program switch to live err %+v", err)
-				}
-				// Learn the source size/fps while it is live, so the slate can match it later.
-				v.probeSourceSize(ctx)
-			}
-		} else {
-			v.setSourceActive(false)
-			if inactiveSince.IsZero() {
-				inactiveSince = time.Now()
-			}
-			if time.Since(inactiveSince) >= forwardSlateDownDelay && v.currentMode() != programModeSlate {
-				if err := v.switchPublisher(ctx, programModeSlate); err != nil {
-					logger.Wf(ctx, "forward program switch to slate err %+v", err)
-				}
+		active := v.isSourceActive(ctx)
+		v.setSourceActive(active)
+
+		if active && !wasActive {
+			logger.Tf(ctx, "forward program source recovered, restart composite")
+			v.probeSourceSize(ctx)
+			if err := v.switchPublisher(ctx, programModeComposite); err != nil {
+				logger.Wf(ctx, "forward program restart composite err %+v", err)
 			}
 		}
+		wasActive = active
 
 		select {
 		case <-ctx.Done():
@@ -546,16 +550,24 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		// showed that encoding the relay the same way as the slate does NOT let the fanout ride
 		// through the handoff, so the republish itself, not the codec change, is the root cause.)
 		args = append(args, "-c", "copy", "-f", "flv", output)
-	case programModeSlate:
-		// A live-rendered slate with a ticking clock, so viewers can tell the stream is still
-		// alive (a plain solid color looks frozen or ended). Unlike the relay this encodes,
-		// because drawtext requires it; the clock runs in realtime while the source is offline.
+	case programModeComposite:
+		// A single persistent publisher that renders the slate itself: a dark base with a
+		// ticking clock, the source overlaid end-on-EOF, and the audio mixed with silence (so
+		// it lasts when the source ends). The program never republishes, so a source outage is
+		// seamless for the downstream, see runComposite.
 		w, h, fps := v.sourceSize()
+		srcURL := fmt.Sprintf("http://localhost:%v/%v/%v.flv", forwardProgramHTTPPort, v.sourceApp, v.sourceStream)
+		filter := fmt.Sprintf(
+			"[0:v]%v[bg];[bg][2:v]overlay=eof_action=pass:x=0:y=0[v];[1:a][2:a]amix=inputs=2:duration=longest:dropout_transition=0[a]",
+			forwardSlateDrawtext(),
+		)
 		args = append(args,
 			"-re",
 			"-f", "lavfi", "-i", forwardSlateVideo(w, h, fps),
 			"-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
-			"-vf", forwardSlateDrawtext(),
+			"-i", srcURL,
+			"-filter_complex", filter,
+			"-map", "[v]", "-map", "[a]",
 		)
 		args = append(args, forwardVideoEncodeArgs()...)
 		args = append(args, "-g", "50", "-c:a", "aac", "-f", "flv", output)
