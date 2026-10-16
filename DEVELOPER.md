@@ -1,6 +1,6 @@
 # Developer
 
-This guide is for developers and covers topics such as OpenAPI, environment variables, 
+This guide is for developers and covers topics such as OpenAPI, environment variables,
 resources, and ports, as well as development on Mac or using Docker.
 
 ## Develop All in macOS
@@ -19,13 +19,23 @@ docker run --name srs --rm -it \
     -d ossrs/srs:5
 ```
 
-> Note: Use the intranet IP for WebRTC to set the candidate.
+> [!NOTE]
+> Use the intranet IP for WebRTC to set the candidate.
 
-> Note: Stop service by `docker stop redis srs` and note that we stop redis to allow it to save data to disk.
+---
 
-> Note: Also, you can run SRS by `(cd platform && ~/git/srs/trunk/objs/srs -c containers/conf/srs.release-local.conf)`
+> [!NOTE]
+> Stop service by `docker stop redis srs` and note that we stop redis to allow it to save data to disk.
 
-> Note: You can set the candidate for WebRTC by `--env CANDIDATE=$(ifconfig en0 |grep 'inet ' |awk '{print $2}')`
+---
+
+> [!NOTE]
+> Also, you can run SRS by `(cd platform && ~/git/srs/trunk/objs/srs -c containers/conf/srs.release-local.conf)`
+
+---
+
+> [!NOTE]
+> You can set the candidate for WebRTC by `--env CANDIDATE=$(ifconfig en0 |grep 'inet ' |awk '{print $2}')`
 
 Run the platform backend, or run in GoLand:
 
@@ -49,7 +59,7 @@ Run the platform react ui, or run in WebStorm:
 (cd ui && npm install && npm start)
 ```
 
-Access the browser: http://localhost:3000
+[Access the browser Port 3000](http://localhost:3000)
 
 ## Develop the Docker Image
 
@@ -92,7 +102,7 @@ docker run --rm -it --name oryx -v $HOME/data:/data \
   platform
 ```
 
-The platform has now been updated. It is also compatible with a debugging WebUI, which listens at 
+The platform has now been updated. It is also compatible with a debugging WebUI, which listens at
 port 3000 and proxies to the platform.
 
 ## Develop the Script Installer
@@ -183,9 +193,11 @@ docker run -p 80:80 -p 443:443 -p 7800:7800 -p 1935:1935 -p 8000:8000/udp -p 100
     -d --rm -it -v $(pwd):/g -w /g --name=aapanel ossrs/aapanel-plugin-dev:1
 ```
 
-> Note: For Linux server, please use `--privileged -v /sys/fs/cgroup:/sys/fs/cgroup:ro` to start docker.
-
-> Note: Enable the [HTTP API](https://www.bt.cn/bbs/thread-20376-1-1.html) and get the `api.json`,
+> [!NOTE]
+> For Linux server, please use `--privileged -v /sys/fs/cgroup:/sys/fs/cgroup:ro` to start docker.
+---
+> [!NOTE]
+> Enable the [HTTP API](https://www.bt.cn/bbs/thread-20376-1-1.html) and get the `api.json`,
 > and save it to `$HOME/.bt/api.json`.
 
 Build and save the platform image to file:
@@ -238,6 +250,7 @@ docker exec -it aapanel cat /etc/hosts && echo OK &&
 docker exec -it aapanel docker exec -it oryx bash -c "echo '$PIP srs.stack.local' >> /etc/hosts" &&
 docker exec -it aapanel docker exec -it oryx cat /etc/hosts
 ```
+
 > Note: We add host `srs.stack.local` to the ip of eth0, because we need to access it in the
 > oryx docker in docker.
 
@@ -284,12 +297,16 @@ docker run -p 80:80 -p 443:443 -p 7800:7800 -p 1935:1935 -p 8000:8000/udp -p 100
     -d --rm -it -v $(pwd):/g -w /g --name=bt ossrs/bt-plugin-dev:1
 ```
 
-> Note: For Linux server, please use `--privileged -v /sys/fs/cgroup:/sys/fs/cgroup:ro` to start docker.
-
-> Note: Should bind the docker to your BT account, then you will get the `userInfo.json`, 
+> [!NOTE]
+> For Linux server, please use `--privileged -v /sys/fs/cgroup:/sys/fs/cgroup:ro` to start docker.
+---
+> [!NOTE]
+> Should bind the docker to your BT account, then you will get the `userInfo.json`,
 > and save it to `$HOME/.bt/userInfo.json`.
+---
 
-> Note: Enable the [HTTP API](https://www.bt.cn/bbs/thread-20376-1-1.html) and get the `api.json`, 
+> [!NOTE]
+> Enable the [HTTP API](https://www.bt.cn/bbs/thread-20376-1-1.html) and get the `api.json`,
 > and save it to `$HOME/.bt/api.json`.
 
 Build and save the platform image to file:
@@ -342,6 +359,7 @@ docker exec -it bt cat /etc/hosts && echo OK &&
 docker exec -it bt docker exec -it oryx bash -c "echo '$PIP srs.stack.local' >> /etc/hosts" &&
 docker exec -it bt docker exec -it oryx cat /etc/hosts
 ```
+
 > Note: We add host `srs.stack.local` to the ip of eth0, because we need to access it in the
 > oryx docker in docker.
 
@@ -367,7 +385,7 @@ Open [http://localhost:7800/srsstack](http://localhost:7800/srsstack) to install
 
 > Note: Or you can use `docker exec -it bt bt default` to show the login info.
 
-In the [application store](http://localhost:7800/soft), there is a `oryx` plugin. After test, you can install the plugin 
+In the [application store](http://localhost:7800/soft), there is a `oryx` plugin. After test, you can install the plugin
 `build/bt-oryx.zip` to production BT panel.
 
 ## Develop the Droplet Image
@@ -376,7 +394,7 @@ In the [application store](http://localhost:7800/soft), there is a `oryx` plugin
 
 To build SRS droplet image for [DigitalOcean Marketplace](https://marketplace.digitalocean.com/).
 
-For the first run, please [install Packer](https://www.packer.io/intro/getting-started/install.html) and 
+For the first run, please [install Packer](https://www.packer.io/intro/getting-started/install.html) and
 [plugin](https://developer.hashicorp.com/packer/integrations/digitalocean/digitalocean):
 
 ```bash
@@ -419,7 +437,7 @@ ssh root@$SRS_DROPLET_EIP docker run --rm -v /usr/bin:/g ossrs/srs:tools \
     cp /usr/local/bin/ffmpeg /usr/local/bin/ffprobe /g/
 ```
 
-> Note: By setting `CGO_ENABLED=0 GOOS=linux GOARCH=amd64`, we always build for x86_64 linux platform, 
+> Note: By setting `CGO_ENABLED=0 GOOS=linux GOARCH=amd64`, we always build for x86_64 linux platform,
 > because we only use the DigitalOcean VPS with x86_64.
 
 Test the droplet instance:
@@ -557,7 +575,7 @@ doctl compute domain records delete ossrs.net -f \
 echo "Record lighthouse.ossrs.net removed"
 ```
 
-## Develop the SSL Cert for HTTPS 
+## Develop the SSL Cert for HTTPS
 
 Create a domain for HTTPS:
 
@@ -638,7 +656,7 @@ doctl compute droplet ls |grep lego
 
 ## Develop the NGINX HLS CDN
 
-Run Oryx by previous steps, such as [Develop All in macOS](#develop-all-in-macos), publish stream 
+Run Oryx by previous steps, such as [Develop All in macOS](#develop-all-in-macos), publish stream
 and there should be a HLS stream:
 
 * [http://localhost:2022/live/livestream.m3u8](http://localhost:2022/tools/player.html?url=http://localhost:2022/live/livestream.m3u8)
@@ -651,7 +669,7 @@ docker rmi scripts/nginx-hls-cdn 2>/dev/null || echo OK &&
 docker build -t ossrs/oryx:nginx-hls-cdn scripts/nginx-hls-cdn
 ```
 
-> Note: The official image is build by [workflow](https://github.com/ossrs/oryx/actions/runs/5970907929) 
+> Note: The official image is build by [workflow](https://github.com/ossrs/oryx/actions/runs/5970907929)
 > which is triggered manually.
 
 If you want to use NGINX as proxy, run by docker:
@@ -692,7 +710,7 @@ ffmpeg -re -i ~/git/srs/trunk/doc/source.flv -c copy \
     -f flv rtmp://bt.ossrs.net/live/livestream?secret=xxx
 ```
 
-Open the [http://bt.ossrs.net/live/livestream.m3u8](http://bt.ossrs.net/tools/player.html?url=http://bt.ossrs.net/live/livestream.m3u8) 
+Open the [http://bt.ossrs.net/live/livestream.m3u8](http://bt.ossrs.net/tools/player.html?url=http://bt.ossrs.net/live/livestream.m3u8)
 to Check it.
 
 Create a new domain `bt2.ossrs.net` for the same server:
@@ -739,8 +757,9 @@ curl -v http://bt2.ossrs.net/live/livestream.m3u8
 curl -v http://bt2.ossrs.net/live/livestream.m3u8 -H 'Origin: http://test.com'
 ```
 
-Be aware that the cache will store the CORS headers as well. This means that if you query 
-and obtain HLS without CORS, it will remain without CORS even when a request includes an 
+Be aware that the cache will store the CORS headers as well. This means that if you query
+
+and obtain HLS without CORS, it will remain without CORS even when a request includes an
 Origin header that necessitates CORS.
 
 ## Product the Lightsail Installer
@@ -803,7 +822,7 @@ Finally, open [http://localhost](http://localhost) to check it.
 
 ## Setup for OpenAI Feature Test Cases
 
-Please setup the environment variable `OPENAI_API_KEY` and `OPENAI_PROXY`, if need to test the OpenAI 
+Please setup the environment variable `OPENAI_API_KEY` and `OPENAI_PROXY`, if need to test the OpenAI
 feature like transcript.
 
 > Note: Already setup in the secret.sh script, no extra steps needed.
@@ -849,7 +868,7 @@ ssh root@ossrs.io docker image prune -f
 
 ## Config SRS Container
 
-The SRS container is configured by environment variables, which loads the `/data/config/.srs.env` 
+The SRS container is configured by environment variables, which loads the `/data/config/.srs.env`
 file. To build a test image:
 
 ```bash
@@ -932,10 +951,12 @@ Use socks5 proxy for macOS to download:
 youtube-dl --proxy socks5://127.0.0.1:10000 --output srs 'https://youtu.be/SqrazCPWcV0?si=axNvjynVb7Tf4Bfe'
 ```
 
-> Note: Setup the `--proxy socks5://127.0.0.1:10000` or `YTDL_PROXY=socks5://127.0.0.1:10000` if wants to
+> [!NOTE]
+> Setup the `--proxy socks5://127.0.0.1:10000` or `YTDL_PROXY=socks5://127.0.0.1:10000` if wants to
 > use proxy, use `ssh -D 127.0.0.1:10000 root@x.y.z.m dstat 30` to start the proxy server.
-
-> Note: Setup the `--output TEMPLATE` when wants to define the filename.
+---
+> [!NOTE]
+> Setup the `--output TEMPLATE` when wants to define the filename.
 
 ## Regenrate ASR for Dubbing
 
@@ -953,30 +974,33 @@ Oryx follows the rules for WebRTC candidate, see [CANDIDATE](https://ossrs.io/lt
 but also has extra improvements for we can do more after proxy the API.
 
 1. Disable `use_auto_detect_network_ip` and `api_as_candidates` in SRS config.
-1. Always use `?eip=xxx` and ignore any other config, if user force to use the specified IP.
-1. If `NAME_LOOKUP` (default is `on`) isn't `off`, try to resolve the candidate from `Host` of HTTP API by Oryx.
-  1. If access Oryx by `localhost` for debugging or run in localhost.
-    1. If `PLATFORM_DOCKER` is `off`, such as directly run in host, not in docker, use the private ip of Oryx.
-    1. If not set `CANDIDATE`, use `127.0.0.1` for OBS WHIP or native client to access Oryx by localhost.
-  1. Use `Host` if it's a valid IP address, for example, to access Oryx by public ip address.
-  1. Use DNS lookup if `Host` is a domain, for example, to access Oryx by domain name.
-1. If no candidate, use docker IP address discovered by SRS. 
+2. Always use `?eip=xxx` and ignore any other config, if user force to use the specified IP.
+3. If `NAME_LOOKUP` (default is `on`) isn't `off`, try to resolve the candidate from `Host` of HTTP API by Oryx.
+4. If access Oryx by `localhost` for debugging or run in localhost.
+5. If `PLATFORM_DOCKER` is `off`, such as directly run in host, not in docker, use the private ip of Oryx.
+6. If not set `CANDIDATE`, use `127.0.0.1` for OBS WHIP or native client to access Oryx by localhost.
+7. Use `Host` if it's a valid IP address, for example, to access Oryx by public ip address.
+8. Use DNS lookup if `Host` is a domain, for example, to access Oryx by domain name.
+9. If no candidate, use docker IP address discovered by SRS.
 
-> Note: Client can also set the header `X-Real-Host` to set the candidate.
-
-> Note: Never use `host.docker.internal` because it's only available in docker, not in host server.
+> [!NOTE]
+> Client can also set the header `X-Real-Host` to set the candidate.
+---
+> [!NOTE]
+> Never use `host.docker.internal` because it's only available in docker, not in host server.
 
 ## Docker Allocated Ports
 
 The ports allocated:
 
-| Module | TCP Ports                                         | UDP Ports | Notes                                                                                                                                            |
-| ------ |---------------------------------------------------| --------- |--------------------------------------------------------------------------------------------------------------------------------------------------|
-| SRS | 1935, 1985, 8080,<br/> 8088, 1990, 554,<br/> 8936 | 8000, 8935, 10080,<br/> 1989 | See [SRS ports](https://github.com/ossrs/srs/blob/develop/trunk/doc/Resources.md#ports)                                                          |
-| platform | 2022                                              |  - | Mount at `/mgmt/`, `/terraform/v1/mgmt/`, `/terraform/v1/hooks/`, `/terraform/v1/ffmpeg/` and `/terraform/v1/tencent/` |
+| Module | TCP Ports | UDP Ports | Notes |
+| ------ | --------------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SRS | 1935, 1985, 8080,8088, 1990, 554, 8936 | 8000, 8935, 10080, 1989 | See [SRS ports](https://github.com/ossrs/srs/blob/develop/trunk/doc/Resources.md#ports) |
+| platform | 2022 | - | Mount at `/mgmt/`, `/terraform/v1/mgmt/`, `/terraform/v1/hooks/`, `/terraform/v1/ffmpeg/` and `/terraform/v1/tencent/` |
 | debugging | 22022 | - | Mount at `/terraform/v1/debug/goroutines` |
 
-> Note: FFmpeg(2019), TencentCloud(2020), Hooks(2021), Mgmt(2022), Platform(2024) has been migrated to platform(2024).
+> [!NOTE]
+> FFmpeg(2019), TencentCloud(2020), Hooks(2021), Mgmt(2022), Platform(2024) has been migrated to platform(2024).
 
 ## HTTP OpenAPI
 
@@ -1147,21 +1171,21 @@ The software we depend on:
 
 * Docker, `apt-get install -y docker.io`
 * Nginx, `apt-get install -y nginx`
-    * Conf: `platform/containers/conf/nginx.conf`
-    * Include: `platform/containers/data/config/nginx.http.conf`
-    * Include: `platform/containers/data/config/nginx.server.conf`
-    * SSL Key: `platform/containers/data/config/nginx.key`
-    * Certificate: `platform/containers/data/config/nginx.crt`
+* Conf: `platform/containers/conf/nginx.conf`
+* Include: `platform/containers/data/config/nginx.http.conf`
+* Include: `platform/containers/data/config/nginx.server.conf`
+* SSL Key: `platform/containers/data/config/nginx.key`
+* Certificate: `platform/containers/data/config/nginx.crt`
 * [LEGO](https://github.com/go-acme/lego)
-    * Verify webroot: `platform/containers/data/.well-known/acme-challenge/`
-    * Cert files: `platform/containers/data/lego/.lego/certificates/`
+* Verify webroot: `platform/containers/data/.well-known/acme-challenge/`
+* Cert files: `platform/containers/data/lego/.lego/certificates/`
 * [SRS](https://github.com/ossrs/srs)
-    * Config: `platform/containers/conf/srs.release.conf` mount as `/usr/local/srs/conf/srs.conf`
-    * Include: `platform/containers/data/config/srs.server.conf`
-    * Include: `platform/containers/data/config/srs.vhost.conf`
-    * Volume: `platform/containers/objs/nginx/` mount as `/usr/local/srs/objs/nginx/`
+* Config: `platform/containers/conf/srs.release.conf` mount as `/usr/local/srs/conf/srs.conf`
+* Include: `platform/containers/data/config/srs.server.conf`
+* Include: `platform/containers/data/config/srs.vhost.conf`
+* Volume: `platform/containers/objs/nginx/` mount as `/usr/local/srs/objs/nginx/`
 * FFmpeg:
-    * [FFmpeg and ffprobe](https://ffmpeg.org) tools in `ossrs/srs:ubuntu20`
+* [FFmpeg and ffprobe](https://ffmpeg.org) tools in `ossrs/srs:ubuntu20`
 
 ## Environment Variables
 
@@ -1245,7 +1269,7 @@ For the json field with more than 2 words:
 
 ```go
 type CameraConfigure struct {
-	ExtraAudio string `json:"extraAudio"`
+    ExtraAudio string `json:"extraAudio"`
 }
 ```
 
@@ -1263,417 +1287,473 @@ Generally we follow this guide except for some legacy code.
 
 The following are the update records for the Oryx server.
 
-* v5.15:
-    * Forward: Support multiple forwarding servers. v5.15.1
-    * ENV: Refine the environment variables. v5.15.2
-    * OCR: Support OCR for image recognition. v5.15.3
-    * VLive: Support multiple virtual live streaming. v5.15.4
-    * Camera: Support multiple camera streaming. [v5.15.5](https://github.com/ossrs/oryx/releases/tag/v5.15.5)
-    * Transcript: Upgrade the hls.js to 1.4 for WebVTT. v5.15.6
-    * Disable version query and check. v5.15.7
-    * Change LICENSE from AGPL-3.0-or-later to MIT. v5.15.8
-    * Dubbing: Support scrolling card in fullscreen. v5.15.9
-    * Support external redis host and using 127.0.0.1 as default. v5.15.10
-    * Support setup global OpenAI settings. [v5.15.11](https://github.com/ossrs/oryx/releases/tag/v5.15.11)
-    * Add youtube-dl binary for dubbing etc. v5.15.12
-    * VLive: Fix bug when source codec is not supported. v5.15.13
-    * Forward: Fix high CPU bug. v5.15.14
-    * Support Go PPROF for CPU profiling. [v5.15.15](https://github.com/ossrs/oryx/releases/tag/v5.15.15)
-    * VLive: Support download by youtube-dl. v5.15.16
-    * Dubbing: Use gpt-4o and smaller ASR segment. v5.15.17
-    * Dubbing: Merge more words if in small duration. v5.15.17
-    * Dubbing: Allow fullscreen when ASR. v5.15.18
-    * Dubbing: Support disable asr or translation. v5.15.19
-    * Dubbing: Fix bug when changing ASR segment size. v5.15.20
-    * Dubbing: Refine the window of text. [v5.15.20](https://github.com/ossrs/oryx/releases/tag/v5.15.20)
-    * Dubbing: Support space key to play/pause. v5.15.21
-    * AI: Support OpenAI o1-preview model. v5.15.22
-* v5.14:
-    * Merge features and bugfix from releases. v5.14.1
-    * Dubbing: Support VoD dubbing for multiple languages. [v5.14.2](https://github.com/ossrs/oryx/releases/tag/v5.14.2)
-    * Dubbing: Support disable translation, rephrase, or tts. v5.14.3
-    * Dubbing: Highlight the currently playing group. v5.14.3
-    * NGINX: Support set the m3u8 and ts expire. v5.14.3
-    * HLS: Set m3u8 expire time to 1s for LLHLS. v5.14.4
-    * HLS: Use fast cache for HLS config. v5.14.4
-    * Transcript: Support set the force_style for overlay subtitle. v5.14.5
-    * Transcript: Use Whisper response without LF. (#163). v5.14.5
-    * Token: Fix bug for Bearer token while initializing. [v5.14.6](https://github.com/ossrs/oryx/releases/tag/v5.14.6)
-    * Room: Enable dictation mode for AI-Talk. v5.14.7
-    * Dubbing: Refine download button with comments. v5.14.8
-    * Room: AI-Talk support post processing. v5.14.9
-    * Website: Support setting title for popout. v5.14.10
-    * Transcript: Support set the video codec parameters. [v5.14.11](https://github.com/ossrs/oryx/releases/tag/v5.14.11)
-    * Transcript: Support subtitle with WebVTT format. v5.14.12
-    * Transcript: Fix overlay transcoding parameters parsing bug. v5.14.13
-    * Use port 80/443 by default in README. v5.14.14 
-    * Use fastfail for test and utest. v5.14.15
-    * Rename project to Oryx. [v5.14.15](https://github.com/ossrs/oryx/releases/tag/v5.14.15)
-    * API: Support kickoff stream by name. v5.14.16
-    * AI-Talk: Refine the delay of ASR to 3s. [v5.14.17](https://github.com/ossrs/oryx/releases/tag/v5.14.17)
-    * AI-Talk: Ignore silent ASR text. v5.14.18
-    * Refine installer for lightsail. [v5.14.19](https://github.com/ossrs/oryx/releases/tag/v5.14.19)
-    * Update model to gpt-3.5-turbo, gpt-4-turbo, gpt-4o. v5.14.20
-    * Transcript: Upgrade the hls.js to 1.4 for WebVTT. v5.14.21
-    * Disable version query and check. [v5.14.22](https://github.com/ossrs/oryx/releases/tag/v5.14.22)
-    * Support Go PPROF for CPU profiling. v5.14.23
-    * Forward: Fix high CPU bug. v5.14.24
-    * VLive: Refine wait timeout. [v5.14.25](https://github.com/ossrs/oryx/releases/tag/v5.14.25)
-* v5.13:
-    * Fix bug for vlive and transcript. v5.13.1
-    * Support AWS Lightsail install script. v5.13.2
-    * Limits: Support limit bitrate for VLive stream. v5.13.3
-    * Fix bug: Remove HTTP port for SRS. v5.13.4
-    * Refine API with Bearer token. v5.13.5
-    * Switch to fluid max width. v5.13.6
-    * HLS: Support low latency mode about 5s. v5.13.7
-    * RTSP: Rebuild the URL with escaped user info. v5.13.8
-    * VLive: Support SRT URL filter. [v5.13.9](https://github.com/ossrs/oryx/releases/tag/v5.13.9)
-    * FFmpeg: Monitor and restart FFmpeg if stuck. v5.13.10
-    * Room: Support live room secret with stream URL. v5.13.11
-    * Camera: Support IP Camera streaming scenario. v5.13.12
-    * Camera: Support silent extra audio stream for video only device. v5.13.13
-    * Camera: Support replace audio if enabled extra audio. v5.13.13
-    * VLive/Camera/Forward: Extract multilingual text. v5.13.14
-    * Room: AI-Talk support assistant for live room. v5.13.15
-    * Room: AI-Talk support popout live chat. v5.13.16
-    * Room: AI-Talk support popout AI assistant. v5.13.17
-    * Room: AI-Talk support multiple assistant in a room. v5.13.18
-    * Room: AI-Talk support user different languages. v5.13.18
-    * Room: AI-Talk allow disable ASR/TTS, enable text. v5.13.19
-    * Room: AI-Talk support dictation mode. v5.13.20
-    * FFmpeg: Restart if time and speed abnormal. v5.13.21
-    * Transcript: Fix panic bug for sync goroutines. [v5.13.21](https://github.com/ossrs/oryx/releases/tag/v5.13.21)
-    * Support OpenAI organization for billing. v5.13.22
-    * Room: Fix the empty room UI sort and secret bug. [v5.13.23](https://github.com/ossrs/oryx/releases/tag/v5.13.23)
-    * FFmpeg: Fix restart bug for abnormal speed. v5.13.24
-    * FFmpeg: Fix bug for output SRT protocol. v5.13.25
-    * FFmpeg: Support ingest SRT protocol. v5.13.26
-    * VLive: Fix the re bug for file. [v5.13.27](https://github.com/ossrs/oryx/releases/tag/v5.13.27)
-    * Release stable version and support debugging. [v5.13.28](https://github.com/ossrs/oryx/releases/tag/v5.13.28)
-    * HLS: Set m3u8 expire time to 1s for LLHLS. v5.13.29
-    * Transcript: Support set the force_style for overlay subtitle. v5.13.30
-    * Transcript: Use Whisper response without LF. (#163). v5.13.31
-    * Token: Fix bug for Bearer token while initializing. [v5.13.32](https://github.com/ossrs/oryx/releases/tag/v5.13.32)
-    * Room: Refine stat for AI-Talk. v5.13.33
-    * Rename Oryx to Oryx. [v5.13.34](https://github.com/ossrs/oryx/releases/tag/v5.13.34)
-* v5.12
-    * Refine local variable name conf to config. v5.12.1
-    * Add forced exit on timeout for program termination. v5.12.1
-    * Transcript: Support convert live speech to text by whisper. [v5.12.2](https://github.com/ossrs/oryx/releases/tag/v5.12.2)
-    * Transcript: Update base image for FFmpeg subtitles. v5.12.3
-    * Transcript: Limit all queue base on overlay. v5.12.4
-    * Transcript: Allow work without active stream. [v5.12.5](https://github.com/ossrs/oryx/releases/tag/v5.12.5)
-    * Transcript: Support testing connection to OpenAI service. v5.12.6
-    * Filter locale value. v5.12.6
-    * Transcript: Add test case for OpenAI. [v5.12.7](https://github.com/ossrs/oryx/releases/tag/v5.12.7)
-    * Transcript: Use m4a and 30kbps bitrate to make ASR faster. v5.12.8
-    * Hooks: Support callback on_record_begin and on_record_end. v5.12.9
-    * VLive: Fix ffprobe RTSP bug, always use TCP transport. v5.12.10
-    * Confirm when user logout. v5.12.11
-    * Record: Support glob filters to match stream. v5.12.11
-    * Transcript: Show detail error if exceeded quota. [v5.12.12](https://github.com/ossrs/oryx/releases/tag/v5.12.12)
-    * Record: Support finish record task quickly after stream unpublished. v5.12.13
-    * Record: Support post-processing to cp file for S3. v5.12.14
-    * Transcript: Support clear the subtitle of segment in fixing queue. [v5.12.15](https://github.com/ossrs/oryx/releases/tag/v5.12.15)
-    * VLive: Fix bug for url with query string. v5.12.16
-    * Transcript: Check the base url for OpenAI. [v5.12.17](https://github.com/ossrs/oryx/releases/tag/v5.12.17)
-    * HLS: Support low latency mode about 5s. v5.12.18
-    * RTSP: Rebuild the URL with escaped user info. v5.12.19
-    * VLive: Fix rebuild URL bug. v5.12.20
-    * HLS: Fix LL HLS setting bug. [v5.12.21](https://github.com/ossrs/oryx/releases/tag/v5.12.21)
-    * VLive: Support SRT URL filter. v5.12.22
-    * HLS: Set m3u8 expire time to 1s for LLHLS. [v5.12.22](https://github.com/ossrs/oryx/releases/tag/v5.12.22)
-* v5.11
-    * VLive: Decrease the latency for virtual live. v5.11.1
-    * Live: Refine multiple language. v5.11.2
-    * Hooks: Support HTTP Callback and test. [v5.11.3](https://github.com/ossrs/oryx/releases/tag/v5.11.3)
-    * HELM: Support resolve name to ip for rtc. v5.11.4
-    * HELM: Disable NAME_LOOKUP by default. [v5.11.5](https://github.com/ossrs/oryx/releases/tag/v5.11.5)
-    * Refine env variable for bool. v5.11.7
-    * RTC: Refine WHIP player and enable NAME_LOOKUP by default. v5.11.8
-    * RTC: Update WHIP and WHEP player. v5.11.9
-    * RTC: Resolve candidate for lo and docker. v5.11.10
-    * RTC: Refine test and tutorial for WHIP/WHEP. [v5.11.10](https://github.com/ossrs/oryx/releases/tag/v5.11.10)
-    * Refine player open speed. v5.11.11
-    * HTTPS: Check dashboard and ssl domain. v5.11.12
-    * API: Add curl and jQuery example. v5.11.12
-    * API: Allow CORS by default. v5.11.13
-    * API: Remove duplicated CORS headers. [v5.11.14](https://github.com/ossrs/oryx/releases/tag/v5.11.14)
-    * Support expose ports for multiple containers. v5.11.15
-    * HTTPS: Check dashboard hostname and port. v5.11.15
-    * Error when eslint fail. v5.11.16
-    * Use upx to make binary smaller. v5.11.16
-    * Refine transcode test case. [v5.11.17](https://github.com/ossrs/oryx/releases/tag/v5.11.17)
-    * HTTPS: Enable self-signed certificate by default. v5.11.18
-    * HLS: Nginx HLS CDN support HTTPS. v5.11.19
-    * Refine scenarios with discouraged and deprecated. v5.11.20
-    * Transcode: Refine stream compare algorithm. v5.11.21
-    * Hooks: Support callback self-sign HTTPS URL. v5.11.22
-    * Fix utest fail. [v5.11.23](https://github.com/ossrs/oryx/releases/tag/v5.11.23)
-    * VLive: Fix ffprobe RTSP bug, always use TCP transport. [v5.11.24](https://github.com/ossrs/oryx/releases/tag/v5.11.24)
-* v5.10
-    * Refine README. v5.10.1
-    * Refine DO and droplet release script. v5.10.2
-    * VLive: Fix bug of link. v5.10.2
-    * Record: Fix bug of change record directory. v5.10.2 (#133)
-    * Streaming: Add SRT streaming. [v5.10.2](https://github.com/ossrs/oryx/releases/tag/v5.10.2)
-    * Streaming: Add OBS SRT streaming. v5.10.3
-    * Fix lighthouse script bug. v5.10.4
-    * VLive: Support forward stream. v5.10.5
-    * VLive: Cleanup temporary file when uploading. v5.10.6
-    * VLive: Use TCP transport when pull RTSP stream. [v5.10.7](https://github.com/ossrs/oryx/releases/tag/v5.10.7)
-    * Refine statistic and report data. v5.10.8
-    * Support file picker with language. [v5.10.9](https://github.com/ossrs/oryx/releases/tag/v5.10.9)
-    * Report language. v5.10.10
-    * Transcode: Support live stream transcoding. [v5.10.11](https://github.com/ossrs/oryx/releases/tag/v5.10.11)
-    * Transcode: Fix param bug. v5.10.12
-    * Fix default stream name bug. v5.10.13
-    * Update doc. v5.10.14
-    * New stable release. [v5.10.15](https://github.com/ossrs/oryx/releases/tag/v5.10.15)
-    * Fix js missing bug. v5.10.16
-    * Support docker images for helm. [v5.10.17](https://github.com/ossrs/oryx/releases/tag/v5.10.17)
-    * Use WHIP and WHEP for RTC. v5.10.18
-    * Transcode: Refine stream compare algorithm. v5.10.19
-* v5.9
-    * Update NGINX HLS CDN guide. v5.9.2
-    * Move DVR and VoD to others. v5.9.3
-    * Remove the Tencent CAM setting. v5.9.4
-    * Refine Virtual Live start and stop button. v5.9.5
-    * Refine Record start and stop button. v5.9.6
-    * Refine Forward start and stop button. v5.9.7
-    * Move SRT streaming to others. v5.9.8
-    * Support vlive to use server file. v5.9.9
-    * Add test for virtual live. v5.9.10
-    * Add test for record. v5.9.11
-    * Add test for forward. v5.9.12
-    * Refine test to transmux to mp4. [v5.9.13](https://github.com/ossrs/oryx/releases/tag/v5.9.13)
-    * Upgrade jquery and mpegtsjs. v5.9.14
-    * Support authentication for SRS HTTP API. [v5.9.15](https://github.com/ossrs/oryx/releases/tag/v5.9.15)
-    * Don't expose 1985 API port. v5.9.16
-    * Load environment variables from /data/config/.srs.env. v5.9.17
-    * Change guide to use $HOME/data as home. v5.9.18
-    * Translate forward to English. [v5.9.19](https://github.com/ossrs/oryx/releases/tag/v5.9.19)
-    * Refine record, dvr, and vod files. v5.9.20
-    * Translate record to English. [v5.9.21](https://github.com/ossrs/oryx/releases/tag/v5.9.21)
-    * Refine virtual live files. v5.9.22
-    * Translate virtual live to English. v5.9.23
-    * Support always open tabs. v5.9.24
-    * Remove record and vlive group. [v5.9.25](https://github.com/ossrs/oryx/releases/tag/v5.9.25)
-    * Refine project description. v5.9.26
-    * Refine DO and droplet release script. [v5.9.27](https://github.com/ossrs/oryx/releases/tag/v5.9.27)
-    * Fix bug, release stable version. v5.9.28
-    * VLive: Fix bug of link. v5.9.28
-    * Record: Fix bug of change record directory. v5.9.28 (#133)
-    * Streaming: Add SRT streaming. [v5.9.28](https://github.com/ossrs/oryx/releases/tag/v5.9.28)
-    * Fix lighthouse HTTPS bug. v5.9.29
-* v5.8
-    * Always dispose DO VM and domain for test. v1.0.306
-    * Fix docker start failed, cover by test. v1.0.306
-    * Switch default language to en. v1.0.306
-    * Support include for SRS config. v1.0.306
-    * Support High Performance HLS mode. v1.0.307
-    * Show current config for settings. v1.0.307
-    * Switch MIT to AGPL License. v1.0.307
-    * Use one version strategy. [v5.8.20](https://github.com/ossrs/oryx/releases/tag/v5.8.20)
-    * Always check test result. v5.8.21
-    * SRT: Enable srt in default vhost. v5.8.22
-    * Add utest for HP HLS. v5.8.23
-    * Migrate docs to new website. v5.8.23
-    * BT and aaPanel plugin ID should match filename. v5.8.24
-    * Add Nginx HLS Edge tutorial. v5.8.25
-    * Download test file from SRS. v5.8.26
-    * Do not require version. v5.8.26
-    * Fix Failed to execute 'insertBefore' on 'Node'. v5.8.26
-    * Eliminate unused callback events. v5.8.26
-    * Add docker for nginx HLS CDN. v5.8.27
-    * Update Oryx architecture. v5.8.27
-    * Use DO droplet s-1vcpu-1gb for auto test. v5.8.28
-    * Use default context when restore hphls. [v5.8.28](https://github.com/ossrs/oryx/releases/tag/v5.8.28)
-    * Support remote test. v5.8.29
-    * Enable CORS and timestamp in HLS. [v5.8.30](https://github.com/ossrs/oryx/releases/tag/v5.8.30)
-    * Release stable version. [v5.8.31](https://github.com/ossrs/oryx/releases/tag/v5.8.31)
-* v5.7
-    * Refine DigitalOcean droplet image. v1.0.302
-    * Support local test all script. v1.0.302
-    * Rewrite script for lighthouse. v1.0.303
-    * Set nginx max body to 100GB. v1.0.303
-    * Use LEGO instead of certbot. v1.0.304
-    * Rename SRS Cloud to Oryx. v1.0.304
-    * Support HTTPS by SSL file. v1.0.305
-    * Support reload nginx for SSL. v1.0.305
-    * Support request SSL from letsencrypt. v1.0.305
-    * Support work with bt/aaPanel ssl. v1.0.305
-    * Support self-sign certificate by default. v1.0.305
-    * Query configured SSL cert. v1.0.305
-    * 2023.08.13: Support test online environment. [v5.7.19](https://github.com/ossrs/oryx/releases/tag/publication-v5.7.19)
-    * 2023.08.20: Fix the BT and aaPanel filename issue. [v5.7.20](https://github.com/ossrs/oryx/releases/tag/publication-v5.7.20)
-* 2023.08.06, v1.0.301, v5.7.18
-    * Simplify startup script, fix bug, adjust directory to `/data` top-level directory. v1.0.296
-    * Improve message prompts, script comments, and log output. v1.0.297
-    * Avoid modifying the global directory every time it starts, initialize it in the container and platform script. v1.0.298
-    * Improve release script, check version matching, manually update version. v1.0.299
-    * Remove upgrade function, maintain consistency of docker and other platforms. v1.0.300
-    * Improved BT and aaPanel scripts, added test pipeline. v1.0.300
-    * Always use the latest SRS 5.0 release. v1.0.301
-    * Use status to check SRS, not by the exit value. v1.0.301
-* 2023.04.05, v1.0.295, structural improvements
-    * Remove HTTPS certificate application, administrator authorization, NGINX reverse proxy, and other functions. v1.0.283
-    * Implement Release using Go, reducing memory requirements and image size. v1.0.284
-    * Remove dashboard and Prometheus, making it easier to support a single Docker image. v1.0.283
-    * Implement mgmt and platform using Go, reducing memory requirements and image size. v1.0.283
-    * Use Ubuntu focal(20) as the base image, reducing image size. v1.0.283
-    * Support fast upgrade, installation in about 40 seconds, upgrade in about 10 seconds. v1.0.283
-    * Solve the problem of forwarding without stream. v1.0.284
-    * Solve the problem of uploading large files and getting stuck. v1.0.286
-    * Remove AI face-changing video, B station review did not pass. v1.0.289 (stable)
-    * Remove Redis container and start Redis directly in the platform. v1.0.290
-    * Remove SRS container and start SRS directly in the platform. v1.0.291
-    * Support single container startup, including mgmt in one container. v1.0.292
-    * Support mounting to `/data` directory for persistence. v1.0.295
-* 2023.02.01, v1.0.281, experience improvement, Stable version.
-    * Allow users to turn off automatic updates and use manual updates.
-    * Adapt to the new version of Bao Ta, solve the nodejs detection problem.
-    * Bao Ta checks the plug-in status, and cannot operate before the installation is complete.
-    * Improve the display of forwarding status, add `waiting` status. v1.0.260
-    * Improve image update, not strongly dependent on certbot. #47
-    * Merge hooks/tencent/ffmpeg image into the platform. v1.0.269
-    * Support custom platform for forwarding. v1.0.270
-    * Support virtual live broadcast, file-to-live broadcast. v1.0.272
-    * Upload file limit 100GB. v1.0.274
-    * Fix bug in virtual live broadcast. v1.0.276
-    * Release service, replace Nodejs with Go, reduce image size. v1.0.280
-    * Do not use buildx to build single-architecture docker images, CentOS will fail. v1.0.281
-* 2022.11.20, v1.0.256, major version update, experience improvement, Release 4.6
-    * Proxy root site resources, such as favicon.ico
-    * Support [SrsPlayer](https://wordpress.org/plugins/srs-player) WebRTC push stream shortcode.
-    * Support [local recording](https://github.com/ossrs/oryx/issues/42), recording to Oryx local disk.
-    * Support deleting local recording files and tasks.
-    * Support local recording as MP4 files and downloads.
-    * Support local recording directory as a soft link, storing recorded content on other disks.
-    * Improve recording navigation bar, merge into recording.
-    * Resolve conflicts between home page and proxy root directory.
-    * Solve the problem of not updating NGINX configuration during upgrade.
-    * Fix the bug of setting record soft link.
-    * Replace all images with standard images `ossrs/srs`.
-    * Support setting website title and footer (filing requirements).
-    * Prompt administrator password path, can retrieve password when forgotten.
-    * Allow recovery of the page when an error occurs, no need to refresh the page.
-* 2022.06.06, v1.0.240, major version update, Bao Ta, Release 4.5
-    * Reduce disk usage, clean up docker images
-    * Improve dependencies, no longer strongly dependent on Redis and Nginx
-    * Support [Bao Ta](https://mp.weixin.qq.com/s/nutc5eJ73aUa4Hc23DbCwQ) or [aaPanel](https://blog.ossrs.io/how-to-setup-a-video-streaming-service-by-aapanel-9748ae754c8c) plugin, support CentOS or Ubuntu command line installation
-    * Migrate ossrs.net to lightweight server, no longer dependent on K8s.
-    * Login password default changed to display password.
-    * Stop pushing stream for a certain time, clean up HLS cache files.
-    * Create a 2GB swap area if memory is less than 2GB.
-    * Support collecting SRS coredump.
-    * Live scene display SRT push stream address and command.
-    * Support setting NGINX root proxy path.
-* 2022.04.18, v1.0.222, minor version update, containerized Redis
-    * Improve instructions, support disabling push stream authentication.
-    * Support English guidance, [medium](https://blog.ossrs.io) articles.
-    * Improve simple player, support mute autoplay.
-    * Add CORS support when NGINX distributes HLS.
-    * Add English guidance, [Create SRS](https://blog.ossrs.io/how-to-setup-a-video-streaming-service-by-1-click-e9fe6f314ac6) and [Set up HTTPS](https://blog.ossrs.io/how-to-secure-srs-with-lets-encrypt-by-1-click-cb618777639f), [WordPress](https://blog.ossrs.io/publish-your-srs-livestream-through-wordpress-ec18dfae7d6f).
-    * Enhance key length, strengthen security, and avoid brute force cracking.
-    * Support WordPress Shortcode guidance.
-    * Support setting home page redirection path, support mixed running with other websites.
-    * Support setting reverse proxy, support hanging other services under NGINX.
-    * Support applying for multiple domain names for HTTPS, solving the `www` prefix domain name problem.
-    * Change `filing` to `website`, can set home page redirection and footer filing number.
-    * Improve NGINX configuration file structure, centralize configuration in `containers` directory.
-    * Support setting simple load balancing, randomly selecting a backend NGINX for HLS distribution.
-    * Containers work in an independent `oryx` network.
-    * Add `System > Tools` option.
-    * Use Redis container, not dependent on host Redis service.
-* 2022.04.06, v1.0.200, major version update, multi-language, Release 4.4
-    * Support Chinese and English bilingual.
-    * Support DigitalOcean image, see [SRS Droplet](https://marketplace.digitalocean.com/apps/srs).
-    * Support OpenAPI to get push stream key, see [#19](https://github.com/ossrs/oryx/pull/19).
-    * Improve container image update script.
-    * Support using NGINX to distribute HLS, see [#2989](https://github.com/ossrs/srs/issues/2989#nginx-direclty-serve-hls).
-    * Improve VoD storage and service detection.
-    * Improve installation script.
-* 2022.03.18, v1.0.191, minor version update, experience improvement
-    * Scenes default to display tutorial.
-    * Support SRT address separation, play without secret.
-    * Separate Platform module, simplify mgmt logic.
-    * Improve UTest upgrade test script.
-    * Support changing stream name, randomly generating stream name.
-    * Support copying stream name, configuration, address, etc.
-    * Separate upgrade and UI, simplify mgmt logic.
-    * Separate container management and upgrade.
-    * Fast and efficient upgrade, completed within 30 seconds.
-    * Support CVM image, see [SRS CVM](https://mp.weixin.qq.com/s/x-PjoKjJj6HRF-eCKX0KzQ).
-* 2022.03.16, v1.0.162, Major version update, error handling, Release 4.3
-    * Support for React Error Boundary, friendly error display.
-    * Support for RTMP push QR code, core image guidance.
-    * Support for simple player, playing HTTP-FLV and HLS.
-    * Improved callbacks, created with React.useCallback.
-    * Improved page cache time, increased loading speed.
-    * Added REACT UI components and Nodejs project testing.
-    * Added script for installing dependency packages.
-    * Improved simple player, not muted by default, requires user click to play.
-    * Added Watermelon Player [xgplayer](https://github.com/bytedance/xgplayer), playing FLV and HLS
-* 2022.03.09, v1.0.144, Minor version update, multi-platform forwarding
-    * Support for multi-platform forwarding, video number, Bilibili, Kuaishou.
-    * Restart forwarding task when modifying forwarding configuration.
-    * Support for setting upgrade window, default upgrade from 23:00 to 5:00.
-    * Support for jest unit testing, covering mgmt.
-    * Support for switching SRS, stable version and development version.
-    * Optimized display of disabled container status.
-* 2022.03.04, v1.0.132, Minor version update, cloud on-demand
-    * Support for cloud on-demand, HLS and MP4 downloads.
-    * Cloud on-demand supports live playback, updating SessionKey.
-    * Disable password setting during upgrade to avoid environment variable conflicts.
-    * Restart all containers dependent on .env when initializing the system.
-    * Update the differences between cloud recording and cloud on-demand.
-    * SRT supports vMix tutorial.
-* 2022.02.25, v1.0.120, Minor version update, cloud recording
-    * Improved upgrade script, restarting necessary containers.
-    * Modified Redis listening port, enhanced security.
-    * Resolved cloud recording, asynchronous long time (8h+) conflict issue.
-    * Improved key creation link, using cloud API key.
-    * Improved scene and settings TAB, loaded on demand, URL address identification.
-* 2022.02.23, v1.0.113, Minor version update, cloud recording
-    * Support for resetting push key. [#2](https://github.com/ossrs/srs-terraform/pull/2)
-    * SRT push disconnects when RTMP conversion fails.
-    * Disabled containers no longer start.
-    * SRT supports QR code scanning for push and playback. [#6](https://github.com/ossrs/srs-terraform/pull/6)
-    * Support for [cloud recording](https://mp.weixin.qq.com/s/UXR5EBKZ-LnthwKN_rlIjg), recording to Tencent Cloud COS.
-* 2022.02.14, v1.0.98, Major version update, upgrade, Release 4.2
-    * Improved React static resource caching, increasing subsequent loading speed.
-    * Added Contact exclusive group QR code, scan code to join group.
-    * Support for setting Redis values, disabling automatic updates.
-    * Automatically detect overseas regions, use overseas sources for updates and upgrades.
-    * Improved upgrade prompts, countdown and status detection.
-    * Display video tutorials created by everyone on the page, sorted by play count.
-    * Support for authorizing platform administrators to access Lighthouse instances.
-    * Small memory systems, automatically create swap to avoid OOM during upgrades.
-* 2022.02.05, v1.0.74, minor update, dashboard
-    * Support for Prometheus monitoring, WebUI mounted on `/prometheus`, no authentication for now.
-    * Support for Prometheus NodeExporter, node monitoring, Lighthouse's CPU, network, disk, etc.
-    * Added dashboard, added CPU chart, can jump to [Prometheus](https://github.com/ossrs/srs/issues/2899#prometheus).
-    * Improved certbot, started with docker, not an installation package.
-    * Improved upgrade process to prevent duplicate upgrades.
-    * Support for upgrading machines with 1GB memory, disabling node's GENERATE_SOURCEMAP to prevent OOM.
-* 2022.02.01, v1.0.64, minor update, HTTPS
-    * Support for Windows version of ffplay to play SRT addresses
-    * Support for container startup hooks, stream authentication and authorization
-    * Change Redis listening on lo and eth0, otherwise container cannot access
-    * Support for setting HTTPS certificates, Nginx format, refer to [here](https://github.com/ossrs/srs/issues/2864#ssl-file)
-    * Support for Let's Encrypt automatic application of HTTPS certificates, refer to [here](https://github.com/ossrs/srs/issues/2864#lets-encrypt)
-* 2022.01.31, v1.0.58, minor update, SRT
-    * Support for ultra-clear real-time live streaming scenarios, SRT push and pull streaming, 200~500ms latency, refer to [here](https://github.com/ossrs/srs/issues/1147#lagging)
-    * Chip/OBS+SRS+ffplay push and pull SRT stream address, support authentication.
-    * Support for manual upgrade to the latest version, support for forced upgrade.
-    * Improved upgrade script, execute after updating the script
-    * Support for restarting SRS server container
-* 2022.01.27, v1.0.42, major update, stream authentication, Release 4.1
-    * Support for push stream authentication and management backend
-    * Support for updating backend, manual update
-    * Live room scenario, push stream and play guide
-    * SRS source code download, with GIT
-    * Support for Lighthouse image, refer to [SRS Lighthouse](https://mp.weixin.qq.com/s/fWmdkw-2AoFD_pEmE_EIkA).
-* 2022.01.21, Initialized.
+## v5.15
+
+* Forward: Support multiple forwarding servers. v5.15.1
+* ENV: Refine the environment variables. v5.15.2
+* OCR: Support OCR for image recognition. v5.15.3
+* VLive: Support multiple virtual live streaming. v5.15.4
+* Camera: Support multiple camera streaming. [v5.15.5](https://github.com/ossrs/oryx/releases/tag/v5.15.5)
+* Transcript: Upgrade the hls.js to 1.4 for WebVTT. v5.15.6
+* Disable version query and check. v5.15.7
+* Change LICENSE from AGPL-3.0-or-later to MIT. v5.15.8
+* Dubbing: Support scrolling card in fullscreen. v5.15.9
+* Support external redis host and using 127.0.0.1 as default. v5.15.10
+* Support setup global OpenAI settings. [v5.15.11](https://github.com/ossrs/oryx/releases/tag/v5.15.11)
+* Add youtube-dl binary for dubbing etc. v5.15.12
+* VLive: Fix bug when source codec is not supported. v5.15.13
+* Forward: Fix high CPU bug. v5.15.14
+* Support Go PPROF for CPU profiling. [v5.15.15](https://github.com/ossrs/oryx/releases/tag/v5.15.15)
+* VLive: Support download by youtube-dl. v5.15.16
+* Dubbing: Use gpt-4o and smaller ASR segment. v5.15.17
+* Dubbing: Merge more words if in small duration. v5.15.17
+* Dubbing: Allow fullscreen when ASR. v5.15.18
+* Dubbing: Support disable asr or translation. v5.15.19
+* Dubbing: Fix bug when changing ASR segment size. v5.15.20
+* Dubbing: Refine the window of text. [v5.15.20](https://github.com/ossrs/oryx/releases/tag/v5.15.20)
+* Dubbing: Support space key to play/pause. v5.15.21
+* AI: Support OpenAI o1-preview model. v5.15.22
+
+### v5.14
+
+* Merge features and bugfix from releases. v5.14.1
+* Dubbing: Support VoD dubbing for multiple languages. [v5.14.2](https://github.com/ossrs/oryx/releases/tag/v5.14.2)
+* Dubbing: Support disable translation, rephrase, or tts. v5.14.3
+* Dubbing: Highlight the currently playing group. v5.14.3
+* NGINX: Support set the m3u8 and ts expire. v5.14.3
+* HLS: Set m3u8 expire time to 1s for LLHLS. v5.14.4
+* HLS: Use fast cache for HLS config. v5.14.4
+* Transcript: Support set the force_style for overlay subtitle. v5.14.5
+* Transcript: Use Whisper response without LF. (#163). v5.14.5
+* Token: Fix bug for Bearer token while initializing. [v5.14.6](https://github.com/ossrs/oryx/releases/tag/v5.14.6)
+* Room: Enable dictation mode for AI-Talk. v5.14.7
+* Dubbing: Refine download button with comments. v5.14.8
+* Room: AI-Talk support post processing. v5.14.9
+* Website: Support setting title for popout. v5.14.10
+* Transcript: Support set the video codec parameters. [v5.14.11](https://github.com/ossrs/oryx/releases/tag/v5.14.11)
+* Transcript: Support subtitle with WebVTT format. v5.14.12
+* Transcript: Fix overlay transcoding parameters parsing bug. v5.14.13
+* Use port 80/443 by default in README. v5.14.14
+* Use fastfail for test and utest. v5.14.15
+* Rename project to Oryx. [v5.14.15](https://github.com/ossrs/oryx/releases/tag/v5.14.15)
+* API: Support kickoff stream by name. v5.14.16
+* AI-Talk: Refine the delay of ASR to 3s. [v5.14.17](https://github.com/ossrs/oryx/releases/tag/v5.14.17)
+* AI-Talk: Ignore silent ASR text. v5.14.18
+* Refine installer for lightsail. [v5.14.19](https://github.com/ossrs/oryx/releases/tag/v5.14.19)
+* Update model to gpt-3.5-turbo, gpt-4-turbo, gpt-4o. v5.14.20
+* Transcript: Upgrade the hls.js to 1.4 for WebVTT. v5.14.21
+* Disable version query and check. [v5.14.22](https://github.com/ossrs/oryx/releases/tag/v5.14.22)
+* Support Go PPROF for CPU profiling. v5.14.23
+* Forward: Fix high CPU bug. v5.14.24
+* VLive: Refine wait timeout. [v5.14.25](https://github.com/ossrs/oryx/releases/tag/v5.14.25)
+
+## v5.13
+
+* Fix bug for vlive and transcript. v5.13.1
+* Support AWS Lightsail install script. v5.13.2
+* Limits: Support limit bitrate for VLive stream. v5.13.3
+* Fix bug: Remove HTTP port for SRS. v5.13.4
+* Refine API with Bearer token. v5.13.5
+* Switch to fluid max width. v5.13.6
+* HLS: Support low latency mode about 5s. v5.13.7
+* RTSP: Rebuild the URL with escaped user info. v5.13.8
+* VLive: Support SRT URL filter. [v5.13.9](https://github.com/ossrs/oryx/releases/tag/v5.13.9)
+* FFmpeg: Monitor and restart FFmpeg if stuck. v5.13.10
+* Room: Support live room secret with stream URL. v5.13.11
+* Camera: Support IP Camera streaming scenario. v5.13.12
+* Camera: Support silent extra audio stream for video only device. v5.13.13
+* Camera: Support replace audio if enabled extra audio. v5.13.13
+* VLive/Camera/Forward: Extract multilingual text. v5.13.14
+* Room: AI-Talk support assistant for live room. v5.13.15
+* Room: AI-Talk support popout live chat. v5.13.16
+* Room: AI-Talk support popout AI assistant. v5.13.17
+* Room: AI-Talk support multiple assistant in a room. v5.13.18
+* Room: AI-Talk support user different languages. v5.13.18
+* Room: AI-Talk allow disable ASR/TTS, enable text. v5.13.19
+* Room: AI-Talk support dictation mode. v5.13.20
+* FFmpeg: Restart if time and speed abnormal. v5.13.21
+* Transcript: Fix panic bug for sync goroutines. [v5.13.21](https://github.com/ossrs/oryx/releases/tag/v5.13.21)
+* Support OpenAI organization for billing. v5.13.22
+* Room: Fix the empty room UI sort and secret bug. [v5.13.23](https://github.com/ossrs/oryx/releases/tag/v5.13.23)
+* FFmpeg: Fix restart bug for abnormal speed. v5.13.24
+* FFmpeg: Fix bug for output SRT protocol. v5.13.25
+* FFmpeg: Support ingest SRT protocol. v5.13.26
+* VLive: Fix the re bug for file. [v5.13.27](https://github.com/ossrs/oryx/releases/tag/v5.13.27)
+* Release stable version and support debugging. [v5.13.28](https://github.com/ossrs/oryx/releases/tag/v5.13.28)
+* HLS: Set m3u8 expire time to 1s for LLHLS. v5.13.29
+* Transcript: Support set the force_style for overlay subtitle. v5.13.30
+* Transcript: Use Whisper response without LF. (#163). v5.13.31
+* Token: Fix bug for Bearer token while initializing. [v5.13.32](https://github.com/ossrs/oryx/releases/tag/v5.13.32)
+* Room: Refine stat for AI-Talk. v5.13.33
+* Rename Oryx to Oryx. [v5.13.34](https://github.com/ossrs/oryx/releases/tag/v5.13.34)
+
+## v5.12
+
+* Refine local variable name conf to config. v5.12.1
+* Add forced exit on timeout for program termination. v5.12.1
+* Transcript: Support convert live speech to text by whisper. [v5.12.2](https://github.com/ossrs/oryx/releases/tag/v5.12.2)
+* Transcript: Update base image for FFmpeg subtitles. v5.12.3
+* Transcript: Limit all queue base on overlay. v5.12.4
+* Transcript: Allow work without active stream. [v5.12.5](https://github.com/ossrs/oryx/releases/tag/v5.12.5)
+* Transcript: Support testing connection to OpenAI service. v5.12.6
+* Filter locale value. v5.12.6
+* Transcript: Add test case for OpenAI. [v5.12.7](https://github.com/ossrs/oryx/releases/tag/v5.12.7)
+* Transcript: Use m4a and 30kbps bitrate to make ASR faster. v5.12.8
+* Hooks: Support callback on_record_begin and on_record_end. v5.12.9
+* VLive: Fix ffprobe RTSP bug, always use TCP transport. v5.12.10
+* Confirm when user logout. v5.12.11
+* Record: Support glob filters to match stream. v5.12.11
+* Transcript: Show detail error if exceeded quota. [v5.12.12](https://github.com/ossrs/oryx/releases/tag/v5.12.12)
+* Record: Support finish record task quickly after stream unpublished. v5.12.13
+* Record: Support post-processing to cp file for S3. v5.12.14
+* Transcript: Support clear the subtitle of segment in fixing queue. [v5.12.15](https://github.com/ossrs/oryx/releases/tag/v5.12.15)
+* VLive: Fix bug for url with query string. v5.12.16
+* Transcript: Check the base url for OpenAI. [v5.12.17](https://github.com/ossrs/oryx/releases/tag/v5.12.17)
+* HLS: Support low latency mode about 5s. v5.12.18
+* RTSP: Rebuild the URL with escaped user info. v5.12.19
+* VLive: Fix rebuild URL bug. v5.12.20
+* HLS: Fix LL HLS setting bug. [v5.12.21](https://github.com/ossrs/oryx/releases/tag/v5.12.21)
+* VLive: Support SRT URL filter. v5.12.22
+* HLS: Set m3u8 expire time to 1s for LLHLS. [v5.12.22](https://github.com/ossrs/oryx/releases/tag/v5.12.22)
+
+## v5.11
+
+* VLive: Decrease the latency for virtual live. v5.11.1
+* Live: Refine multiple language. v5.11.2
+* Hooks: Support HTTP Callback and test. [v5.11.3](https://github.com/ossrs/oryx/releases/tag/v5.11.3)
+* HELM: Support resolve name to ip for rtc. v5.11.4
+* HELM: Disable NAME_LOOKUP by default. [v5.11.5](https://github.com/ossrs/oryx/releases/tag/v5.11.5)
+* Refine env variable for bool. v5.11.7
+* RTC: Refine WHIP player and enable NAME_LOOKUP by default. v5.11.8
+* RTC: Update WHIP and WHEP player. v5.11.9
+* RTC: Resolve candidate for lo and docker. v5.11.10
+* RTC: Refine test and tutorial for WHIP/WHEP. [v5.11.10](https://github.com/ossrs/oryx/releases/tag/v5.11.10)
+* Refine player open speed. v5.11.11
+* HTTPS: Check dashboard and ssl domain. v5.11.12
+* API: Add curl and jQuery example. v5.11.12
+* API: Allow CORS by default. v5.11.13
+* API: Remove duplicated CORS headers. [v5.11.14](https://github.com/ossrs/oryx/releases/tag/v5.11.14)
+* Support expose ports for multiple containers. v5.11.15
+* HTTPS: Check dashboard hostname and port. v5.11.15
+* Error when eslint fail. v5.11.16
+* Use upx to make binary smaller. v5.11.16
+* Refine transcode test case. [v5.11.17](https://github.com/ossrs/oryx/releases/tag/v5.11.17)
+* HTTPS: Enable self-signed certificate by default. v5.11.18
+* HLS: Nginx HLS CDN support HTTPS. v5.11.19
+* Refine scenarios with discouraged and deprecated. v5.11.20
+* Transcode: Refine stream compare algorithm. v5.11.21
+* Hooks: Support callback self-sign HTTPS URL. v5.11.22
+* Fix utest fail. [v5.11.23](https://github.com/ossrs/oryx/releases/tag/v5.11.23)
+* VLive: Fix ffprobe RTSP bug, always use TCP transport. [v5.11.24](https://github.com/ossrs/oryx/releases/tag/v5.11.24)
+
+## v5.10
+
+* Refine README. v5.10.1
+* Refine DO and droplet release script. v5.10.2
+* VLive: Fix bug of link. v5.10.2
+* Record: Fix bug of change record directory. v5.10.2 (#133)
+* Streaming: Add SRT streaming. [v5.10.2](https://github.com/ossrs/oryx/releases/tag/v5.10.2)
+* Streaming: Add OBS SRT streaming. v5.10.3
+* Fix lighthouse script bug. v5.10.4
+* VLive: Support forward stream. v5.10.5
+* VLive: Cleanup temporary file when uploading. v5.10.6
+* VLive: Use TCP transport when pull RTSP stream. [v5.10.7](https://github.com/ossrs/oryx/releases/tag/v5.10.7)
+* Refine statistic and report data. v5.10.8
+* Support file picker with language. [v5.10.9](https://github.com/ossrs/oryx/releases/tag/v5.10.9)
+* Report language. v5.10.10
+* Transcode: Support live stream transcoding. [v5.10.11](https://github.com/ossrs/oryx/releases/tag/v5.10.11)
+* Transcode: Fix param bug. v5.10.12
+* Fix default stream name bug. v5.10.13
+* Update doc. v5.10.14
+* New stable release. [v5.10.15](https://github.com/ossrs/oryx/releases/tag/v5.10.15)
+* Fix js missing bug. v5.10.16
+* Support docker images for helm. [v5.10.17](https://github.com/ossrs/oryx/releases/tag/v5.10.17)
+* Use WHIP and WHEP for RTC. v5.10.18
+* Transcode: Refine stream compare algorithm. v5.10.19
+
+## v5.9
+
+* Update NGINX HLS CDN guide. v5.9.2
+* Move DVR and VoD to others. v5.9.3
+* Remove the Tencent CAM setting. v5.9.4
+* Refine Virtual Live start and stop button. v5.9.5
+* Refine Record start and stop button. v5.9.6
+* Refine Forward start and stop button. v5.9.7
+* Move SRT streaming to others. v5.9.8
+* Support vlive to use server file. v5.9.9
+* Add test for virtual live. v5.9.10
+* Add test for record. v5.9.11
+* Add test for forward. v5.9.12
+* Refine test to transmux to mp4. [v5.9.13](https://github.com/ossrs/oryx/releases/tag/v5.9.13)
+* Upgrade jquery and mpegtsjs. v5.9.14
+* Support authentication for SRS HTTP API. [v5.9.15](https://github.com/ossrs/oryx/releases/tag/v5.9.15)
+* Don't expose 1985 API port. v5.9.16
+* Load environment variables from /data/config/.srs.env. v5.9.17
+* Change guide to use $HOME/data as home. v5.9.18
+* Translate forward to English. [v5.9.19](https://github.com/ossrs/oryx/releases/tag/v5.9.19)
+* Refine record, dvr, and vod files. v5.9.20
+* Translate record to English. [v5.9.21](https://github.com/ossrs/oryx/releases/tag/v5.9.21)
+* Refine virtual live files. v5.9.22
+* Translate virtual live to English. v5.9.23
+* Support always open tabs. v5.9.24
+* Remove record and vlive group. [v5.9.25](https://github.com/ossrs/oryx/releases/tag/v5.9.25)
+* Refine project description. v5.9.26
+* Refine DO and droplet release script. [v5.9.27](https://github.com/ossrs/oryx/releases/tag/v5.9.27)
+* Fix bug, release stable version. v5.9.28
+* VLive: Fix bug of link. v5.9.28
+* Record: Fix bug of change record directory. v5.9.28 (#133)
+* Streaming: Add SRT streaming. [v5.9.28](https://github.com/ossrs/oryx/releases/tag/v5.9.28)
+* Fix lighthouse HTTPS bug. v5.9.29
+
+## v5.8
+
+* Always dispose DO VM and domain for test. v1.0.306
+* Fix docker start failed, cover by test. v1.0.306
+* Switch default language to en. v1.0.306
+* Support include for SRS config. v1.0.306
+* Support High Performance HLS mode. v1.0.307
+* Show current config for settings. v1.0.307
+* Switch MIT to AGPL License. v1.0.307
+* Use one version strategy. [v5.8.20](https://github.com/ossrs/oryx/releases/tag/v5.8.20)
+* Always check test result. v5.8.21
+* SRT: Enable srt in default vhost. v5.8.22
+* Add utest for HP HLS. v5.8.23
+* Migrate docs to new website. v5.8.23
+* BT and aaPanel plugin ID should match filename. v5.8.24
+* Add Nginx HLS Edge tutorial. v5.8.25
+* Download test file from SRS. v5.8.26
+* Do not require version. v5.8.26
+* Fix Failed to execute 'insertBefore' on 'Node'. v5.8.26
+* Eliminate unused callback events. v5.8.26
+* Add docker for nginx HLS CDN. v5.8.27
+* Update Oryx architecture. v5.8.27
+* Use DO droplet s-1vcpu-1gb for auto test. v5.8.28
+* Use default context when restore hphls. [v5.8.28](https://github.com/ossrs/oryx/releases/tag/v5.8.28)
+* Support remote test. v5.8.29
+* Enable CORS and timestamp in HLS. [v5.8.30](https://github.com/ossrs/oryx/releases/tag/v5.8.30)
+* Release stable version. [v5.8.31](https://github.com/ossrs/oryx/releases/tag/v5.8.31)
+
+## v5.7
+
+* Refine DigitalOcean droplet image. v1.0.302
+* Support local test all script. v1.0.302
+* Rewrite script for lighthouse. v1.0.303
+* Set nginx max body to 100GB. v1.0.303
+* Use LEGO instead of certbot. v1.0.304
+* Rename SRS Cloud to Oryx. v1.0.304
+* Support HTTPS by SSL file. v1.0.305
+* Support reload nginx for SSL. v1.0.305
+* Support request SSL from letsencrypt. v1.0.305
+* Support work with bt/aaPanel ssl. v1.0.305
+* Support self-sign certificate by default. v1.0.305
+* Query configured SSL cert. v1.0.305
+* 2023.08.13: Support test online environment. [v5.7.19](https://github.com/ossrs/oryx/releases/tag/publication-v5.7.19)
+* 2023.08.20: Fix the BT and aaPanel filename issue. [v5.7.20](https://github.com/ossrs/oryx/releases/tag/publication-v5.7.20)
+
+## 2023.08.06, v1.0.301, v5.7.18
+
+* Simplify startup script, fix bug, adjust directory to `/data` top-level directory. v1.0.296
+* Improve message prompts, script comments, and log output. v1.0.297
+* Avoid modifying the global directory every time it starts, initialize it in the container and platform script. v1.0.298
+* Improve release script, check version matching, manually update version. v1.0.299
+* Remove upgrade function, maintain consistency of docker and other platforms. v1.0.300
+* Improved BT and aaPanel scripts, added test pipeline. v1.0.300
+* Always use the latest SRS 5.0 release. v1.0.301
+* Use status to check SRS, not by the exit value. v1.0.301
+
+## 2023.04.05, v1.0.295, structural improvements
+
+* Remove HTTPS certificate application, administrator authorization, NGINX reverse proxy, and other functions. v1.0.283
+* Implement Release using Go, reducing memory requirements and image size. v1.0.284
+* Remove dashboard and Prometheus, making it easier to support a single Docker image. v1.0.283
+* Implement mgmt and platform using Go, reducing memory requirements and image size. v1.0.283
+* Use Ubuntu focal(20) as the base image, reducing image size. v1.0.283
+* Support fast upgrade, installation in about 40 seconds, upgrade in about 10 seconds. v1.0.283
+* Solve the problem of forwarding without stream. v1.0.284
+* Solve the problem of uploading large files and getting stuck. v1.0.286
+* Remove AI face-changing video, B station review did not pass. v1.0.289 (stable)
+* Remove Redis container and start Redis directly in the platform. v1.0.290
+* Remove SRS container and start SRS directly in the platform. v1.0.291
+* Support single container startup, including mgmt in one container. v1.0.292
+* Support mounting to `/data` directory for persistence. v1.0.295
+
+## 2023.02.01, v1.0.281, experience improvement, Stable version
+
+* Allow users to turn off automatic updates and use manual updates.
+* Adapt to the new version of Bao Ta, solve the nodejs detection problem.
+* Bao Ta checks the plug-in status, and cannot operate before the installation is complete.
+* Improve the display of forwarding status, add `waiting` status. v1.0.260
+* Improve image update, not strongly dependent on certbot. #47
+* Merge hooks/tencent/ffmpeg image into the platform. v1.0.269
+* Support custom platform for forwarding. v1.0.270
+* Support virtual live broadcast, file-to-live broadcast. v1.0.272
+* Upload file limit 100GB. v1.0.274
+* Fix bug in virtual live broadcast. v1.0.276
+* Release service, replace Nodejs with Go, reduce image size. v1.0.280
+* Do not use buildx to build single-architecture docker images, CentOS will fail. v1.0.281
+
+## 2022.11.20, v1.0.256, major version update, experience improvement, Release 4.6
+
+* Proxy root site resources, such as favicon.ico
+* Support [SrsPlayer](https://wordpress.org/plugins/srs-player) WebRTC push stream shortcode.
+* Support [local recording](https://github.com/ossrs/oryx/issues/42), recording to Oryx local disk.
+* Support deleting local recording files and tasks.
+* Support local recording as MP4 files and downloads.
+* Support local recording directory as a soft link, storing recorded content on other disks.
+* Improve recording navigation bar, merge into recording.
+* Resolve conflicts between home page and proxy root directory.
+* Solve the problem of not updating NGINX configuration during upgrade.
+* Fix the bug of setting record soft link.
+* Replace all images with standard images `ossrs/srs`.
+* Support setting website title and footer (filing requirements).
+* Prompt administrator password path, can retrieve password when forgotten.
+* Allow recovery of the page when an error occurs, no need to refresh the page.
+
+## 2022.06.06, v1.0.240, major version update, Bao Ta, Release 4.5
+
+* Reduce disk usage, clean up docker images
+* Improve dependencies, no longer strongly dependent on Redis and Nginx
+* Support [Bao Ta](https://mp.weixin.qq.com/s/nutc5eJ73aUa4Hc23DbCwQ) or [aaPanel](https://blog.ossrs.io/how-to-setup-a-video-streaming-service-by-aapanel-9748ae754c8c) plugin, support CentOS or Ubuntu command line installation
+* Migrate ossrs.net to lightweight server, no longer dependent on K8s.
+* Login password default changed to display password.
+* Stop pushing stream for a certain time, clean up HLS cache files.
+* Create a 2GB swap area if memory is less than 2GB.
+* Support collecting SRS coredump.
+* Live scene display SRT push stream address and command.
+* Support setting NGINX root proxy path.
+
+## 2022.04.18, v1.0.222, minor version update, containerized Redis
+
+* Improve instructions, support disabling push stream authentication.
+* Support English guidance, [medium](https://blog.ossrs.io) articles.
+* Improve simple player, support mute autoplay.
+* Add CORS support when NGINX distributes HLS.
+* Add English guidance, [Create SRS](https://blog.ossrs.io/how-to-setup-a-video-streaming-service-by-1-click-e9fe6f314ac6) and [Set up HTTPS](https://blog.ossrs.io/how-to-secure-srs-with-lets-encrypt-by-1-click-cb618777639f), [WordPress](https://blog.ossrs.io/publish-your-srs-livestream-through-wordpress-ec18dfae7d6f).
+* Enhance key length, strengthen security, and avoid brute force cracking.
+* Support WordPress Shortcode guidance.
+* Support setting home page redirection path, support mixed running with other websites.
+* Support setting reverse proxy, support hanging other services under NGINX.
+* Support applying for multiple domain names for HTTPS, solving the `www` prefix domain name problem.
+* Change `filing` to `website`, can set home page redirection and footer filing number.
+* Improve NGINX configuration file structure, centralize configuration in `containers` directory.
+* Support setting simple load balancing, randomly selecting a backend NGINX for HLS distribution.
+* Containers work in an independent `oryx` network.
+* Add `System > Tools` option.
+* Use Redis container, not dependent on host Redis service.
+
+## 2022.04.06, v1.0.200, major version update, multi-language, Release 4.4
+
+* Support Chinese and English bilingual.
+* Support DigitalOcean image, see [SRS Droplet](https://marketplace.digitalocean.com/apps/srs).
+* Support OpenAPI to get push stream key, see [#19](https://github.com/ossrs/oryx/pull/19).
+* Improve container image update script.
+* Support using NGINX to distribute HLS, see [#2989](https://github.com/ossrs/srs/issues/2989#nginx-direclty-serve-hls).
+* Improve VoD storage and service detection.
+* Improve installation script.
+
+## 2022.03.18, v1.0.191, minor version update, experience improvement
+
+* Scenes default to display tutorial.
+* Support SRT address separation, play without secret.
+* Separate Platform module, simplify mgmt logic.
+* Improve UTest upgrade test script.
+* Support changing stream name, randomly generating stream name.
+* Support copying stream name, configuration, address, etc.
+* Separate upgrade and UI, simplify mgmt logic.
+* Separate container management and upgrade.
+* Fast and efficient upgrade, completed within 30 seconds.
+* Support CVM image, see [SRS CVM](https://mp.weixin.qq.com/s/x-PjoKjJj6HRF-eCKX0KzQ).
+
+## 2022.03.16, v1.0.162, Major version update, error handling, Release 4.3
+
+* Support for React Error Boundary, friendly error display.
+* Support for RTMP push QR code, core image guidance.
+* Support for simple player, playing HTTP-FLV and HLS.
+* Improved callbacks, created with React.useCallback.
+* Improved page cache time, increased loading speed.
+* Added REACT UI components and Nodejs project testing.
+* Added script for installing dependency packages.
+* Improved simple player, not muted by default, requires user click to play.
+* Added Watermelon Player [xgplayer](https://github.com/bytedance/xgplayer), playing FLV and HLS
+
+## 2022.03.09, v1.0.144, Minor version update, multi-platform forwarding
+
+* Support for multi-platform forwarding, video number, Bilibili, Kuaishou.
+* Restart forwarding task when modifying forwarding configuration.
+* Support for setting upgrade window, default upgrade from 23:00 to 5:00.
+* Support for jest unit testing, covering mgmt.
+* Support for switching SRS, stable version and development version.
+* Optimized display of disabled container status.
+
+## 2022.03.04, v1.0.132, Minor version update, cloud on-demand
+
+* Support for cloud on-demand, HLS and MP4 downloads.
+* Cloud on-demand supports live playback, updating SessionKey.
+* Disable password setting during upgrade to avoid environment variable conflicts.
+* Restart all containers dependent on .env when initializing the system.
+* Update the differences between cloud recording and cloud on-demand.
+* SRT supports vMix tutorial.
+
+## 2022.02.25, v1.0.120, Minor version update, cloud recording
+
+* Improved upgrade script, restarting necessary containers.
+* Modified Redis listening port, enhanced security.
+* Resolved cloud recording, asynchronous long time (8h+) conflict issue.
+* Improved key creation link, using cloud API key.
+* Improved scene and settings TAB, loaded on demand, URL address identification.
+
+## 2022.02.23, v1.0.113, Minor version update, cloud recording
+
+* Support for resetting push key. [#2](https://github.com/ossrs/srs-terraform/pull/2)
+* SRT push disconnects when RTMP conversion fails.
+* Disabled containers no longer start.
+* SRT supports QR code scanning for push and playback. [#6](https://github.com/ossrs/srs-terraform/pull/6)
+* Support for [cloud recording](https://mp.weixin.qq.com/s/UXR5EBKZ-LnthwKN_rlIjg), recording to Tencent Cloud COS.
+
+## 2022.02.14, v1.0.98, Major version update, upgrade, Release 4.2
+
+* Improved React static resource caching, increasing subsequent loading speed.
+* Added Contact exclusive group QR code, scan code to join group.
+* Support for setting Redis values, disabling automatic updates.
+* Automatically detect overseas regions, use overseas sources for updates and upgrades.
+* Improved upgrade prompts, countdown and status detection.
+* Display video tutorials created by everyone on the page, sorted by play count.
+* Support for authorizing platform administrators to access Lighthouse instances.
+* Small memory systems, automatically create swap to avoid OOM during upgrades.
+
+## 2022.02.05, v1.0.74, minor update, dashboard
+
+* Support for Prometheus monitoring, WebUI mounted on `/prometheus`, no authentication for now.
+* Support for Prometheus NodeExporter, node monitoring, Lighthouse's CPU, network, disk, etc.
+* Added dashboard, added CPU chart, can jump to [Prometheus](https://github.com/ossrs/srs/issues/2899#prometheus).
+* Improved certbot, started with docker, not an installation package.
+* Improved upgrade process to prevent duplicate upgrades.
+* Support for upgrading machines with 1GB memory, disabling node's GENERATE_SOURCEMAP to prevent OOM.
+
+## 2022.02.01, v1.0.64, minor update, HTTPS
+
+* Support for Windows version of ffplay to play SRT addresses
+* Support for container startup hooks, stream authentication and authorization
+* Change Redis listening on lo and eth0, otherwise container cannot access
+* Support for setting HTTPS certificates, Nginx format, refer to [See Here](https://github.com/ossrs/srs/issues/2864#ssl-file)
+* Support for Let's Encrypt automatic application of HTTPS certificates, refer to [See Here](https://github.com/ossrs/srs/issues/2864#lets-encrypt)
+
+## 2022.01.31, v1.0.58, minor update, SRT
+
+* Support for ultra-clear real-time live streaming scenarios, SRT push and pull streaming, 200~500ms latency, refer to [See Here](https://github.com/ossrs/srs/issues/1147#lagging)
+* Chip/OBS+SRS+ffplay push and pull SRT stream address, support authentication.
+* Support for manual upgrade to the latest version, support for forced upgrade.
+* Improved upgrade script, execute after updating the script
+* Support for restarting SRS server container
+
+## 2022.01.27, v1.0.42, major update, stream authentication, Release 4.1
+
+* Support for push stream authentication and management backend
+* Support for updating backend, manual update
+* Live room scenario, push stream and play guide
+* SRS source code download, with GIT
+* Support for Lighthouse image, refer to [SRS Lighthouse](https://mp.weixin.qq.com/s/fWmdkw-2AoFD_pEmE_EIkA).
+
+## 2022.01.21, Initialized
+
+項目起始點
