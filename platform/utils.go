@@ -266,6 +266,8 @@ const (
 	// For SRS stream status.
 	SRS_HP_HLS = "SRS_HP_HLS"
 	SRS_LL_HLS = "SRS_LL_HLS"
+	// The vhost latency baseline: hash field "mode" = "compat" (default) or "low".
+	SRS_LATENCY_MODE = "SRS_LATENCY_MODE"
 	// For tencent cloud products.
 	SRS_TENCENT_CAM = "SRS_TENCENT_CAM"
 	SRS_TENCENT_COS = "SRS_TENCENT_COS"
@@ -651,6 +653,22 @@ func setEnvDefault(key, value string) {
 // srsGenerateConfig is to build SRS configuration and reload SRS.
 func srsGenerateConfig(ctx context.Context) error {
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Build the vhost latency baseline (RTMP/HTTP-FLV). "low" enables min_latency + tcp_nodelay;
+	// "compat" (default) keeps the stable-throughput baseline.
+	latencyConf := []string{"", "# RTMP/HTTP-FLV latency baseline."}
+	latencyMode := "compat"
+	if v, err := rdb.HGet(ctx, SRS_LATENCY_MODE, "mode").Result(); err != nil && err != redis.Nil {
+		return errors.Wrapf(err, "hget %v mode", SRS_LATENCY_MODE)
+	} else if v == "low" {
+		latencyMode = "low"
+	}
+	if latencyMode == "low" {
+		latencyConf = append(latencyConf, "min_latency on;", "tcp_nodelay on;")
+	} else {
+		latencyConf = append(latencyConf, "min_latency off;", "tcp_nodelay off;")
+	}
+
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Build the High Performance HLS config.
 	hlsConf := []string{
 		"",
@@ -717,6 +735,7 @@ func srsGenerateConfig(ctx context.Context) error {
 		confLines := []string{
 			"# !!! Important: This file is produced and maintained by the Oryx, please never modify it.",
 		}
+		confLines = append(confLines, latencyConf...)
 		confLines = append(confLines, hlsConf...)
 		confLines = append(confLines, "", "")
 

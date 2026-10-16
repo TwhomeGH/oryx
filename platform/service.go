@@ -364,6 +364,8 @@ func handleHTTPService(ctx context.Context, handler *http.ServeMux) error {
 	handleMgmtNginxHlsQuery(ctx, handler)
 	handleMgmtHlsLowLatencyUpdate(ctx, handler)
 	handleMgmtHlsLowLatencyQuery(ctx, handler)
+	handleMgmtSrsLatencyUpdate(ctx, handler)
+	handleMgmtSrsLatencyQuery(ctx, handler)
 	handleMgmtAutoSelfSignedCertificate(ctx, handler)
 	handleMgmtSsl(ctx, handler)
 	handleMgmtLetsEncrypt(ctx, handler)
@@ -1652,6 +1654,65 @@ func handleMgmtHlsLowLatencyQuery(ctx context.Context, handler *http.ServeMux) {
 				HlsLowLatency: enabled,
 			})
 			logger.Tf(ctx, "hls low latency query ok, enabled=%v", enabled)
+			return nil
+		}(); err != nil {
+			ohttp.WriteError(ctx, w, r, err)
+		}
+	})))
+}
+
+// handleMgmtSrsLatencyUpdate sets the vhost latency baseline: "compat" (default, stable
+// throughput) or "low" (min_latency + tcp_nodelay on). Applied by regenerating the SRS vhost
+// config and reloading SRS (no restart).
+func handleMgmtSrsLatencyUpdate(ctx context.Context, handler *http.ServeMux) {
+	ep := "/terraform/v1/mgmt/srs/latency/update"
+	logger.Tf(ctx, "Handle %v", ep)
+	handler.Handle(ep, middlewareAuthTokenInBody(ctx, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := func() error {
+			var mode string
+			if err := ParseBody(ctx, r.Body, &struct {
+				Mode *string `json:"mode"`
+			}{
+				Mode: &mode,
+			}); err != nil {
+				return errors.Wrapf(err, "parse body")
+			}
+			if mode != "compat" && mode != "low" {
+				return errors.Errorf("invalid mode=%v, expect compat|low", mode)
+			}
+
+			if err := rdb.HSet(ctx, SRS_LATENCY_MODE, "mode", mode).Err(); err != nil && err != redis.Nil {
+				return errors.Wrapf(err, "hset %v mode %v", SRS_LATENCY_MODE, mode)
+			}
+			if err := srsGenerateConfig(ctx); err != nil {
+				return errors.Wrapf(err, "generate SRS config")
+			}
+
+			ohttp.WriteData(ctx, w, r, nil)
+			logger.Tf(ctx, "srs latency mode update ok, mode=%v", mode)
+			return nil
+		}(); err != nil {
+			ohttp.WriteError(ctx, w, r, err)
+		}
+	})))
+}
+
+func handleMgmtSrsLatencyQuery(ctx context.Context, handler *http.ServeMux) {
+	ep := "/terraform/v1/mgmt/srs/latency/query"
+	logger.Tf(ctx, "Handle %v", ep)
+	handler.Handle(ep, middlewareAuthTokenInBody(ctx, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := func() error {
+			mode := "compat"
+			if v, err := rdb.HGet(ctx, SRS_LATENCY_MODE, "mode").Result(); err != nil && err != redis.Nil {
+				return errors.Wrapf(err, "hget %v mode", SRS_LATENCY_MODE)
+			} else if v == "low" {
+				mode = "low"
+			}
+
+			ohttp.WriteData(ctx, w, r, &struct {
+				Mode string `json:"mode"`
+			}{Mode: mode})
+			logger.Tf(ctx, "srs latency mode query ok, mode=%v", mode)
 			return nil
 		}(); err != nil {
 			ohttp.WriteError(ctx, w, r, err)
