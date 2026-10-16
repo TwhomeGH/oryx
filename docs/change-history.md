@@ -2,6 +2,12 @@
 
 > 本檔由 changelogkit 管理（見 [變更歷史說明](changelog.md)）。新增請用 `changelogkit add`（或 `changelogkit serve` 的網頁 GUI）。
 
+## 2026.10.17 04:18 設定/診斷強化：延遲模式、HLS 總開關與停用提示、磁碟多檔案系統診斷；本機部署工具與 changelogkit
+
+**類型**: 修復
+
+---
+
 ## 2026.10.17 v5.16.0 發佈（版號模型重做 + 一鍵發佈）
 
 **類型**: 功能 · **檔案**: `platform/version.go`、`scripts/bump-version.ps1`、`.github/workflows/docker-publish.yml`
