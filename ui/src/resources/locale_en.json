@@ -1,5 +1,8 @@
 {
   "translation": {
+    "hls": {
+      "disabledHint": "HLS is disabled; the HLS playback links on this page will not work. Enable it in Settings → Streaming Engine → HLS."
+    },
     "ocr": {
       "nolast": "No last result",
       "nocl": "No cleanup task",
@@ -671,7 +674,11 @@
       "diskTitle": "Disk space",
       "diskUsed": "used",
       "diskFree": "Free",
-      "diskNote": "HLS / DVR / recording all write the same disk; running out of space breaks them together.",
+      "diskNote": "The data volume holds record/upload; the system disk holds HLS segments/logs. Either filling up breaks things (the WSL/container virtual disk grows with usage).",
+      "diskFs": {
+        "data": "Data volume (/data, record/upload)",
+        "system": "System disk (container root, HLS/logs)"
+      },
       "diskRefresh": "Refresh",
       "diskLoading": "Loading…",
       "nginxHomeTitle": "Homepage",

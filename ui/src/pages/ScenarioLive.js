@@ -15,6 +15,7 @@ import {Clipboard} from "../utils";
 import {useTranslation} from "react-i18next";
 import {useSearchParams} from "react-router-dom";
 import {SrsEnvContext} from "../components/SrsEnvContext";
+import HlsDisabledHint from "../components/HlsDisabledHint";
 
 export default function ScenarioLiveStreams({urls}) {
   const [searchParams] = useSearchParams();
@@ -83,6 +84,8 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
   const disableWhip4Lo = !allowLoRtc && isLo && !hasCandidate;
 
   return (
+    <>
+    <HlsDisabledHint />
     <Accordion defaultActiveKey="1">
       <React.Fragment>
         {
@@ -766,6 +769,7 @@ function ScenarioLiveImpl({copyToClipboard, urls}) {
         </Accordion.Body>
       </Accordion.Item>
     </Accordion>
+    </>
   );
 }
 

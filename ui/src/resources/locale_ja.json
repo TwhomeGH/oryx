@@ -1,5 +1,8 @@
 {
   "translation": {
+    "hls": {
+      "disabledHint": "HLS は無効です。このページの HLS 再生リンクは機能しません。「設定 → ストリーミングエンジン → HLS」で有効にしてください。"
+    },
     "nav": {
       "login": "ログイン",
       "logout": "ログアウト",
@@ -317,7 +320,11 @@
       "diskTitle": "ディスク容量",
       "diskUsed": "使用",
       "diskFree": "空き",
-      "diskNote": "HLS／DVR／録画は同じディスクに書き込みます。容量不足でこれらがまとめて壊れます。",
+      "diskNote": "データボリュームは録画／アップロード、システムディスクは HLS セグメント／ログを保持します。どちらが満杯でも問題になります（WSL／コンテナの仮想ディスクは使用量に応じて増加）。",
+      "diskFs": {
+        "data": "データボリューム（/data、録画／アップロード）",
+        "system": "システムディスク（コンテナ root、HLS／ログ）"
+      },
       "diskRefresh": "更新",
       "diskLoading": "読み込み中…",
       "nginxHomeTitle": "ホームページ設定",

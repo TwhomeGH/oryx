@@ -14,47 +14,67 @@ import (
 	"github.com/ossrs/go-oryx-lib/logger"
 )
 
-// diskUsage reports the capacity of the filesystem backing the platform data dir, so the UI can
-// correlate "out of space" with failures (HLS/DVR/record all write the same disk).
-func diskUsage() (total, free, used uint64, percent float64, err error) {
-	dir := "/data"
-	if _, e := os.Stat(dir); e != nil {
-		dir = "."
-	}
+// diskFS is one filesystem's capacity, so the UI can correlate "out of space" with failures.
+type diskFS struct {
+	// The role of this filesystem in Oryx.
+	Name string `json:"name"`
+	// The mount path we probed.
+	Path string `json:"path"`
+	// Capacity in bytes.
+	TotalBytes uint64  `json:"totalBytes"`
+	FreeBytes  uint64  `json:"freeBytes"`
+	UsedBytes  uint64  `json:"usedBytes"`
+	Percent    float64 `json:"percent"`
+}
+
+// statfs reports the capacity of the filesystem backing dir.
+func statfs(dir string) (r0 diskFS, err error) {
+	r0.Path = dir
 
 	var st syscall.Statfs_t
-	if e := syscall.Statfs(dir, &st); e != nil {
-		return 0, 0, 0, 0, errors.Wrapf(e, "statfs %v", dir)
+	if err := syscall.Statfs(dir, &st); err != nil {
+		return r0, errors.Wrapf(err, "statfs %v", dir)
 	}
 
 	bsize := uint64(st.Bsize)
-	total = st.Blocks * bsize
-	free = st.Bavail * bsize
-	used = total - free
-	if total > 0 {
-		percent = float64(used) / float64(total) * 100
+	r0.TotalBytes = st.Blocks * bsize
+	r0.FreeBytes = st.Bavail * bsize
+	r0.UsedBytes = r0.TotalBytes - r0.FreeBytes
+	if r0.TotalBytes > 0 {
+		r0.Percent = float64(r0.UsedBytes) / float64(r0.TotalBytes) * 100
 	}
 	return
 }
 
+// handleMgmtDiskQuery reports capacity for the filesystems Oryx writes to. The data volume
+// (/data, persistent: record/uploads) and the container root (/, system: HLS segments, logs) may
+// live on different filesystems — e.g. a host bind mount vs the Docker/WSL virtual disk — so we
+// report both instead of only the data dir.
 func handleMgmtDiskQuery(ctx context.Context, handler *http.ServeMux) {
 	ep := "/terraform/v1/mgmt/disk/query"
 	logger.Tf(ctx, "Handle %v", ep)
 	handler.Handle(ep, middlewareAuthTokenInBody(ctx, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := func() error {
-			total, free, used, percent, err := diskUsage()
-			if err != nil {
-				return errors.Wrapf(err, "disk usage")
+			filesystems := []diskFS{}
+
+			if _, e := os.Stat("/data"); e == nil {
+				if fs, err := statfs("/data"); err != nil {
+					return err
+				} else {
+					fs.Name = "data"
+					filesystems = append(filesystems, fs)
+				}
+			}
+			if fs, err := statfs("/"); err == nil {
+				fs.Name = "system"
+				filesystems = append(filesystems, fs)
 			}
 
 			ohttp.WriteData(ctx, w, r, &struct {
-				TotalBytes uint64  `json:"totalBytes"`
-				FreeBytes  uint64  `json:"freeBytes"`
-				UsedBytes  uint64  `json:"usedBytes"`
-				Percent    float64 `json:"percent"`
-			}{TotalBytes: total, FreeBytes: free, UsedBytes: used, Percent: percent})
+				Filesystems []diskFS `json:"filesystems"`
+			}{Filesystems: filesystems})
 
-			logger.Tf(ctx, "disk query ok, free=%v/%v (%.1f%%)", free, total, percent)
+			logger.Tf(ctx, "disk query ok, %v filesystems", len(filesystems))
 			return nil
 		}(); err != nil {
 			ohttp.WriteError(ctx, w, r, err)

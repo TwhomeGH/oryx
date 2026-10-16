@@ -12,6 +12,7 @@ import {Clipboard, Locale, Token} from "../utils";
 import {useErrorHandler} from "react-error-boundary";
 import {useSearchParams} from "react-router-dom";
 import {buildUrls} from "../components/UrlGenerator";
+import HlsDisabledHint from "../components/HlsDisabledHint";
 import {SrsEnvContext} from "../components/SrsEnvContext";
 import * as Icon from "react-bootstrap-icons";
 import PopoverConfirm from "../components/PopoverConfirm";
@@ -357,6 +358,7 @@ function LiveRoomStreamer({room}) {
 
   return (
     <Card>
+      <HlsDisabledHint />
       <Card.Header>
         <Nav variant="tabs" defaultActiveKey="#rtmp">
           <Nav.Item>

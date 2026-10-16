@@ -1,5 +1,8 @@
 {
   "translation": {
+    "hls": {
+      "disabledHint": "HLS 已停用，此页的 HLS 播放连结无法使用。请至「设定 → 串流引擎 → HLS」开启。"
+    },
     "setup": {
       "passwordLabel": "请设置初始密码",
       "passwordTip": "初始密码由程序随机生成，可以修改成更高强度的密码",
@@ -156,7 +159,11 @@
       "diskTitle": "磁盘空间",
       "diskUsed": "已用",
       "diskFree": "可用",
-      "diskNote": "HLS／DVR／录制都写同一颗磁盘；空间不足会让这些问题一起发生。",
+      "diskNote": "资料碟放录制／上传，系统碟放 HLS 切片／日志；任一满都会出问题（WSL／容器虚拟磁碟会随用量增长）。",
+      "diskFs": {
+        "data": "资料碟（/data，录制／上传）",
+        "system": "系统碟（容器根，HLS／日志）"
+      },
       "diskRefresh": "重新整理",
       "diskLoading": "读取中…",
       "nginxHomeTitle": "首页设置",

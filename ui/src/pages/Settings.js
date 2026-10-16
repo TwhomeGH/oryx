@@ -65,8 +65,7 @@ function SettingDisk() {
   React.useEffect(() => { refresh(); }, [refresh]);
 
   const gb = (b) => (Number.isFinite(b) ? (b / 1024 / 1024 / 1024).toFixed(1) : '—');
-  const pct = disk?.percent ?? 0;
-  const variant = pct >= 95 ? 'danger' : pct >= 85 ? 'warning' : 'success';
+  const variant = (p) => (p >= 95 ? 'danger' : p >= 85 ? 'warning' : 'success');
 
   return (
     <Accordion defaultActiveKey={["1"]} alwaysOpen>
@@ -75,8 +74,20 @@ function SettingDisk() {
         <Accordion.Body>
           {!disk && <div className="text-muted">{t('settings.diskLoading')}</div>}
           {disk && <>
-            <div className="mb-2"><Badge bg={variant}>{pct.toFixed(1)}% {t('settings.diskUsed')}</Badge></div>
-            <div>{t('settings.diskFree')}: <b>{gb(disk.freeBytes)} GB</b> / {gb(disk.totalBytes)} GB</div>
+            <Table size="sm" borderless>
+              <tbody>
+                {(disk.filesystems || []).map((fs) => (
+                  <tr key={fs.name}>
+                    <td>
+                      {t(`settings.diskFs.${fs.name}`)}
+                      <div className="text-muted small">{fs.path}</div>
+                    </td>
+                    <td><Badge bg={variant(fs.percent)}>{fs.percent.toFixed(1)}%</Badge></td>
+                    <td>{t('settings.diskFree')}: <b>{gb(fs.freeBytes)} GB</b> / {gb(fs.totalBytes)} GB</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
             <div className="text-muted small mt-2">{t('settings.diskNote')}</div>
             <Button className="mt-2" variant="secondary" size="sm" onClick={() => refresh()}>
               {t('settings.diskRefresh')}
