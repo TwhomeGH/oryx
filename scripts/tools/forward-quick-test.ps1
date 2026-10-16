@@ -161,7 +161,8 @@ try {
         if (-not (Wait-Target 30)) { Write-Host "   [警告] 目標 30 秒內未就緒，仍嘗試播放" -ForegroundColor DarkYellow }
         $script:PlayErr = Join-Path $env:TEMP "forward-quick-test-play.log"
         $script:PlayProc = Start-Process ffplay -ArgumentList @(
-            "-loglevel", "warning", "-window_title", "forward-tgt-$($script:TgtID)", "-i", $playURL
+            "-loglevel", "warning", "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "5",
+            "-window_title", "forward-tgt-$($script:TgtID)", "-i", $playURL
         ) -PassThru -RedirectStandardError $script:PlayErr
     }
 
