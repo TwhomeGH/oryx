@@ -79,11 +79,14 @@ function SettingDisk() {
                 {(disk.filesystems || []).map((fs) => (
                   <tr key={fs.name}>
                     <td>
-                      {t(`settings.diskFs.${fs.name}`)}
+                      {t(`settings.diskFs.${fs.name}`)} {fs.virtual && <Badge bg="secondary">{t('settings.diskVirtualBadge')}</Badge>}
                       <div className="text-muted small">{fs.path}</div>
                     </td>
                     <td><Badge bg={variant(fs.percent)}>{fs.percent.toFixed(1)}%</Badge></td>
-                    <td>{t('settings.diskFree')}: <b>{gb(fs.freeBytes)} GB</b> / {gb(fs.totalBytes)} GB</td>
+                    <td>
+                      {t('settings.diskFree')}: <b>{gb(fs.effectiveFreeBytes)} GB</b> / {gb(fs.totalBytes)} GB
+                      {fs.virtual && <div className="text-muted small">{t('settings.diskVirtual')}</div>}
+                    </td>
                   </tr>
                 ))}
               </tbody>

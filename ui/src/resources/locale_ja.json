@@ -325,6 +325,8 @@
         "data": "データボリューム（/data、録画／アップロード）",
         "system": "システムディスク（コンテナ root、HLS／ログ）"
       },
+      "diskVirtualBadge": "仮想",
+      "diskVirtual": "仮想ディスク：上記の容量は宣言上の上限で、実際の空きはホストディスクに制限されます。",
       "diskRefresh": "更新",
       "diskLoading": "読み込み中…",
       "nginxHomeTitle": "ホームページ設定",

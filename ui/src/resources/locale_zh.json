@@ -164,6 +164,8 @@
         "data": "资料碟（/data，录制／上传）",
         "system": "系统碟（容器根，HLS／日志）"
       },
+      "diskVirtualBadge": "虚拟",
+      "diskVirtual": "虚拟磁碟：上方容量为宣告上限，实际可用受主机磁碟限制。",
       "diskRefresh": "重新整理",
       "diskLoading": "读取中…",
       "nginxHomeTitle": "首页设置",

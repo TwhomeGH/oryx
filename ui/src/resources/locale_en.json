@@ -679,6 +679,8 @@
         "data": "Data volume (/data, record/upload)",
         "system": "System disk (container root, HLS/logs)"
       },
+      "diskVirtualBadge": "virtual",
+      "diskVirtual": "Virtual disk: the size above is a declared maximum; the real free space is bounded by the host disk.",
       "diskRefresh": "Refresh",
       "diskLoading": "Loading…",
       "nginxHomeTitle": "Homepage",
