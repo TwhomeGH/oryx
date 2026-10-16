@@ -100,13 +100,20 @@ if ((docker ps -a --filter "name=^/$Container$" --format '{{.Names}}') -eq $Cont
 }
 
 Step "目前狀態"
+# Compare the build target against the CURRENT source revision: "一致" between image and
+# container alone can be mistaken for "running the latest local code", so a source change that
+# has not been rebuilt is reported explicitly.
+$targetStale = $local -and $local.Rev -and ($local.Rev -ne $revision)
 if ($local) {
-    Write-Host ("  build target : {0}  ({1})  rev={2}  version={3}" -f $Image, $local.Id.Substring(7, 12), $(if ($local.Rev) { $local.Rev.Substring(0, [Math]::Min(12, $local.Rev.Length)) } else { 'n/a' }), $local.Ver)
+    $tf = if ($targetStale) { '落後源碼 -> 需重建' } else { "= 源碼 $($revision.Substring(0, [Math]::Min(12, $revision.Length)))" }
+    Write-Host ("  build target : {0}  ({1})  rev={2}  version={3}  -> {4}" -f $Image, $local.Id.Substring(7, 12), $(if ($local.Rev) { $local.Rev.Substring(0, [Math]::Min(12, $local.Rev.Length)) } else { 'n/a' }), $local.Ver, $tf) -ForegroundColor $(if ($targetStale) { 'Yellow' } else { 'Green' })
+} else {
+    Write-Host "  build target : （尚無 $Image，需先建置）" -ForegroundColor Yellow
 }
 if ($running) {
     $stale = $local -and ($running.Id -ne $local.Id)
-    $flag = if ($stale) { '落後（需 -Deploy 重建）' } else { '一致' }
-    Write-Host ("  容器 {0,-6}: image={1}  ({2})  rev={3}  version={4}  -> {5}" -f $Container, $running.Ref, $running.Id.Substring(7, 12), $(if ($running.Rev) { $running.Rev.Substring(0, [Math]::Min(12, $running.Rev.Length)) } else { 'n/a（舊 build 無標籤）' }), $running.Ver, $flag) -ForegroundColor $(if ($stale) { 'Yellow' } else { 'Green' })
+    $flag = if ($stale) { '落後 build target（需 -Deploy 重建）' } elseif ($targetStale) { '= build target，但源碼已更新（需重建）' } else { '= 最新源碼' }
+    Write-Host ("  容器 {0,-6}: image={1}  ({2})  rev={3}  version={4}  -> {5}" -f $Container, $running.Ref, $running.Id.Substring(7, 12), $(if ($running.Rev) { $running.Rev.Substring(0, [Math]::Min(12, $running.Rev.Length)) } else { 'n/a（舊 build 無標籤）' }), $running.Ver, $flag) -ForegroundColor $(if ($stale -or $targetStale) { 'Yellow' } else { 'Green' })
 } else {
     Write-Host "  找不到執行中的容器 '$Container'。" -ForegroundColor DarkYellow
 }
@@ -135,6 +142,8 @@ if ($Deploy) {
             Write-Host "完成重建（請再跑一次 -Check 確認）。" -ForegroundColor Yellow
         }
     }
+} elseif ($targetStale) {
+    Write-Host "提示：build target 落後源碼，跑一次本腳本（不加 -Check）即會重建最新映像。" -ForegroundColor Yellow
 } elseif ($running -and $local -and $running.Id -ne $local.Id) {
     Write-Host "提示：容器落後，加 -Deploy 即可用最新 build 重建。" -ForegroundColor Yellow
 }
