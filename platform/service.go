@@ -366,6 +366,9 @@ func handleHTTPService(ctx context.Context, handler *http.ServeMux) error {
 	handleMgmtHlsLowLatencyQuery(ctx, handler)
 	handleMgmtSrsLatencyUpdate(ctx, handler)
 	handleMgmtSrsLatencyQuery(ctx, handler)
+	handleMgmtSrsHlsUpdate(ctx, handler)
+	handleMgmtSrsHlsQuery(ctx, handler)
+	handleMgmtDiskQuery(ctx, handler)
 	handleMgmtAutoSelfSignedCertificate(ctx, handler)
 	handleMgmtSsl(ctx, handler)
 	handleMgmtLetsEncrypt(ctx, handler)
@@ -1713,6 +1716,59 @@ func handleMgmtSrsLatencyQuery(ctx context.Context, handler *http.ServeMux) {
 				Mode string `json:"mode"`
 			}{Mode: mode})
 			logger.Tf(ctx, "srs latency mode query ok, mode=%v", mode)
+			return nil
+		}(); err != nil {
+			ohttp.WriteError(ctx, w, r, err)
+		}
+	})))
+}
+
+// handleMgmtSrsHlsUpdate toggles the vhost HLS master switch. HLS is a publisher-side muxer, so
+// disabling it stops every stream from writing HLS segments (useful for forward-only setups).
+func handleMgmtSrsHlsUpdate(ctx context.Context, handler *http.ServeMux) {
+	ep := "/terraform/v1/mgmt/srs/hls/update"
+	logger.Tf(ctx, "Handle %v", ep)
+	handler.Handle(ep, middlewareAuthTokenInBody(ctx, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := func() error {
+			var enabled bool
+			if err := ParseBody(ctx, r.Body, &struct {
+				Enabled *bool `json:"enabled"`
+			}{Enabled: &enabled}); err != nil {
+				return errors.Wrapf(err, "parse body")
+			}
+
+			if err := rdb.HSet(ctx, SRS_HLS_MASTER, "enabled", fmt.Sprintf("%v", enabled)).Err(); err != nil && err != redis.Nil {
+				return errors.Wrapf(err, "hset %v enabled %v", SRS_HLS_MASTER, enabled)
+			}
+			if err := srsGenerateConfig(ctx); err != nil {
+				return errors.Wrapf(err, "generate SRS config")
+			}
+
+			ohttp.WriteData(ctx, w, r, nil)
+			logger.Tf(ctx, "srs hls master update ok, enabled=%v", enabled)
+			return nil
+		}(); err != nil {
+			ohttp.WriteError(ctx, w, r, err)
+		}
+	})))
+}
+
+func handleMgmtSrsHlsQuery(ctx context.Context, handler *http.ServeMux) {
+	ep := "/terraform/v1/mgmt/srs/hls/query"
+	logger.Tf(ctx, "Handle %v", ep)
+	handler.Handle(ep, middlewareAuthTokenInBody(ctx, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := func() error {
+			enabled := true
+			if v, err := rdb.HGet(ctx, SRS_HLS_MASTER, "enabled").Result(); err != nil && err != redis.Nil {
+				return errors.Wrapf(err, "hget %v enabled", SRS_HLS_MASTER)
+			} else if v == "false" {
+				enabled = false
+			}
+
+			ohttp.WriteData(ctx, w, r, &struct {
+				Enabled bool `json:"enabled"`
+			}{Enabled: enabled})
+			logger.Tf(ctx, "srs hls master query ok, enabled=%v", enabled)
 			return nil
 		}(); err != nil {
 			ohttp.WriteError(ctx, w, r, err)

@@ -268,6 +268,8 @@ const (
 	SRS_LL_HLS = "SRS_LL_HLS"
 	// The vhost latency baseline: hash field "mode" = "compat" (default) or "low".
 	SRS_LATENCY_MODE = "SRS_LATENCY_MODE"
+	// The HLS master switch: hash field "enabled" = "true" (default) or "false".
+	SRS_HLS_MASTER = "SRS_HLS_MASTER"
 	// For tencent cloud products.
 	SRS_TENCENT_CAM = "SRS_TENCENT_CAM"
 	SRS_TENCENT_COS = "SRS_TENCENT_COS"
@@ -669,11 +671,18 @@ func srsGenerateConfig(ctx context.Context) error {
 	}
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Build the High Performance HLS config.
+	// Build the High Performance HLS config. HLS is a publisher-side muxer: when enabled every
+	// published stream writes segments, so the master switch lets forward-only setups disable it.
+	hlsEnabled := "on"
+	if v, err := rdb.HGet(ctx, SRS_HLS_MASTER, "enabled").Result(); err != nil && err != redis.Nil {
+		return errors.Wrapf(err, "hget %v enabled", SRS_HLS_MASTER)
+	} else if v == "false" {
+		hlsEnabled = "off"
+	}
 	hlsConf := []string{
 		"",
 		"hls {",
-		"    enabled on;",
+		fmt.Sprintf("    enabled %v;", hlsEnabled),
 	}
 	if hlsLowLatency, err := rdb.HGet(ctx, SRS_LL_HLS, "hlsLowLatency").Result(); err != nil && err != redis.Nil {
 		return errors.Wrapf(err, "hget %v hls", SRS_LL_HLS)
