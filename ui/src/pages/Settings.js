@@ -46,6 +46,48 @@ function SystemsImpl() {
   </>);
 }
 
+// Disk capacity of the platform data dir, to correlate "out of space" with failures.
+function SettingDisk() {
+  const [disk, setDisk] = React.useState();
+  const handleError = useErrorHandler();
+  const { t } = useTranslation();
+
+  const refresh = React.useCallback(() => {
+    axios.post('/terraform/v1/mgmt/disk/query', {
+    }, {
+      headers: Token.loadBearerHeader(),
+    }).then(res => {
+      setDisk(res.data.data);
+      console.log(`Disk: query ok, ${JSON.stringify(res.data.data)}`);
+    }).catch(handleError);
+  }, [handleError]);
+
+  React.useEffect(() => { refresh(); }, [refresh]);
+
+  const gb = (b) => (Number.isFinite(b) ? (b / 1024 / 1024 / 1024).toFixed(1) : '—');
+  const pct = disk?.percent ?? 0;
+  const variant = pct >= 95 ? 'danger' : pct >= 85 ? 'warning' : 'success';
+
+  return (
+    <Accordion defaultActiveKey={["1"]} alwaysOpen>
+      <Accordion.Item eventKey="1">
+        <Accordion.Header>{t('settings.diskTitle')}</Accordion.Header>
+        <Accordion.Body>
+          {!disk && <div className="text-muted">{t('settings.diskLoading')}</div>}
+          {disk && <>
+            <div className="mb-2"><Badge bg={variant}>{pct.toFixed(1)}% {t('settings.diskUsed')}</Badge></div>
+            <div>{t('settings.diskFree')}: <b>{gb(disk.freeBytes)} GB</b> / {gb(disk.totalBytes)} GB</div>
+            <div className="text-muted small mt-2">{t('settings.diskNote')}</div>
+            <Button className="mt-2" variant="secondary" size="sm" onClick={() => refresh()}>
+              {t('settings.diskRefresh')}
+            </Button>
+          </>}
+        </Accordion.Body>
+      </Accordion.Item>
+    </Accordion>
+  );
+}
+
 // A non-clickable section header for the settings navigation.
 function GroupLabel({ children }) {
   return <span className="text-muted small fw-bold text-uppercase d-block mt-3 px-3">{children}</span>;
@@ -86,6 +128,7 @@ function SettingsImpl2({ defaultActiveTab }) {
 
                 <GroupLabel>{t('settings.groupEngine')}</GroupLabel>
                 <Nav.Link eventKey="hls">HLS</Nav.Link>
+                <Nav.Link eventKey="disk">{t('settings.tabDisk')}</Nav.Link>
                 <Nav.Link eventKey="streams">{t('settings.tabStreams')}</Nav.Link>
 
                 <GroupLabel>{t('settings.groupIntegrations')}</GroupLabel>
@@ -102,6 +145,7 @@ function SettingsImpl2({ defaultActiveTab }) {
                 <Tab.Pane eventKey="auth"><SettingAuth /></Tab.Pane>
                 <Tab.Pane eventKey="https"><SettingHttps /></Tab.Pane>
                 <Tab.Pane eventKey="hls"><SettingHighPerformanceHLS /></Tab.Pane>
+                <Tab.Pane eventKey="disk"><SettingDisk /></Tab.Pane>
                 <Tab.Pane eventKey="beian"><SettingBeian /></Tab.Pane>
                 <Tab.Pane eventKey="limits"><SettingLimits /></Tab.Pane>
                 <Tab.Pane eventKey="llm"><SettingLLM /></Tab.Pane>
@@ -121,6 +165,7 @@ function SettingHighPerformanceHLS() {
   const [noHlsCtx, setNoHlsCtx] = React.useState();
   const [hlsLL, setHlsLL] = React.useState();
   const [latencyMode, setLatencyMode] = React.useState('compat');
+  const [hlsMaster, setHlsMaster] = React.useState(true);
   const handleError = useErrorHandler();
   const { t } = useTranslation();
 
@@ -190,8 +235,45 @@ function SettingHighPerformanceHLS() {
     }).catch(handleError);
   }, [handleError, latencyMode, t]);
 
+  React.useEffect(() => {
+    axios.post('/terraform/v1/mgmt/srs/hls/query', {
+    }, {
+      headers: Token.loadBearerHeader(),
+    }).then(res => {
+      setHlsMaster(res.data.data.enabled === true);
+      console.log(`Status: Query ok, hlsMaster=${JSON.stringify(res.data.data)}`);
+    }).catch(handleError);
+  }, [handleError]);
+
+  const updateHlsMaster = React.useCallback((e) => {
+    e.preventDefault();
+
+    axios.post('/terraform/v1/mgmt/srs/hls/update', {
+      enabled: hlsMaster,
+    }, {
+      headers: Token.loadBearerHeader(),
+    }).then(res => {
+      alert(t('helper.setOk'));
+    }).catch(handleError);
+  }, [handleError, hlsMaster, t]);
+
   return (
-    <Accordion defaultActiveKey={['0', '1', '2']} alwaysOpen>
+    <Accordion defaultActiveKey={['hlsMaster', '0', '1', '2']} alwaysOpen>
+      <Accordion.Item eventKey="hlsMaster">
+        <Accordion.Header>{t('settings.hlsMasterTitle')}</Accordion.Header>
+        <Accordion.Body>
+          <Form>
+            <Form.Text className="text-muted d-block mb-2">{t('settings.hlsMasterDesc')}</Form.Text>
+            <Form.Group className="mb-3" controlId="formHlsMasterCheckbox">
+              <Form.Check type="checkbox" label={t('settings.hlsMasterTip')} defaultChecked={hlsMaster} onClick={() => setHlsMaster(!hlsMaster)} />
+            </Form.Group>
+            <div className="text-muted small mb-2">{t('settings.reloadHint')}</div>
+            <Button variant="primary" type="submit" onClick={(e) => updateHlsMaster(e)}>
+              {t('helper.submit')}
+            </Button>
+          </Form>
+        </Accordion.Body>
+      </Accordion.Item>
       <Accordion.Item eventKey="0">
         <Accordion.Header>{t('settings.latencyTitle')}</Accordion.Header>
         <Accordion.Body>
