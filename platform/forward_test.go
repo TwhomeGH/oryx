@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -156,5 +157,21 @@ func TestForward_Diagnostics(t *testing.T) {
 	}
 	if len(task.queryStatus().Logs) != forwardDiagRingSize {
 		t.Fatalf("logs not bounded: %v", len(task.queryStatus().Logs))
+	}
+}
+
+func TestForward_FanoutArgs(t *testing.T) {
+	in, out := "http://localhost:2022/live/prog.flv", "rtmp://localhost/live/out"
+
+	copied := strings.Join(forwardFanoutArgs(false, in, out), " ")
+	if !strings.Contains(copied, "-c copy") || strings.Contains(copied, "libx264") {
+		t.Fatalf("copy fanout must be -c copy without transcode: %v", copied)
+	}
+
+	normalized := strings.Join(forwardFanoutArgs(true, in, out), " ")
+	for _, want := range []string{"-fps_mode cfr", "+genpts", "libx264", "-c:a aac"} {
+		if !strings.Contains(normalized, want) {
+			t.Fatalf("normalize fanout missing %q: %v", want, normalized)
+		}
 	}
 }

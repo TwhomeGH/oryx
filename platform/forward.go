@@ -222,11 +222,12 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 					}
 
 					elem := map[string]interface{}{
-						"platform": config.Platform,
-						"enabled":  config.Enabled,
-						"custom":   config.Customed,
-						"label":    config.Label,
-						"status":   status.State,
+						"platform":  config.Platform,
+						"enabled":   config.Enabled,
+						"custom":    config.Customed,
+						"label":     config.Label,
+						"status":    status.State,
+						"normalize": config.Normalize,
 					}
 					if status.Input != "" {
 						elem["stream"] = status.Input
@@ -439,11 +440,14 @@ type ForwardConfigure struct {
 	// The failover mode when the source is offline: empty or "hold" holds the last frame
 	// (default), "slate" switches the program to a fallback slate image.
 	Failover string `json:"failover"`
+	// Whether to transcode (normalize) the output into a regular CFR stream, to mitigate a
+	// source with dropped frames, variable frame rate or timestamp jitter. Costs CPU per target.
+	Normalize bool `json:"normalize"`
 }
 
 func (v *ForwardConfigure) String() string {
-	return fmt.Sprintf("platform=%v, stream=%v, server=%v, secret=%v, enabled=%v, customed=%v, label=%v, failover=%v",
-		v.Platform, v.Stream, v.Server, v.Secret, v.Enabled, v.Customed, v.Label, v.Failover,
+	return fmt.Sprintf("platform=%v, stream=%v, server=%v, secret=%v, enabled=%v, customed=%v, label=%v, failover=%v, normalize=%v",
+		v.Platform, v.Stream, v.Server, v.Secret, v.Enabled, v.Customed, v.Label, v.Failover, v.Normalize,
 	)
 }
 
@@ -456,6 +460,7 @@ func (v *ForwardConfigure) Update(u *ForwardConfigure) error {
 	v.Enabled = u.Enabled
 	v.Customed = u.Customed
 	v.Failover = u.Failover
+	v.Normalize = u.Normalize
 	return nil
 }
 
@@ -1026,6 +1031,41 @@ func (v *ForwardTask) programSource() (string, string) {
 	return v.sourceApp, v.sourceStream
 }
 
+// forwardFanoutArgs builds the FFmpeg arguments for the fanout. When normalize is on, the
+// program is transcoded into a regular CFR stream (software H.264 + AAC) so a source with
+// dropped frames, variable frame rate or timestamp jitter is regularized; otherwise it is a
+// zero-transcode `-c copy`. The input reads the program via HTTP-FLV with reconnect.
+func forwardFanoutArgs(normalize bool, programInputURL, outputURL string) []string {
+	args := []string{
+		"-reconnect", "1", "-reconnect_at_eof", "1", "-reconnect_streamed", "1",
+		"-reconnect_on_http_error", forwardReconnectHTTPError,
+		"-reconnect_delay_max", fmt.Sprintf("%v", forwardReconnectDelayMax),
+	}
+
+	if normalize {
+		args = append(args,
+			"-fflags", "+genpts",
+			"-i", programInputURL,
+			"-fps_mode", "cfr",
+			"-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency",
+			"-pix_fmt", "yuv420p", "-g", "50",
+			"-c:a", "aac", "-b:a", "128k", "-ar", "44100",
+		)
+	} else {
+		args = append(args, "-i", programInputURL, "-c", "copy")
+	}
+
+	// If RTMP use flv, if SRT use mpegts, otherwise do not set.
+	if strings.HasPrefix(outputURL, "rtmp://") || strings.HasPrefix(outputURL, "rtmps://") {
+		args = append(args, "-f", "flv")
+	} else if strings.HasPrefix(outputURL, "srt://") {
+		args = append(args, "-pes_payload_size", "0", "-f", "mpegts")
+	}
+	args = append(args, outputURL)
+
+	return args
+}
+
 // programBus returns the program bus of the bound source, or nil.
 func (v *ForwardTask) programBus() *ProgramBus {
 	v.lock.Lock()
@@ -1181,22 +1221,9 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 		return errors.Wrapf(err, "wait program %v ready", programInputURL)
 	}
 
-	// Start FFmpeg process.
-	args := []string{}
-	args = append(args,
-		"-reconnect", "1", "-reconnect_at_eof", "1", "-reconnect_streamed", "1",
-		"-reconnect_on_http_error", forwardReconnectHTTPError,
-		"-reconnect_delay_max", fmt.Sprintf("%v", forwardReconnectDelayMax),
-		"-i", programInputURL,
-	)
-	args = append(args, "-c", "copy")
-	// If RTMP use flv, if SRT use mpegts, otherwise do not set.
-	if strings.HasPrefix(outputURL, "rtmp://") || strings.HasPrefix(outputURL, "rtmps://") {
-		args = append(args, "-f", "flv")
-	} else if strings.HasPrefix(outputURL, "srt://") {
-		args = append(args, "-pes_payload_size", "0", "-f", "mpegts")
-	}
-	args = append(args, outputURL)
+	// Build the FFmpeg arguments. Optionally normalize (transcode) the output into a regular
+	// CFR stream, to mitigate a source with dropped frames, VFR or timestamp jitter.
+	args := forwardFanoutArgs(v.config != nil && v.config.Normalize, programInputURL, outputURL)
 	// Create the command object.
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
 
