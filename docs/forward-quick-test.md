@@ -14,9 +14,13 @@
 ```powershell
 pwsh scripts/tools/forward-quick-test.ps1                 # 快樂路徑
 pwsh scripts/tools/forward-quick-test.ps1 -Outage         # 加上「來源中斷 → 恢復」示範
+pwsh scripts/tools/forward-quick-test.ps1 -Play           # 另外開 ffplay，即時看輸出（可看凍結/恢復）
 pwsh scripts/tools/forward-quick-test.ps1 -Keep           # 保留設定，方便自己點 UI 看
-pwsh scripts/tools/forward-quick-test.ps1 -Container oryx -Endpoint http://localhost:2022
+pwsh scripts/tools/forward-quick-test.ps1 -Container oryx -Endpoint http://localhost:882
 ```
+
+> 埠會**自動偵測**：工具用 `docker port <容器> 2022/1935` 找出對外埠（自訂埠如 `882`/`1936`
+> 也能用）；需要時才用 `-Endpoint`/`-Rtmp` 手動指定。
 
 它會依序：
 
@@ -24,9 +28,10 @@ pwsh scripts/tools/forward-quick-test.ps1 -Container oryx -Endpoint http://local
 2. 從容器讀取 `SRS_PLATFORM_SECRET`（API）與 `SRS_AUTH_SECRET/pubSecret`（推流）。
 3. 用**本機 ffmpeg** 推一個來源到 `rtmp://localhost:1935/live/quick-src-<pid>`。
 4. 啟用一個**本機目標**的轉推：`rtmp://localhost/live/quick-tgt-<pid>`。
-5. 每 3 秒印出狀態與指標（`status/mode/fallback/restarts | avgFps/noOutput/drift/reconnects`）與最近事件。
-6. `-Outage` 時：中斷來源、觀察（`fallback=True`、`noOutput` 上升、restart 不變），再恢復來源、觀察恢復。
-7. 結束後清理（除非 `-Keep`）。
+5. `-Play` 時：用 `ffplay` 即時播放目標輸出（HTTP-FLV），可直接看到凍結與恢復。
+6. 每 3 秒印出狀態與指標（`status/mode/fallback/restarts | avgFps/noOutput/drift/reconnects`）與最近事件。
+7. `-Outage` 時：中斷來源、觀察（`fallback=True`、`noOutput` 上升、restart 不變），再恢復來源、觀察恢復。
+8. 結束後清理（除非 `-Keep`）。
 
 輸出可播放（HTTP-FLV）：`http://localhost:2022/live/quick-tgt-<pid>.flv`。
 
@@ -67,7 +72,8 @@ pwsh scripts/tools/forward-quick-test.ps1 -Container oryx -Endpoint http://local
 
 - **401 / Invalid Authorization**：密鑰不對。確認容器名與 `SRS_PLATFORM_SECRET`；或用
   `bash scripts/tools/secret.sh` 同步。
-- **找不到容器**：用 `-Container <名稱>` 指定，或先啟動平台。
+- **找不到容器 / 連線被拒**：容器名稱或埠不對。工具會自動偵測容器對外埠；若平台不是用預設
+  埠，確認 `docker port <容器> 2022`，或直接給 `-Endpoint`（例：`-Endpoint http://localhost:882`）。
 - **健康時 `avgFps` 卻偏低**：來源本身掉幀，或主機（如 WSL2）資源不足；看 `noOutput`／`drift` 佐證。
 - **中斷後一直沒有恢復**：代表「下游恢復」鏈路異常——這正是本工具要抓的；請附上
   `-Outage` 的輸出（`metrics`/`events`）。

@@ -12,11 +12,12 @@
 #
 [CmdletBinding()]
 param(
-    [string]$Endpoint = "http://localhost:2022",
+    [string]$Endpoint = "",
     [string]$Container = "oryx",
     [string]$Source = "",
-    [string]$Rtmp = "rtmp://localhost:1935",
+    [string]$Rtmp = "",
     [switch]$Outage,
+    [switch]$Play,
     [switch]$Keep
 )
 
@@ -26,6 +27,7 @@ if (-not $Source) { $Source = Join-Path $RepoRoot "test\source.200kbps.768x320.f
 
 $script:Token = ""
 $script:SourceProc = $null
+$script:PlayProc = $null
 $script:Platform = ""
 
 function Step($msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
@@ -78,8 +80,16 @@ function Stop-Source() {
     $script:SourceProc = $null
 }
 
+function Stop-Play() {
+    if ($script:PlayProc -and -not $script:PlayProc.HasExited) {
+        Stop-Process -Id $script:PlayProc.Id -Force -ErrorAction SilentlyContinue
+    }
+    $script:PlayProc = $null
+}
+
 function Cleanup() {
     Stop-Source
+    Stop-Play
     if ($script:Token -and $script:Platform -and -not $Keep) {
         try {
             Api "POST" "/terraform/v1/ffmpeg/forward/secret" @{
@@ -101,11 +111,21 @@ $script:Token = Get-RedisField "SRS_PLATFORM_SECRET" "token"
 $script:Pub = Get-RedisField "SRS_AUTH_SECRET" "pubSecret"
 if (-not $script:Token) { Die "讀不到 SRS_PLATFORM_SECRET。平台是否已啟動？" }
 
+# Auto-detect the host ports from the container mapping, because the published ports vary (e.g.
+# the default image maps 2022/1935, but a custom deploy may map them elsewhere).
+function Detect-Port($containerPort, $scheme, $fallbackPort) {
+    $m = docker port $Container $containerPort 2>$null | Select-Object -First 1
+    if ($m) { return "$scheme`://localhost:$((($m) -split ':')[-1])" }
+    return "$scheme`://localhost:$fallbackPort"
+}
+if (-not $Endpoint) { $Endpoint = Detect-Port 2022 "http" 2022 }
+if (-not $Rtmp) { $Rtmp = Detect-Port 1935 "rtmp" 1935 }
+
 $script:Platform = "bilibili"
 $script:SrcID = "quick-src-$PID"
 $script:TgtID = "quick-tgt-$PID"
 
-Write-Host "   endpoint=$Endpoint  source=$Source"
+Write-Host "   endpoint=$Endpoint  rtmp=$Rtmp  source=$Source"
 Write-Host "   pubSecret=($($script:Pub.Length) bytes)  apiSecret=($($script:Token.Length) bytes)"
 
 try {
@@ -117,6 +137,14 @@ try {
     Api "POST" "/terraform/v1/ffmpeg/forward/secret" @{
         action = "update"; platform = $script:Platform; server = "rtmp://localhost/live/"; secret = "$($script:TgtID)?secret=$($script:Pub)"; enabled = $true; custom = $true; label = "quick-test"
     } | Out-Null
+
+    $playURL = "$Endpoint/live/$($script:TgtID).flv"
+    if ($Play) {
+        Step "開啟 ffplay 預覽（可直接看到凍結/恢復）：$playURL"
+        $script:PlayProc = Start-Process ffplay -ArgumentList @(
+            "-loglevel", "warning", "-window_title", "forward target $($script:TgtID)", "-i", $playURL
+        ) -PassThru
+    }
 
     Step "等待並觀察指標（約 12 秒）"
     for ($i = 0; $i -lt 4; $i++) { Start-Sleep -Seconds 3; Show-Status }
@@ -130,9 +158,9 @@ try {
         for ($i = 0; $i -lt 3; $i++) { Start-Sleep -Seconds 3; Show-Status }
     }
 
-    Step "完成。輸出可播放（HTTP-FLV）：$Endpoint/live/$($script:TgtID).flv"
+    Step "完成。輸出可播放（HTTP-FLV）：$playURL"
     Write-Host "   UI 檢視：開啟 $Endpoint → 場景 → 轉推 → 展開「狀態」→ 該列『本機輸出進度』（含診斷時間線/近期日誌）。" -ForegroundColor Yellow
     if ($Keep) { Write-Host "   已保留設定（-Keep），要清理請自行停用該轉推。" -ForegroundColor Yellow }
 } finally {
-    if (-not $Keep) { Step "清理"; Cleanup } else { Stop-Source }
+    if (-not $Keep) { Step "清理"; Cleanup } else { Stop-Source; Stop-Play }
 }
