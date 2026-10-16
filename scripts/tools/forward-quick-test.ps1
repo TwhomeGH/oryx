@@ -18,6 +18,7 @@ param(
     [string]$Rtmp = "",
     [switch]$Outage,
     [switch]$Play,
+    [switch]$Normalize,
     [switch]$Keep
 )
 
@@ -135,9 +136,9 @@ try {
     Start-Source
     Start-Sleep -Seconds 3
 
-    Step "啟用轉推：本機目標 rtmp://localhost/live/$($script:TgtID)"
+    Step "啟用轉推：本機目標 rtmp://localhost/live/$($script:TgtID) normalize=$([bool]$Normalize)"
     Api "POST" "/terraform/v1/ffmpeg/forward/secret" @{
-        action = "update"; platform = $script:Platform; server = "rtmp://localhost/live/"; secret = "$($script:TgtID)?secret=$($script:Pub)"; enabled = $true; custom = $true; label = "quick-test"
+        action = "update"; platform = $script:Platform; server = "rtmp://localhost/live/"; secret = "$($script:TgtID)?secret=$($script:Pub)"; enabled = $true; custom = $true; label = "quick-test"; normalize = [bool]$Normalize
     } | Out-Null
 
     $playURL = "$Endpoint/live/$($script:TgtID).flv"

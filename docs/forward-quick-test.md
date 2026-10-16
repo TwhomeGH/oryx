@@ -15,6 +15,7 @@
 pwsh scripts/tools/forward-quick-test.ps1                 # 快樂路徑
 pwsh scripts/tools/forward-quick-test.ps1 -Outage         # 加上「來源中斷 → 恢復」示範
 pwsh scripts/tools/forward-quick-test.ps1 -Play           # 另外開 ffplay，即時看輸出（可看凍結/恢復）
+pwsh scripts/tools/forward-quick-test.ps1 -Normalize      # 啟用「補強轉碼（正規化 CFR）」再測
 pwsh scripts/tools/forward-quick-test.ps1 -Keep           # 保留設定，方便自己點 UI 看
 pwsh scripts/tools/forward-quick-test.ps1 -Container oryx -Endpoint http://localhost:882
 ```
