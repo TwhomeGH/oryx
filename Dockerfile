@@ -93,6 +93,14 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends curl xz-util
         "$(echo ${FFB} | sed 's/[.]tar[.]xz//')/bin/ffprobe" && \
     chmod +x /usr/local/bin/ffmpeg /usr/local/bin/ffprobe
 
+# A minimal zmqsend (ZMQ PUB sender) for FFmpeg's zmq filter, built on focal so its glibc
+# matches the runtime image. See scripts/tools/zmqsend.c.
+FROM ${ARCH}ubuntu:focal AS zmqsend
+RUN apt-get update -y && apt-get install -y --no-install-recommends gcc libzmq3-dev && \
+    rm -rf /var/lib/apt/lists/*
+COPY scripts/tools/zmqsend.c /zmqsend.c
+RUN gcc -O2 -o /usr/local/bin/zmqsend /zmqsend.c -lzmq && ldd /usr/local/bin/zmqsend
+
 # http://releases.ubuntu.com/focal/
 #FROM ${ARCH}ubuntu:focal AS dist
 FROM valkey-base AS dist
@@ -121,7 +129,10 @@ RUN mv /usr/local/bin/ffmpeg /usr/local/bin/ffmpeg-fit && \
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -y && apt-get install -y --no-install-recommends \
     libva2 libva-drm2 libdrm2 libx11-6 \
-    mesa-va-drivers intel-media-va-driver && rm -rf /var/lib/apt/lists/*
+    mesa-va-drivers intel-media-va-driver libzmq5 && rm -rf /var/lib/apt/lists/*
+
+# The ZMQ PUB sender used to switch the program composite's picture at runtime.
+COPY --from=zmqsend /usr/local/bin/zmqsend /usr/local/bin/zmqsend
 
 # Prepare data directory.
 RUN mkdir -p /data && \
