@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -197,6 +198,10 @@ type ProgramBus struct {
 	reconnects      int
 	lastReconnectAt *time.Time
 	reconnectReason string
+
+	// The source's video size and frame rate, probed while it is live, so the slate can match
+	// it — a resolution/fps change at the handoff would disturb the copied downstream.
+	srcWidth, srcHeight, srcFPS int32
 
 	// The program diagnostics timeline (bounded ring).
 	events []ForwardEvent
@@ -440,6 +445,8 @@ func (v *ProgramBus) runWithSlate(ctx context.Context) {
 				if err := v.switchPublisher(ctx, programModeLive); err != nil {
 					logger.Wf(ctx, "forward program switch to live err %+v", err)
 				}
+				// Learn the source size/fps while it is live, so the slate can match it later.
+				v.probeSourceSize(ctx)
 			}
 		} else {
 			v.setSourceActive(false)
@@ -541,9 +548,10 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		// A live-rendered slate with a ticking clock, so viewers can tell the stream is still
 		// alive (a plain solid color looks frozen or ended). Unlike the relay this encodes,
 		// because drawtext requires it; the clock runs in realtime while the source is offline.
+		w, h, fps := v.sourceSize()
 		args = append(args,
 			"-re",
-			"-f", "lavfi", "-i", forwardSlateVideo(),
+			"-f", "lavfi", "-i", forwardSlateVideo(w, h, fps),
 			"-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
 			"-vf", forwardSlateDrawtext(),
 			"-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency",
@@ -610,9 +618,71 @@ func forwardPublishSecret(ctx context.Context) string {
 	return ""
 }
 
-// forwardSlateVideo is the lavfi video source for the slate (a dark solid color).
-func forwardSlateVideo() string {
-	return "color=c=0x111111:s=1280x720:r=25"
+// forwardSlateVideo is the lavfi video source for the slate (a dark solid color), sized to match
+// the source so switching does not change the resolution or frame rate mid-stream.
+func forwardSlateVideo(w, h, fps int32) string {
+	if w <= 0 || h <= 0 {
+		w, h = 1280, 720
+	}
+	if fps <= 0 || fps > 120 {
+		fps = 25
+	}
+	return fmt.Sprintf("color=c=0x111111:s=%dx%d:r=%d", w, h, fps)
+}
+
+// setSourceSize / sourceSize guard the probed source size and frame rate.
+func (v *ProgramBus) setSourceSize(w, h, fps int32) {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	v.srcWidth, v.srcHeight, v.srcFPS = w, h, fps
+}
+
+func (v *ProgramBus) sourceSize() (w, h, fps int32) {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	return v.srcWidth, v.srcHeight, v.srcFPS
+}
+
+// probeSourceSize probes the live source once to learn its video size and frame rate, so the
+// slate can match it and avoid a resolution/fps change at the handoff.
+func (v *ProgramBus) probeSourceSize(ctx context.Context) {
+	url := fmt.Sprintf("http://localhost:%v/%v/%v.flv", forwardProgramHTTPPort, v.sourceApp, v.sourceStream)
+	out, err := exec.CommandContext(ctx, "ffprobe", "-v", "error", "-select_streams", "v:0",
+		"-show_entries", "stream=width,height,r_frame_rate", "-of", "csv=p=0", url).Output()
+	if err != nil {
+		return
+	}
+
+	parts := strings.Split(strings.TrimSpace(string(out)), ",")
+	if len(parts) != 3 {
+		return
+	}
+	w, _ := strconv.Atoi(strings.TrimSpace(parts[0]))
+	h, _ := strconv.Atoi(strings.TrimSpace(parts[1]))
+	fps := int32(25)
+	if num, den, ok := parseFPS(parts[2]); ok && den > 0 {
+		if f := (num + den/2) / den; f >= 1 && f <= 120 {
+			fps = int32(f)
+		}
+	}
+	if w > 0 && h > 0 {
+		v.setSourceSize(int32(w), int32(h), fps)
+		logger.Tf(ctx, "forward program probed source size %vx%v@%vfps", w, h, fps)
+	}
+}
+
+// parseFPS parses an ffprobe frame rate such as "25/1" or "30000/1001".
+func parseFPS(s string) (num, den int, ok bool) {
+	s = strings.TrimSpace(s)
+	if i := strings.IndexByte(s, '/'); i > 0 {
+		n, err1 := strconv.Atoi(strings.TrimSpace(s[:i]))
+		d, err2 := strconv.Atoi(strings.TrimSpace(s[i+1:]))
+		return n, d, err1 == nil && err2 == nil && d > 0
+	}
+	if n, err := strconv.Atoi(s); err == nil {
+		return n, 1, true
+	}
+	return 0, 0, false
 }
 
 // forwardSlateDrawtext overlays a realtime clock on the slate, so viewers can tell the stream is

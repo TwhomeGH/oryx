@@ -175,3 +175,40 @@ func TestForward_FanoutArgs(t *testing.T) {
 		}
 	}
 }
+
+func TestForward_SlateSizing(t *testing.T) {
+	// The slate must match the source size and frame rate, so a handoff does not change the
+	// resolution mid-stream (which would disturb the copied downstream).
+	for _, e := range []struct {
+		w, h, fps int32
+		expect    string
+	}{
+		{w: 1920, h: 1080, fps: 30, expect: "color=c=0x111111:s=1920x1080:r=30"},
+		{w: 1280, h: 720, fps: 25, expect: "color=c=0x111111:s=1280x720:r=25"},
+		{w: 0, h: 0, fps: 0, expect: "color=c=0x111111:s=1280x720:r=25"},          // defaults
+		{w: 1920, h: 1080, fps: 999, expect: "color=c=0x111111:s=1920x1080:r=25"}, // fps clamped
+	} {
+		if got := forwardSlateVideo(e.w, e.h, e.fps); got != e.expect {
+			t.Errorf("slate w=%v h=%v fps=%v, got %v, expect %v", e.w, e.h, e.fps, got, e.expect)
+		}
+	}
+
+	// parseFPS handles integer and fractional ffprobe frame rates.
+	for _, e := range []struct {
+		in  string
+		num int
+		den int
+		ok  bool
+	}{
+		{"25/1", 25, 1, true},
+		{"30000/1001", 30000, 1001, true},
+		{"30", 30, 1, true},
+		{"0/0", 0, 0, false},
+		{"abc", 0, 0, false},
+	} {
+		num, den, ok := parseFPS(e.in)
+		if num != e.num || den != e.den || ok != e.ok {
+			t.Errorf("parseFPS(%v), got %v/%v %v, expect %v/%v %v", e.in, num, den, ok, e.num, e.den, e.ok)
+		}
+	}
+}
