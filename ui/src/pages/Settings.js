@@ -743,6 +743,7 @@ function SettingLimits() {
         <Accordion.Header>{t('settings.limitsTitle')}</Accordion.Header>
         <Accordion.Body>
           <Form>
+            <Form.Text className="text-muted d-block mb-2">{t('settings.limitsDesc')}</Form.Text>
             <Form.Group className="mb-3">
               <Form.Label>{t('settings.limitsVLive')}</Form.Label>
               <Form.Text> * in Kbps</Form.Text>
