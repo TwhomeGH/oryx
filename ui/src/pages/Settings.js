@@ -179,7 +179,7 @@ function SettingHighPerformanceHLS() {
   const [noHlsCtx, setNoHlsCtx] = React.useState();
   const [hlsLL, setHlsLL] = React.useState();
   const [latencyMode, setLatencyMode] = React.useState('compat');
-  const [hlsMaster, setHlsMaster] = React.useState(true);
+  const [hlsMaster, setHlsMaster] = React.useState();
   const handleError = useErrorHandler();
   const { t } = useTranslation();
 
@@ -279,7 +279,7 @@ function SettingHighPerformanceHLS() {
           <Form>
             <Form.Text className="text-muted d-block mb-2">{t('settings.hlsMasterDesc')}</Form.Text>
             <Form.Group className="mb-3" controlId="formHlsMasterCheckbox">
-              <Form.Check type="checkbox" label={t('settings.hlsMasterTip')} defaultChecked={hlsMaster} onClick={() => setHlsMaster(!hlsMaster)} />
+              <Form.Check type="checkbox" label={t('settings.hlsMasterTip')} checked={!!hlsMaster} onChange={(e) => setHlsMaster(e.target.checked)} />
             </Form.Group>
             <div className="text-muted small mb-2">{t('settings.reloadHint')}</div>
             <Button variant="primary" type="submit" onClick={(e) => updateHlsMaster(e)}>
@@ -310,7 +310,7 @@ function SettingHighPerformanceHLS() {
           <Form>
             <Form.Text className="text-muted d-block mb-2">{t('settings.nginxHlsDesc')}</Form.Text>
             <Form.Group className="mb-3" controlId="formNginxHlsCheckbox">
-              <Form.Check type="checkbox" label={t('settings.nginxHlsTip')} defaultChecked={noHlsCtx} onClick={() => setNoHlsCtx(!noHlsCtx)} />
+              <Form.Check type="checkbox" label={t('settings.nginxHlsTip')} checked={!!noHlsCtx} onChange={(e) => setNoHlsCtx(e.target.checked)} />
             </Form.Group>
             <div className="text-muted small mb-2">{t('settings.reloadHint')}</div>
             <Button variant="primary" type="submit" onClick={(e) => updateHlsDelivery(e)}>
@@ -325,7 +325,7 @@ function SettingHighPerformanceHLS() {
           <Form>
             <Form.Text className="text-muted d-block mb-2">{t('settings.hlsLLDesc')}</Form.Text>
             <Form.Group className="mb-3" controlId="formHlsLLCheckbox">
-              <Form.Check type="checkbox" label={t('settings.hlsLLTip')} defaultChecked={hlsLL} onClick={() => setHlsLL(!hlsLL)} />
+              <Form.Check type="checkbox" label={t('settings.hlsLLTip')} checked={!!hlsLL} onChange={(e) => setHlsLL(e.target.checked)} />
             </Form.Group>
             <div className="text-muted small mb-2">{t('settings.reloadHint')}</div>
             <Button variant="primary" type="submit" onClick={(e) => updateHlsLL(e)}>
@@ -546,8 +546,8 @@ function SettingCallbackImpl({ activeKey, defaultEnabled, defaultConf }) {
               <a href={t('helper.doc') + '#http-callback-on_record_end'} target='_blank' rel='noreferrer'>on_record_end,</a> &nbsp;
               <a href={t('helper.doc') + '#http-callback-on_ocr'} target='_blank' rel='noreferrer'>on_ocr</a> &nbsp;
             </Form.Text>
-            <Form.Check type="checkbox" defaultChecked={allEvents} label={t('cb.event3')}
-              onChange={(e) => setAllEvents(!allEvents)} />
+            <Form.Check type="checkbox" checked={allEvents} label={t('cb.event3')}
+              onChange={(e) => setAllEvents(e.target.checked)} />
           </Form.Group>
           <Button variant="primary" type="submit" onClick={(e) => onUpdateCallback(e)}>
             {t('settings.footerSubmit')}
@@ -920,7 +920,7 @@ function SettingAuth() {
           <Accordion.Header>{t('settings.noAuthTitle')}</Accordion.Header>
           <Accordion.Body>
             <Form.Group className="mb-3" controlId="formDisableAuthCheckbox">
-              <Form.Check type="checkbox" label={t('settings.noAuthTips')} defaultChecked={noAuth} onClick={() => setNoAuth(!noAuth)} />
+              <Form.Check type="checkbox" label={t('settings.noAuthTips')} checked={!!noAuth} onChange={(e) => setNoAuth(e.target.checked)} />
             </Form.Group>
             <Button variant="primary" type="submit" onClick={(e) => updateNoAuth(e)}>
               {t('helper.submit')}
