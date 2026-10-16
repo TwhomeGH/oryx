@@ -62,6 +62,18 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version: '1.26.x'
+          # The repo vendors its deps (platform/vendor, test/vendor), so Go never uses the module
+          # cache, and setup-go's go.sum-based cache has nothing to key on at the repo root (which
+          # produced "Restore cache failed: dependencies file is not found: go.mod"). Disable it
+          # here and cache the Go build cache explicitly below instead.
+          cache: false
+      - name: Cache Go build
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/go-build
+          key: ${{ runner.os }}-go-build-${{ hashFiles('platform/go.sum', 'test/go.sum', 'releases/go.sum', 'platform/vendor/modules.txt', 'test/vendor/modules.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-go-build-
       - name: Install tools
         run: |
           curl -L https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz | tar xJ --strip-components=2 -C /usr/local/bin/ ffmpeg-master-latest-linux64-gpl/bin/ffmpeg ffmpeg-master-latest-linux64-gpl/bin/ffprobe
