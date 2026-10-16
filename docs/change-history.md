@@ -2,6 +2,31 @@
 
 > 本檔由 changelogkit 管理（見 [變更歷史說明](changelog.md)）。新增請用 `changelogkit add`（或 `changelogkit serve` 的網頁 GUI）。
 
+## 2026.10.17 07:29 v5.18.0 轉推備用畫面改單一 composite（來源中斷端無縫）＋ GPU 編碼器；繁體中文語系；勾選框修正與限流文案澄清
+
+**類型**: 發佈
+
+### 修改
+- 修正markdownlint提示問題 DEVELOPER文件
+- 轉推 slate 改用單一 composite（來源中斷端無縫）
+- 新增 zmqsend（ZMQ PUB 發送端）並編進映像，供 program 合成器執行期切畫面
+- 轉推轉碼改用 GPU 編碼器（NVENC 可用時），並還原 C2
+- C 實驗：換手不重啟 fanout 會卡死 → 證實必須重啟（附 handoff 記錄）
+- 快速測試工具：ffplay 預覽加 reconnect（跨轉推換手空窗，才看得到備用畫面）
+- 轉推備用畫面依來源解析度/幀率產生（避免切換時解析度突變）
+- 快速測試工具修 ffplay 預覽：視窗標題含空格導致秒退
+- 快速測試工具新增 -Slate：示範來源中斷切備用畫面（深灰底＋跳動時鐘）
+- 轉推備用畫面改為「深灰底＋跳動時鐘」（讓觀眾知道還在直播）
+- 繁中：修正語言判定把 zh-TW 當非中文（教程等 fallback 成英文）
+- 繁中語系：補術語覆寫（碼率/碼流/鑑權/地址/配置）
+- 新增繁體中文語系（OpenCC s2twp 自動產生）
+- 統一修正勾選框為受控（掃過其餘頁面）
+- 修正設定頁勾選框狀態誤判（非受控 defaultChecked）
+- 澄清「限流」文案：實為來源碼率上限（vLive／IP 攝像頭）
+- 改進發佈變更歷史：自動帶上本版提交清單 + 補齊 v5.17.0 條目
+
+---
+
 ## 2026.10.17 04:18 v5.17.0 設定/診斷強化：延遲模式、HLS 總開關、磁碟診斷、本機部署
 
 **類型**: 功能 · **檔案**: `platform/utils.go`、`platform/service.go`、`platform/disk.go`、`ui/src/pages/Settings.js`
