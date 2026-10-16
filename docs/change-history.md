@@ -2,9 +2,20 @@
 
 > 本檔由 changelogkit 管理（見 [變更歷史說明](changelog.md)）。新增請用 `changelogkit add`（或 `changelogkit serve` 的網頁 GUI）。
 
-## 2026.10.17 04:18 設定/診斷強化：延遲模式、HLS 總開關與停用提示、磁碟多檔案系統診斷；本機部署工具與 changelogkit
+## 2026.10.17 04:18 v5.17.0 設定/診斷強化：延遲模式、HLS 總開關、磁碟診斷、本機部署
 
-**類型**: 修復
+**類型**: 功能 · **檔案**: `platform/utils.go`、`platform/service.go`、`platform/disk.go`、`ui/src/pages/Settings.js`
+
+### 修改
+- 新增 SRS 延遲模式（`min_latency`/`tcp_nodelay`）設定。
+- 設定頁：延遲模式選擇 + 澄清 HLS 選項說明。
+- 新增 HLS 總開關與磁碟容量診斷。
+- 設定頁：HLS 總開關 + 磁碟空間分頁。
+- HLS 停用提示 + 磁碟診斷回報多檔案系統。
+- 磁碟診斷：虛擬磁碟（WSL VHDX）改以實際可用呈現，避免誤導。
+- 引入 changelogkit 管理改動歷史（並串到 `-Release`）。
+- CI：doc/工具改動不建映像＋取消被取代的建置（省資源）。
+- 新增本機部署工具 `local-deploy.ps1`（含記住 compose 目錄的 ini）。
 
 ---
 
