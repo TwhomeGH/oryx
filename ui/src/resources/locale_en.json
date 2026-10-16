@@ -102,6 +102,8 @@
         "noOutput": "No-output time",
         "drift": "Media clock drift",
         "reconnects": "Source reconnects",
+      "encoder": "Encoder",
+      "gpu": "(GPU hardware)",
         "events": "Diagnostics timeline",
         "logs": "Recent logs",
         "speed": "Cumulative processing speed",

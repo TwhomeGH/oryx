@@ -45,9 +45,11 @@ function Sparkline({data}) {
  *   log, the metrics object, and the diagnostics timeline / recent logs of the target.
  * @returns {React.ReactElement} Local progress summary and raw diagnostics.
  */
-export default function ForwardProgress({log, metrics, events, logs}) {
+export default function ForwardProgress({log, metrics, events, logs, encoder}) {
   const {t} = useTranslation();
   const progress = parseForwardProgress(log);
+  // Hardware encoders (NVENC/VAAPI/QSV/AMF/VideoToolbox) vs software (libx264).
+  const encHardware = /nvenc|vaapi|qsv|amf|videotoolbox/.test(encoder || '');
   const history = React.useRef([]);
 
   // Accumulate a short in-memory trend of the average FPS. The guard keeps it append-only and
@@ -69,6 +71,7 @@ export default function ForwardProgress({log, metrics, events, logs}) {
       <div>{t('forward.progress.noOutput')}: {fmt(metrics.noOutputSeconds)}s</div>
       <div>{t('forward.progress.drift')}: {fmt(metrics.mediaClockDriftSec)}s</div>
       {metrics.relayReconnects > 0 && <div>{t('forward.progress.reconnects')}: {metrics.relayReconnects}</div>}
+      {encoder && <div>{t('forward.progress.encoder')}: {encoder}{encHardware ? ` ${t('forward.progress.gpu')}` : ''}</div>}
     </>}
     <Sparkline data={history.current} />
     {log && <details className="mt-1">

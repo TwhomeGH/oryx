@@ -249,6 +249,9 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 						elem["fallback"] = !status.ProgramSourceActive
 					}
 					elem["programSwitches"] = status.ProgramSwitches
+					if status.Encoder != "" {
+						elem["encoder"] = status.Encoder
+					}
 					if status.Start != "" {
 						elem["start"] = status.Start
 					}
@@ -535,6 +538,7 @@ type ForwardTaskStatus struct {
 	ProgramFailover     string
 	ProgramSourceActive bool
 	ProgramSwitches     int
+	Encoder             string
 	Frame               string
 	FrameUpdate         string
 	Start               string
@@ -692,6 +696,16 @@ func (v *ForwardTask) queryStatus() ForwardTaskStatus {
 			status.ProgramMode, status.ProgramFailover = ps.Mode, ps.Failover
 			status.ProgramSourceActive, status.ProgramSwitches = ps.SourceActive, ps.Switches
 		}
+	}
+	// Which video encoder this target's pipeline uses: the composite/slate program and the
+	// normalize fanout both transcode (hardware NVENC when available, else libx264), while a
+	// plain hold + no-normalize pipeline is a zero-transcode copy.
+	if v.config != nil && (normalizeForwardFailover(v.config.Failover) == forwardFailoverSlate || v.config.Normalize) {
+		if name := forwardVideoEncoderName(); name != "" {
+			status.Encoder = name
+		}
+	} else {
+		status.Encoder = "copy"
 	}
 	status.Metrics = v.queryMetrics(ps)
 	status.Logs = append([]string(nil), v.logs...)
@@ -1058,6 +1072,16 @@ func forwardVideoEncodeArgs() []string {
 		}
 	})
 	return forwardEncoderArgs
+}
+
+// forwardVideoEncoderName reports the resolved video encoder for status, e.g. "h264_nvenc"
+// (hardware) or "libx264" (software).
+func forwardVideoEncoderName() string {
+	args := forwardVideoEncodeArgs()
+	if len(args) >= 2 && args[0] == "-c:v" {
+		return args[1]
+	}
+	return ""
 }
 
 // forwardFanoutArgs builds the FFmpeg arguments for the fanout. When normalize is on, the
