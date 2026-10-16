@@ -116,3 +116,30 @@ git update-index --skip-worktree platform/objs
 
 永久方案：Windows 設定開啟「開發人員模式」+ git config --global core.symlinks true，
 之後重新 checkout 即為真符號連結。
+
+---
+
+## 一鍵本機部署與「目前跑哪個 build」
+
+`scripts/tools/local-deploy.ps1`：建置 `oryx:local`（把 git 修訂與版本寫進映像標籤 `oryx.revision`／`oryx.version`），
+並回報**正在執行的容器實際用哪個 build**、是否落後於最新建置；可一鍵重建。
+
+```powershell
+pwsh scripts/tools/local-deploy.ps1                     # 建置 + 回報
+pwsh scripts/tools/local-deploy.ps1 -Check              # 只回報（不建置）
+pwsh scripts/tools/local-deploy.ps1 -Deploy -ComposeDir "<你的 compose 目錄>"   # 重建套用
+```
+
+輸出範例：
+
+```text
+source: version=v5.16.0 revision=f24f336e2209
+==> 目前狀態
+  build target : oryx:local  (bdba0b14237f)  rev=f24f336e2209  version=v5.16.0
+  容器 oryx    : image=oryx:local  (9bb59c700af0)  rev=n/a（舊 build 無標籤）  -> 落後（需 -Deploy 重建）
+```
+
+- `build target`：`oryx:local` 這顆映像的 image ID ＋ `oryx.revision`／`oryx.version` 標籤。
+- 容器列：正在跑的容器實際 image ID 與標籤；與最新建置 **image ID 不同即標「落後」**。
+- `-Deploy`：在 compose 目錄 `docker compose up -d` 重建（`/data` volume 不動）。
+- 反查某顆映像對應的 commit：`docker image inspect <id> --format '{{index .Config.Labels "oryx.revision"}}'`。

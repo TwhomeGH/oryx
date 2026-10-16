@@ -1,0 +1,113 @@
+﻿#!/usr/bin/env pwsh
+<#
+.SYNOPSIS
+    本地快速部署：建置 oryx:local、回報「目前容器實際用哪個 build」，並可一鍵重建。
+.DESCRIPTION
+    解決「改了碼、build 了，但容器還是跑舊 image」的困擾：
+      * 建置時把 git 修訂與版本寫進映像標籤（org.opencontainers.image.revision/version）。
+      * 回報正在執行的容器用的 image ID / revision / version，並和最新的 oryx:local 比對是否落後。
+      * -Deploy 直接 docker compose up -d 以新映像重建（資料在 /data volume，不動）。
+
+    用法：
+      pwsh scripts/tools/local-deploy.ps1                 # 建置 + 回報（不重建）
+      pwsh scripts/tools/local-deploy.ps1 -Check          # 只回報（不建置）
+      pwsh scripts/tools/local-deploy.ps1 -Deploy -ComposeDir "C:\path\to\compose"
+      pwsh scripts/tools/local-deploy.ps1 -Deploy         # 重建當前目錄的 compose
+#>
+param(
+    [string]$Image = "oryx:local",
+    [string]$Container = "oryx",
+    [string]$ComposeDir = "",
+    [switch]$Check,
+    [switch]$Deploy,
+    [switch]$DryRun
+)
+
+$ErrorActionPreference = 'Stop'
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+
+function Step($m) { Write-Host "==> $m" -ForegroundColor Cyan }
+
+# --- Read the source version + revision so the image carries them as labels ---
+$version = 'unknown'
+if (Test-Path (Join-Path $repoRoot 'platform\version.go')) {
+    $m = (Get-Content (Join-Path $repoRoot 'platform\version.go') -Raw) -match 'const version = "([^"]+)"'
+    if ($m) { $version = $Matches[1] }
+}
+$revision = (git -C $repoRoot rev-parse HEAD 2>$null); if (-not $revision) { $revision = 'unknown' }
+$revision = $revision.Trim()
+Write-Host "source: version=$version revision=$($revision.Substring(0, [Math]::Min(12, $revision.Length)))"
+
+# --- Build the local image with build labels ---
+if (-not $Check) {
+    Step "建置 $Image（含 revision/version 標籤）"
+    if ($DryRun) {
+        Write-Host "[DryRun] docker build -t $Image --label oryx.revision=$revision ... ."
+    } else {
+        docker build -t $Image `
+            --label "oryx.revision=$revision" `
+            --label "oryx.version=$version" `
+            $repoRoot
+        if ($LASTEXITCODE -ne 0) { Write-Host '[失敗] docker build 失敗' -ForegroundColor Red; exit 1 }
+    }
+}
+
+# --- Describe an image: id + revision + version labels ---
+function Describe-Image($ref) {
+    $id = $ref
+    if (-not $ref.StartsWith('sha256:')) {
+        $id = (docker image inspect $ref --format '{{.Id}}' 2>$null)
+    }
+    if (-not $id) { return $null }
+    $rev = (docker image inspect $id --format '{{index .Config.Labels "oryx.revision"}}' 2>$null)
+    $ver = (docker image inspect $id --format '{{index .Config.Labels "oryx.version"}}' 2>$null)
+    $created = (docker image inspect $id --format '{{.Created}}' 2>$null)
+    return [pscustomobject]@{ Id = $id; Rev = $rev; Ver = $ver; Created = $created }
+}
+
+$local = Describe-Image $Image
+$running = $null
+if ((docker ps -a --filter "name=^/$Container$" --format '{{.Names}}') -eq $Container) {
+    $runningId = (docker inspect $Container --format '{{.Image}}' 2>$null)
+    $runningImage = (docker inspect $Container --format '{{.Config.Image}}' 2>$null)
+    $running = Describe-Image "$runningId"
+    if ($running) { $running | Add-Member -NotePropertyName Ref -NotePropertyValue $runningImage }
+}
+
+Step "目前狀態"
+if ($local) {
+    Write-Host ("  build target : {0}  ({1})  rev={2}  version={3}" -f $Image, $local.Id.Substring(7, 12), $(if ($local.Rev) { $local.Rev.Substring(0, [Math]::Min(12, $local.Rev.Length)) } else { 'n/a' }), $local.Ver)
+}
+if ($running) {
+    $stale = $local -and ($running.Id -ne $local.Id)
+    $flag = if ($stale) { '落後（需 -Deploy 重建）' } else { '一致' }
+    Write-Host ("  容器 {0,-6}: image={1}  ({2})  rev={3}  version={4}  -> {5}" -f $Container, $running.Ref, $running.Id.Substring(7, 12), $(if ($running.Rev) { $running.Rev.Substring(0, [Math]::Min(12, $running.Rev.Length)) } else { 'n/a（舊 build 無標籤）' }), $running.Ver, $flag) -ForegroundColor $(if ($stale) { 'Yellow' } else { 'Green' })
+} else {
+    Write-Host "  找不到執行中的容器 '$Container'。" -ForegroundColor DarkYellow
+}
+
+# --- Recreate via docker compose ---
+if ($Deploy) {
+    if (-not $ComposeDir) { $ComposeDir = (Get-Location).Path }
+    $composeFile = Join-Path $ComposeDir 'docker-compose.yml'
+    if (-not (Test-Path $composeFile)) { Write-Host "[失敗] 找不到 $composeFile（用 -ComposeDir 指定）" -ForegroundColor Red; exit 1 }
+
+    Step "docker compose up -d（重建容器，/data 不動）: $ComposeDir"
+    if ($DryRun) {
+        Write-Host "[DryRun] cd $ComposeDir && docker compose up -d"
+    } else {
+        Push-Location $ComposeDir
+        try {
+            docker compose up -d
+            if ($LASTEXITCODE -ne 0) { Write-Host '[失敗] docker compose 失敗' -ForegroundColor Red; exit 1 }
+        } finally { Pop-Location }
+        $ok = Describe-Image (docker inspect $Container --format '{{.Image}}' 2>$null)
+        if ($ok -and $local -and $ok.Id -eq $local.Id) {
+            Write-Host "完成：$Container 現在跑的就是最新 build（rev=$($local.Rev.Substring(0, [Math]::Min(12, $local.Rev.Length))), version=$($local.Ver)）。" -ForegroundColor Green
+        } else {
+            Write-Host "完成重建（請再跑一次 -Check 確認）。" -ForegroundColor Yellow
+        }
+    }
+} elseif ($running -and $local -and $running.Id -ne $local.Id) {
+    Write-Host "提示：容器落後，加 -Deploy 即可用最新 build 重建。" -ForegroundColor Yellow
+}
