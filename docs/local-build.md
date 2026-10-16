@@ -127,8 +127,13 @@ git update-index --skip-worktree platform/objs
 ```powershell
 pwsh scripts/tools/local-deploy.ps1                     # 建置 + 回報
 pwsh scripts/tools/local-deploy.ps1 -Check              # 只回報（不建置）
-pwsh scripts/tools/local-deploy.ps1 -Deploy -ComposeDir "<你的 compose 目錄>"   # 重建套用
+pwsh scripts/tools/local-deploy.ps1 -Deploy -ComposeDir "<你的 compose 目錄>"   # 重建套用（首次：指定並記住）
+pwsh scripts/tools/local-deploy.ps1 -Deploy                                  # 之後：直接用記住的目錄
 ```
+
+> **設定會記住**：帶一次 `-ComposeDir` 會把 compose 目錄（與 container/image）寫入
+> `scripts/tools/local-deploy.ini`（已 gitignore），之後 `-Deploy` 免再指定；要改設定用
+> `-ComposeDir "<新目錄>" -Save`。
 
 輸出範例：
 

@@ -4,29 +4,54 @@
     本地快速部署：建置 oryx:local、回報「目前容器實際用哪個 build」，並可一鍵重建。
 .DESCRIPTION
     解決「改了碼、build 了，但容器還是跑舊 image」的困擾：
-      * 建置時把 git 修訂與版本寫進映像標籤（org.opencontainers.image.revision/version）。
+      * 建置時把 git 修訂與版本寫進映像標籤（oryx.revision/oryx.version）。
       * 回報正在執行的容器用的 image ID / revision / version，並和最新的 oryx:local 比對是否落後。
       * -Deploy 直接 docker compose up -d 以新映像重建（資料在 /data volume，不動）。
 
+    設定（首次指定即記住）：帶 -ComposeDir 會把 compose 目錄（與 container/image）寫入
+    scripts/tools/local-deploy.ini（已 gitignore），之後 -Deploy 不必再指定。
+
     用法：
-      pwsh scripts/tools/local-deploy.ps1                 # 建置 + 回報（不重建）
-      pwsh scripts/tools/local-deploy.ps1 -Check          # 只回報（不建置）
-      pwsh scripts/tools/local-deploy.ps1 -Deploy -ComposeDir "C:\path\to\compose"
-      pwsh scripts/tools/local-deploy.ps1 -Deploy         # 重建當前目錄的 compose
+      pwsh scripts/tools/local-deploy.ps1 -Deploy -ComposeDir "C:\path\to\compose"  # 首次：指定並記住
+      pwsh scripts/tools/local-deploy.ps1 -Deploy                                   # 之後：直接用記住的目錄
+      pwsh scripts/tools/local-deploy.ps1 -Check                                    # 只回報（不建置/不重建）
+      pwsh scripts/tools/local-deploy.ps1 -ComposeDir "C:\other" -Save              # 只更新設定
+      pwsh scripts/tools/local-deploy.ps1                                           # 建置 + 回報
 #>
 param(
-    [string]$Image = "oryx:local",
-    [string]$Container = "oryx",
-    [string]$ComposeDir = "",
+    [string]$Image,
+    [string]$Container,
+    [string]$ComposeDir,
     [switch]$Check,
     [switch]$Deploy,
+    [switch]$Save,
     [switch]$DryRun
 )
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$iniPath = Join-Path $PSScriptRoot 'local-deploy.ini'
 
 function Step($m) { Write-Host "==> $m" -ForegroundColor Cyan }
+
+# --- Load saved settings (gitignored ini) ---
+$saved = @{}
+if (Test-Path $iniPath) {
+    foreach ($line in Get-Content $iniPath) {
+        if ($line -match '^\s*([^#=]+?)\s*=\s*(.*?)\s*$') { $saved[$Matches[1]] = $Matches[2] }
+    }
+}
+if (-not $Image) { $Image = if ($saved['image']) { $saved['image'] } else { 'oryx:local' } }
+if (-not $Container) { $Container = if ($saved['container']) { $saved['container'] } else { 'oryx' } }
+if (-not $ComposeDir -and $saved['composeDir']) { $ComposeDir = $saved['composeDir'] }
+
+# Persist when ComposeDir is explicitly provided, or on -Save.
+if ($Save -or $PSBoundParameters.ContainsKey('ComposeDir')) {
+    $ini = "# local-deploy 設定（自動產生，已 gitignore）。`ncomposeDir=$ComposeDir`ncontainer=$Container`nimage=$Image`n"
+    [IO.File]::WriteAllText($iniPath, $ini, (New-Object System.Text.UTF8Encoding $false))
+    Write-Host "已儲存設定到 $iniPath（composeDir=$ComposeDir）" -ForegroundColor Green
+    if ($Save) { exit 0 }
+}
 
 # --- Read the source version + revision so the image carries them as labels ---
 $version = 'unknown'
@@ -88,7 +113,9 @@ if ($running) {
 
 # --- Recreate via docker compose ---
 if ($Deploy) {
-    if (-not $ComposeDir) { $ComposeDir = (Get-Location).Path }
+    if (-not $ComposeDir) {
+        Write-Host "[失敗] 未指定 compose 目錄（用 -ComposeDir 指定一次即會記住）" -ForegroundColor Red; exit 1
+    }
     $composeFile = Join-Path $ComposeDir 'docker-compose.yml'
     if (-not (Test-Path $composeFile)) { Write-Host "[失敗] 找不到 $composeFile（用 -ComposeDir 指定）" -ForegroundColor Red; exit 1 }
 

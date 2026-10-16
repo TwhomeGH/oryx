@@ -144,3 +144,6 @@ __debug_bin*
 test/oryx.test.exe
 .playwright-mcp/*
 docs/player-layout-wide.png
+
+# local-deploy 的本機設定（首次 -ComposeDir 時產生）
+scripts/tools/local-deploy.ini
