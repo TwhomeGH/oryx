@@ -64,7 +64,8 @@ pwsh scripts/tools/forward-quick-test.ps1 -Container oryx -Endpoint http://local
    "rtmp://localhost:1935/live/mysrc?secret=<pubSecret>"`。
 3. 啟用轉推（API，Bearer `<token>`）：
    `POST /terraform/v1/ffmpeg/forward/secret`
-   `{"action":"update","platform":"bilibili","server":"rtmp://localhost/live/","secret":"mytgt?secret=<pubSecret>","enabled":true,"custom":true,"label":"local"}`。
+   `{"action":"update","platform":"forwarding-quick","server":"rtmp://localhost/live/","secret":"mytgt?secret=<pubSecret>","enabled":true,"custom":true,"label":"local"}`
+   （用自訂名稱，勿覆蓋內建平台；測試完用 `{"action":"delete","platform":"forwarding-quick"}` 刪除）。
 4. 查狀態：`GET /terraform/v1/ffmpeg/forward/streams`（看 `metrics`/`events`/`logs`）。
 5. 到 UI 的「轉推 → 狀態」看「本機輸出進度」。
 

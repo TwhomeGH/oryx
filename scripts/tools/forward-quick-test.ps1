@@ -93,7 +93,7 @@ function Cleanup() {
     if ($script:Token -and $script:Platform -and -not $Keep) {
         try {
             Api "POST" "/terraform/v1/ffmpeg/forward/secret" @{
-                action = "update"; platform = $script:Platform; server = "rtmp://localhost/live/"; secret = "quick-test"; enabled = $false; custom = $true; label = "quick-test"
+                action = "delete"; platform = $script:Platform
             } | Out-Null
         } catch { }
     }
@@ -121,7 +121,9 @@ function Detect-Port($containerPort, $scheme, $fallbackPort) {
 if (-not $Endpoint) { $Endpoint = Detect-Port 2022 "http" 2022 }
 if (-not $Rtmp) { $Rtmp = Detect-Port 1935 "rtmp" 1935 }
 
-$script:Platform = "bilibili"
+# Use a dedicated custom target ("forwarding-" prefix so it can be deleted) instead of a
+# built-in platform like bilibili, to never overwrite the user's real forward config.
+$script:Platform = "forwarding-quick-$PID"
 $script:SrcID = "quick-src-$PID"
 $script:TgtID = "quick-tgt-$PID"
 
