@@ -67,6 +67,18 @@ function Show-Status() {
     }
 }
 
+# Wait until the target is actually publishing frames, so ffplay does not open too early (the
+# stream is not live yet) and exit immediately.
+function Wait-Target([int]$TimeoutSec = 30) {
+    for ($i = 0; $i -lt $TimeoutSec; $i++) {
+        $list = Api "GET" "/terraform/v1/ffmpeg/forward/streams" $null
+        $b = $list | Where-Object { $_.platform -eq $script:Platform }
+        if ($b -and $b.status -eq "running" -and $b.metrics -and [int]$b.metrics.frame -gt 0) { return $true }
+        Start-Sleep -Seconds 1
+    }
+    return $false
+}
+
 function Start-Source() {
     $url = "$Rtmp/live/$($script:SrcID)?secret=$($script:Pub)"
     $err = Join-Path $env:TEMP "forward-quick-test-src.log"
@@ -145,10 +157,12 @@ try {
 
     $playURL = "$Endpoint/live/$($script:TgtID).flv"
     if ($Play) {
-        Step "開啟 ffplay 預覽（可直接看到凍結/恢復）：$playURL"
+        Step "先等目標有畫面，再開 ffplay 預覽：$playURL"
+        if (-not (Wait-Target 30)) { Write-Host "   [警告] 目標 30 秒內未就緒，仍嘗試播放" -ForegroundColor DarkYellow }
+        $script:PlayErr = Join-Path $env:TEMP "forward-quick-test-play.log"
         $script:PlayProc = Start-Process ffplay -ArgumentList @(
-            "-loglevel", "warning", "-window_title", "forward target $($script:TgtID)", "-i", $playURL
-        ) -PassThru
+            "-loglevel", "warning", "-window_title", "forward-tgt-$($script:TgtID)", "-i", $playURL
+        ) -PassThru -RedirectStandardError $script:PlayErr
     }
 
     Step "等待並觀察指標（約 12 秒）"
@@ -161,6 +175,11 @@ try {
         Step "-Outage：恢復來源"
         Start-Source
         for ($i = 0; $i -lt 3; $i++) { Start-Sleep -Seconds 3; Show-Status }
+    }
+
+    if ($Play -and $script:PlayProc -and $script:PlayProc.HasExited) {
+        Write-Host "   [注意] ffplay 已結束（可能沒抓到流），日誌：$($script:PlayErr)" -ForegroundColor DarkYellow
+        if (Test-Path $script:PlayErr) { Get-Content $script:PlayErr -Tail 6 | ForEach-Object { Write-Host "     $_" -ForegroundColor DarkGray } }
     }
 
     Step "完成。輸出可播放（HTTP-FLV）：$playURL"
