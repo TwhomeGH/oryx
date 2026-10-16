@@ -542,7 +542,9 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 			"-reconnect_delay_max", fmt.Sprintf("%v", forwardReconnectDelayMax),
 			"-i", srcURL,
 		)
-		// Zero-transcode relay; the program carries the source codec unchanged.
+		// Zero-transcode relay; the program carries the source codec unchanged. (Experiment C2
+		// showed that encoding the relay the same way as the slate does NOT let the fanout ride
+		// through the handoff, so the republish itself, not the codec change, is the root cause.)
 		args = append(args, "-c", "copy", "-f", "flv", output)
 	case programModeSlate:
 		// A live-rendered slate with a ticking clock, so viewers can tell the stream is still
@@ -554,11 +556,9 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 			"-f", "lavfi", "-i", forwardSlateVideo(w, h, fps),
 			"-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
 			"-vf", forwardSlateDrawtext(),
-			"-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency",
-			"-profile:v", "high", "-pix_fmt", "yuv420p", "-g", "50",
-			"-c:a", "aac",
-			"-f", "flv", output,
 		)
+		args = append(args, forwardVideoEncodeArgs()...)
+		args = append(args, "-g", "50", "-c:a", "aac", "-f", "flv", output)
 	default:
 		return errors.Errorf("invalid program mode %v", mode)
 	}

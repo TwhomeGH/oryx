@@ -1037,6 +1037,29 @@ func (v *ForwardTask) programSource() (string, string) {
 	return v.sourceApp, v.sourceStream
 }
 
+// forwardEncoderArgs is the video-encoder FFmpeg args, chosen once: NVENC (GPU) when the container
+// has a usable GPU, otherwise software libx264. GPU encoding keeps CPU low on the transcode paths
+// (normalize, the program slate). NVENC presence is not enough (the GPU may be unusable), so we
+// probe it with a tiny encode and fall back on any failure.
+var forwardEncoderOnce sync.Once
+var forwardEncoderArgs []string
+
+func forwardVideoEncodeArgs() []string {
+	forwardEncoderOnce.Do(func() {
+		probe := exec.CommandContext(context.Background(), "ffmpeg", "-hide_banner", "-loglevel", "error",
+			"-f", "lavfi", "-i", "color=c=black:s=64x64:r=1", "-frames:v", "1",
+			"-c:v", "h264_nvenc", "-f", "null", "-")
+		if err := probe.Run(); err == nil {
+			forwardEncoderArgs = []string{"-c:v", "h264_nvenc", "-preset", "p4", "-tune", "ll", "-profile:v", "high", "-pix_fmt", "yuv420p"}
+			logger.Tf(context.Background(), "forward: using NVENC (GPU) H.264 encoder")
+		} else {
+			forwardEncoderArgs = []string{"-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency", "-profile:v", "high", "-pix_fmt", "yuv420p"}
+			logger.Tf(context.Background(), "forward: NVENC unavailable, using libx264")
+		}
+	})
+	return forwardEncoderArgs
+}
+
 // forwardFanoutArgs builds the FFmpeg arguments for the fanout. When normalize is on, the
 // program is transcoded into a regular CFR stream (software H.264 + AAC) so a source with
 // dropped frames, variable frame rate or timestamp jitter is regularized; otherwise it is a
@@ -1053,8 +1076,10 @@ func forwardFanoutArgs(normalize bool, programInputURL, outputURL string) []stri
 			"-fflags", "+genpts",
 			"-i", programInputURL,
 			"-fps_mode", "cfr",
-			"-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency",
-			"-pix_fmt", "yuv420p", "-g", "50",
+		)
+		args = append(args, forwardVideoEncodeArgs()...)
+		args = append(args,
+			"-g", "50",
 			"-c:a", "aac", "-b:a", "128k", "-ar", "44100",
 		)
 	} else {
