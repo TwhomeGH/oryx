@@ -19,6 +19,7 @@ param(
     [switch]$Outage,
     [switch]$Play,
     [switch]$Normalize,
+    [switch]$Slate,
     [switch]$Keep
 )
 
@@ -136,9 +137,10 @@ try {
     Start-Source
     Start-Sleep -Seconds 3
 
-    Step "啟用轉推：本機目標 rtmp://localhost/live/$($script:TgtID) normalize=$([bool]$Normalize)"
+    $fmode = if ($Slate) { "slate" } else { "hold" }
+    Step "啟用轉推：本機目標 rtmp://localhost/live/$($script:TgtID) normalize=$([bool]$Normalize) failover=$fmode"
     Api "POST" "/terraform/v1/ffmpeg/forward/secret" @{
-        action = "update"; platform = $script:Platform; server = "rtmp://localhost/live/"; secret = "$($script:TgtID)?secret=$($script:Pub)"; enabled = $true; custom = $true; label = "quick-test"; normalize = [bool]$Normalize
+        action = "update"; platform = $script:Platform; server = "rtmp://localhost/live/"; secret = "$($script:TgtID)?secret=$($script:Pub)"; enabled = $true; custom = $true; label = "quick-test"; normalize = [bool]$Normalize; failover = $(if ($Slate) { "slate" } else { "" })
     } | Out-Null
 
     $playURL = "$Endpoint/live/$($script:TgtID).flv"
@@ -153,7 +155,7 @@ try {
     for ($i = 0; $i -lt 4; $i++) { Start-Sleep -Seconds 3; Show-Status }
 
     if ($Outage) {
-        Step "-Outage：中斷來源，觀察下游是否不斷線（應 fallback=True、restart 不變、noOutput 上升）"
+        Step "-Outage：中斷來源，觀察下游是否不斷線（應 fallback=True、restart 不變、noOutput 上升）；failover=$fmode → $(if ($Slate) { '看到深灰底 + 跳動時鐘' } else { '畫面凍結在最後一格' })"
         Stop-Source
         for ($i = 0; $i -lt 3; $i++) { Start-Sleep -Seconds 3; Show-Status }
         Step "-Outage：恢復來源"

@@ -16,6 +16,7 @@ pwsh scripts/tools/forward-quick-test.ps1                 # 快樂路徑
 pwsh scripts/tools/forward-quick-test.ps1 -Outage         # 加上「來源中斷 → 恢復」示範
 pwsh scripts/tools/forward-quick-test.ps1 -Play           # 另外開 ffplay，即時看輸出（可看凍結/恢復）
 pwsh scripts/tools/forward-quick-test.ps1 -Normalize      # 啟用「補強轉碼（正規化 CFR）」再測
+pwsh scripts/tools/forward-quick-test.ps1 -Outage -Slate -Play   # 來源中斷改用備用畫面（深灰底＋跳動時鐘）
 pwsh scripts/tools/forward-quick-test.ps1 -Keep           # 保留設定，方便自己點 UI 看
 pwsh scripts/tools/forward-quick-test.ps1 -Container oryx -Endpoint http://localhost:882
 ```
@@ -32,6 +33,8 @@ pwsh scripts/tools/forward-quick-test.ps1 -Container oryx -Endpoint http://local
 5. `-Play` 時：用 `ffplay` 即時播放目標輸出（HTTP-FLV），可直接看到凍結與恢復。
 6. 每 3 秒印出狀態與指標（`status/mode/fallback/restarts | avgFps/noOutput/drift/reconnects`）與最近事件。
 7. `-Outage` 時：中斷來源、觀察（`fallback=True`、`noOutput` 上升、restart 不變），再恢復來源、觀察恢復。
+   - 預設 `failover=hold`：目標畫面**凍結在最後一格**；
+   - 加 `-Slate`：目標畫面切到**備用畫面（深灰底＋跳動時鐘）**，可一眼確認「還在播」。
 8. 結束後清理（除非 `-Keep`）。
 
 輸出可播放（HTTP-FLV）：`http://localhost:2022/live/quick-tgt-<pid>.flv`。
