@@ -120,6 +120,7 @@ function SettingsImpl2({ defaultActiveTab }) {
 function SettingHighPerformanceHLS() {
   const [noHlsCtx, setNoHlsCtx] = React.useState();
   const [hlsLL, setHlsLL] = React.useState();
+  const [latencyMode, setLatencyMode] = React.useState('compat');
   const handleError = useErrorHandler();
   const { t } = useTranslation();
 
@@ -167,28 +168,70 @@ function SettingHighPerformanceHLS() {
     }).catch(handleError);
   }, [handleError, hlsLL, t]);
 
+  React.useEffect(() => {
+    axios.post('/terraform/v1/mgmt/srs/latency/query', {
+    }, {
+      headers: Token.loadBearerHeader(),
+    }).then(res => {
+      setLatencyMode(res.data.data.mode === 'low' ? 'low' : 'compat');
+      console.log(`Status: Query ok, latencyMode=${JSON.stringify(res.data.data)}`);
+    }).catch(handleError);
+  }, [handleError]);
+
+  const updateLatency = React.useCallback((e) => {
+    e.preventDefault();
+
+    axios.post('/terraform/v1/mgmt/srs/latency/update', {
+      mode: latencyMode,
+    }, {
+      headers: Token.loadBearerHeader(),
+    }).then(res => {
+      alert(t('helper.setOk'));
+    }).catch(handleError);
+  }, [handleError, latencyMode, t]);
+
   return (
-    <Accordion defaultActiveKey={['0', '1']} alwaysOpen>
+    <Accordion defaultActiveKey={['0', '1', '2']} alwaysOpen>
       <Accordion.Item eventKey="0">
-        <Accordion.Header>{t('settings.nginxHlsTitle')}</Accordion.Header>
+        <Accordion.Header>{t('settings.latencyTitle')}</Accordion.Header>
         <Accordion.Body>
           <Form>
-            <Form.Group className="mb-3" controlId="formNginxHlsCheckbox">
-              <Form.Check type="checkbox" label={t('settings.nginxHlsTip')} defaultChecked={noHlsCtx} onClick={() => setNoHlsCtx(!noHlsCtx)} />
-            </Form.Group>
-            <Button variant="primary" type="submit" onClick={(e) => updateHlsDelivery(e)}>
+            <Form.Text className="text-muted d-block mb-2">{t('settings.latencyTip')}</Form.Text>
+            <Form.Check type="radio" id="latencyCompat" name="latencyMode" className="mb-1"
+              label={t('settings.latencyCompat')} checked={latencyMode === 'compat'} onChange={() => setLatencyMode('compat')} />
+            <Form.Check type="radio" id="latencyLow" name="latencyMode" className="mb-1"
+              label={t('settings.latencyLow')} checked={latencyMode === 'low'} onChange={() => setLatencyMode('low')} />
+            <div className="text-muted small mb-2">{t('settings.reloadHint')}</div>
+            <Button variant="primary" type="submit" onClick={(e) => updateLatency(e)}>
               {t('helper.submit')}
             </Button>
           </Form>
         </Accordion.Body>
       </Accordion.Item>
       <Accordion.Item eventKey="1">
+        <Accordion.Header>{t('settings.nginxHlsTitle')}</Accordion.Header>
+        <Accordion.Body>
+          <Form>
+            <Form.Text className="text-muted d-block mb-2">{t('settings.nginxHlsDesc')}</Form.Text>
+            <Form.Group className="mb-3" controlId="formNginxHlsCheckbox">
+              <Form.Check type="checkbox" label={t('settings.nginxHlsTip')} defaultChecked={noHlsCtx} onClick={() => setNoHlsCtx(!noHlsCtx)} />
+            </Form.Group>
+            <div className="text-muted small mb-2">{t('settings.reloadHint')}</div>
+            <Button variant="primary" type="submit" onClick={(e) => updateHlsDelivery(e)}>
+              {t('helper.submit')}
+            </Button>
+          </Form>
+        </Accordion.Body>
+      </Accordion.Item>
+      <Accordion.Item eventKey="2">
         <Accordion.Header>{t('settings.hlsLL')}</Accordion.Header>
         <Accordion.Body>
           <Form>
+            <Form.Text className="text-muted d-block mb-2">{t('settings.hlsLLDesc')}</Form.Text>
             <Form.Group className="mb-3" controlId="formHlsLLCheckbox">
               <Form.Check type="checkbox" label={t('settings.hlsLLTip')} defaultChecked={hlsLL} onClick={() => setHlsLL(!hlsLL)} />
             </Form.Group>
+            <div className="text-muted small mb-2">{t('settings.reloadHint')}</div>
             <Button variant="primary" type="submit" onClick={(e) => updateHlsLL(e)}>
               {t('helper.submit')}
             </Button>
