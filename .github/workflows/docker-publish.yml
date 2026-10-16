@@ -13,7 +13,17 @@ on:
       - main
     tags:
       - 'v*'
+    # Doc/tooling-only changes do not need an image build. Tag pushes always build.
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'scripts/tools/**'
   workflow_dispatch:
+
+# Cancel a superseded main build to save CI; never cancel a release (tag) build.
+concurrency:
+  group: docker-publish-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/v') }}
 
 env:
   REGISTRY: ghcr.io
