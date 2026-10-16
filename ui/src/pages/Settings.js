@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: MIT
 //
 import React from "react";
-import { Accordion, Container, Form, Button, Tabs, Tab, Spinner, Stack, Badge, Table } from "react-bootstrap";
+import { Accordion, Container, Form, Button, Tab, Row, Col, Nav, Spinner, Stack, Badge, Table } from "react-bootstrap";
 import { Clipboard, Token } from "../utils";
 import axios from "axios";
 
@@ -34,7 +34,7 @@ function SystemsImpl() {
 
   React.useEffect(() => {
     const tab = searchParams.get('tab') || 'auth';
-    console.log(`?tab=https|hls|auth|beian|limits|llm|callback|platform, current=${tab}, Select the tab to render`);
+    console.log(`?tab=auth|https|hls|beian|limits|llm|streams|callback|api, current=${tab}, Select the tab to render`);
     setDefaultActiveTab(tab);
   }, [searchParams]);
 
@@ -44,6 +44,11 @@ function SystemsImpl() {
       <SettingsImpl2 defaultActiveTab={defaultActiveTab} />
     }
   </>);
+}
+
+// A non-clickable section header for the settings navigation.
+function GroupLabel({ children }) {
+  return <span className="text-muted small fw-bold text-uppercase d-block mt-3 px-3">{children}</span>;
 }
 
 function SettingsImpl2({ defaultActiveTab }) {
@@ -70,35 +75,43 @@ function SettingsImpl2({ defaultActiveTab }) {
     <>
       <p></p>
       <Container fluid>
-        <Tabs defaultActiveKey={activeTab} id="uncontrolled-tab-example" className="mb-3" onSelect={(k) => onSelectTab(k)}>
-          <Tab eventKey="auth" title={t('settings.tabAuth')}>
-            <SettingAuth />
-          </Tab>
-          <Tab eventKey="https" title="HTTPS">
-            <SettingHttps />
-          </Tab>
-          <Tab eventKey="hls" title="HLS">
-            <SettingHighPerformanceHLS />
-          </Tab>
-          <Tab eventKey="beian" title={t('settings.tabFooter')}>
-            <SettingBeian />
-          </Tab>
-          <Tab eventKey="limits" title={t('settings.tabLimits')}>
-            <SettingLimits />
-          </Tab>
-          <Tab eventKey="llm" title={t('settings.tabLLM')}>
-            <SettingLLM />
-          </Tab>
-          <Tab eventKey="streams" title={t('settings.tabStreams')}>
-            <SettingStreams />
-          </Tab>
-          <Tab eventKey="callback" title={t('settings.tabCallback')}>
-            <SettingCallback />
-          </Tab>
-          <Tab eventKey="api" title="OpenAPI">
-            <SettingOpenApi {...{ copyToClipboard }} />
-          </Tab>
-        </Tabs>
+        <Tab.Container activeKey={activeTab} onSelect={(k) => onSelectTab(k)}>
+          <Row>
+            <Col xs={12} md={3} lg={2} className="mb-3">
+              <Nav variant="pills" className="flex-column">
+                <GroupLabel>{t('settings.groupAccount')}</GroupLabel>
+                <Nav.Link eventKey="auth">{t('settings.tabAuth')}</Nav.Link>
+                <Nav.Link eventKey="https">HTTPS</Nav.Link>
+                <Nav.Link eventKey="api">OpenAPI</Nav.Link>
+
+                <GroupLabel>{t('settings.groupEngine')}</GroupLabel>
+                <Nav.Link eventKey="hls">HLS</Nav.Link>
+                <Nav.Link eventKey="streams">{t('settings.tabStreams')}</Nav.Link>
+
+                <GroupLabel>{t('settings.groupIntegrations')}</GroupLabel>
+                <Nav.Link eventKey="callback">{t('settings.tabCallback')}</Nav.Link>
+                <Nav.Link eventKey="llm">{t('settings.tabLLM')}</Nav.Link>
+                <Nav.Link eventKey="limits">{t('settings.tabLimits')}</Nav.Link>
+
+                <GroupLabel>{t('settings.groupSite')}</GroupLabel>
+                <Nav.Link eventKey="beian">{t('settings.tabFooter')}</Nav.Link>
+              </Nav>
+            </Col>
+            <Col xs={12} md={9} lg={10}>
+              <Tab.Content>
+                <Tab.Pane eventKey="auth"><SettingAuth /></Tab.Pane>
+                <Tab.Pane eventKey="https"><SettingHttps /></Tab.Pane>
+                <Tab.Pane eventKey="hls"><SettingHighPerformanceHLS /></Tab.Pane>
+                <Tab.Pane eventKey="beian"><SettingBeian /></Tab.Pane>
+                <Tab.Pane eventKey="limits"><SettingLimits /></Tab.Pane>
+                <Tab.Pane eventKey="llm"><SettingLLM /></Tab.Pane>
+                <Tab.Pane eventKey="streams"><SettingStreams /></Tab.Pane>
+                <Tab.Pane eventKey="callback"><SettingCallback /></Tab.Pane>
+                <Tab.Pane eventKey="api"><SettingOpenApi {...{ copyToClipboard }} /></Tab.Pane>
+              </Tab.Content>
+            </Col>
+          </Row>
+        </Tab.Container>
       </Container>
     </>
   );
