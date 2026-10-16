@@ -576,6 +576,7 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 
 	v.setPID(int32(cmd.Process.Pid))
 	defer v.setPID(0)
+	logger.Tf(ctx, "forward program publisher started, mode=%v, pid=%v", mode, cmd.Process.Pid)
 
 	// Drain the stderr (otherwise FFmpeg blocks when the pipe buffer is full) and count the
 	// reconnect attempts, the source-side evidence of a flaky upstream.

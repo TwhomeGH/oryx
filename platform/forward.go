@@ -38,6 +38,12 @@ const (
 	forwardMaxRetryDelay    = 60 * time.Second
 	forwardBaseRetryDelay   = 3500 * time.Millisecond
 	forwardCircuitThreshold = 5
+
+	// Whether to restart the fanout when the program publisher changes. Experiment C (see
+	// docs) showed that NOT restarting leaves the fanout stuck with no output frames after the
+	// program is republished, so the restart is required; the multi-second gap remains until
+	// the program publisher itself can change without republishing (design B).
+	forwardFanoutRestartOnSwitch = true
 )
 
 type ForwardWorker struct {
@@ -1284,28 +1290,30 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 		}
 	}()
 
-	// FFmpeg's HTTP-FLV reconnect does not recover a consumer after the program is republished
-	// (verified: it stays in a failing reconnect loop). So restart the fanout when the program
-	// publisher changes, e.g. the relay is restarted when the source recovers. The downstream
-	// reconnects once, instead of staying frozen forever.
-	if bus := v.programBus(); bus != nil {
-		startSwitches := bus.queryStatus().Switches
-		go func() {
-			ticker := time.NewTicker(2 * time.Second)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case <-ticker.C:
-					if bus.queryStatus().Switches != startSwitches {
-						logger.Tf(ctx, "forward: program publisher changed, restart fanout, platform=%v", v.Platform)
-						cancel()
+	// Experiment C: SRS keeps consumers across a publisher change (SrsLiveSource::on_unpublish
+	// does not touch consumers), so a fanout should ride through the brief program handoff
+	// instead of being restarted. Restarting the fanout here was the main cause of the multi
+	// second downstream gap. Set forwardFanoutRestartOnSwitch to true to restore the old behavior.
+	if forwardFanoutRestartOnSwitch {
+		if bus := v.programBus(); bus != nil {
+			startSwitches := bus.queryStatus().Switches
+			go func() {
+				ticker := time.NewTicker(2 * time.Second)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-ctx.Done():
 						return
+					case <-ticker.C:
+						if bus.queryStatus().Switches != startSwitches {
+							logger.Tf(ctx, "forward: program publisher changed, restart fanout, platform=%v", v.Platform)
+							cancel()
+							return
+						}
 					}
 				}
-			}
-		}()
+			}()
+		}
 	}
 
 	// Process terminated, or user cancel the process.
