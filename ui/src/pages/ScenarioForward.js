@@ -40,13 +40,9 @@ export default function ScenarioForward() {
       return setActiveKey('99');
     }
 
-    setActiveKey('1');
-    for (const key in secrets) {
-      const e = secrets[key];
-      if (e.enabled && e.server && e.secret) {
-        setActiveKey('99');
-      }
-    }
+    // Do not auto-expand a config card: the configs are set-and-forget, so open the STATUS
+    // section instead and leave the config cards collapsed.
+    setActiveKey('99');
   }, [init, secrets]);
 
   if (!activeKey) return <></>;
@@ -54,6 +50,8 @@ export default function ScenarioForward() {
 }
 
 function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
+  // The accordion is controlled so the batch buttons (expand/collapse all) can drive it.
+  const [activeKeys, setActiveKeys] = React.useState([defaultActiveKey]);
   const language = useSrsLanguage();
   const { t } = useTranslation();
   const handleError = useErrorHandler();
@@ -231,6 +229,22 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
     }
   }, [t, handleError, setSubmiting]);
 
+  // Enable or disable forward(s) without changing the config: one conf, or all (with a server)
+  // when conf is null. Used by the batch buttons, so it stays quiet (no per-target alert).
+  const setForwardEnabled = React.useCallback((conf, enabled) => {
+    const list = (conf ? [conf] : configs.filter((c) => c.server));
+    if (!list.length) return;
+    setSubmiting(true);
+    Promise.all(list.map((c) => axios.post('/terraform/v1/ffmpeg/forward/secret', {
+      action: 'update', platform: c.platform, stream: c.stream, server: c.server, secret: c.secret,
+      enabled: !!enabled, custom: !!c.custom, label: c.label, failover: c.failover || '', normalize: !!c.normalize,
+    }, { headers: Token.loadBearerHeader() }).catch(handleError))).then(() => {
+      setConfigs(configs.map((x) => list.some((c) => c.platform === x.platform) ? {...x, enabled: !!enabled} : x));
+    }).finally(() => {
+      new Promise((resolve) => setTimeout(resolve, 3000)).then(() => setSubmiting(false));
+    });
+  }, [configs, handleError]);
+
   // Append a new empty custom forwarding config, persisted when user starts it.
   const addForwarding = React.useCallback(() => {
     const customs = configs.filter(e => e.platform.indexOf('forwarding-') === 0);
@@ -259,8 +273,14 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
     }).catch(handleError);
   }, [configs, t, handleError]);
 
-  return (
-    <Accordion defaultActiveKey={[defaultActiveKey]}>
+  return (<div>
+    <div className="d-flex flex-wrap gap-2 my-2">
+      <Button size="sm" variant="outline-secondary" onClick={() => setActiveKeys(configs.map((c) => c.index).concat(['0', '99']))}>{t('forward.expandAll')}</Button>
+      <Button size="sm" variant="outline-secondary" onClick={() => setActiveKeys([])}>{t('forward.collapseAll')}</Button>
+      <Button size="sm" variant="outline-success" disabled={submiting} onClick={() => setForwardEnabled(null, true)}>{t('forward.startAll')}</Button>
+      <Button size="sm" variant="outline-danger" disabled={submiting} onClick={() => setForwardEnabled(null, false)}>{t('forward.stopAll')}</Button>
+    </div>
+    <Accordion activeKey={activeKeys} onSelect={(k) => setActiveKeys(k || [])} alwaysOpen>
       <React.Fragment>
         {isZh(language) ?
           <Accordion.Item eventKey="0">
@@ -447,5 +467,5 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
         </Accordion.Body>
       </Accordion.Item>
     </Accordion>
-  );
+  </div>);
 }
