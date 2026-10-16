@@ -1,0 +1,14 @@
+# changelogkit 設定（使用 ChangeLogTools 管理改動歷史）。
+# 工具從工作目錄往上尋找本檔；未設定時用預設值。
+[tool.changelog]
+title   = "Oryx（社群獨立維護分支）變更歷史"
+history = "docs/change-history.md"
+
+# 開發索引排除建置產物與 vendored 依賴，避免噪聲。
+exclude = [
+  "platform/vendor/**",
+  "ui/node_modules/**",
+  "ui/build/**",
+  "releases/**",
+  "**/*.min.js",
+]

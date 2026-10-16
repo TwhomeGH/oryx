@@ -23,6 +23,7 @@ param(
     [switch]$Major,
     [switch]$Minor,
     [string]$SrsCore,
+    [string]$Notes,
     [switch]$Release,
     [switch]$DryRun
 )
@@ -122,7 +123,22 @@ foreach ($c in $changes) {
 # ---------- 一鍵發佈：commit + tag + push ----------
 if ($Release) {
     $relFiles = @($changes | ForEach-Object { $_.File })
-    git -C $repoRoot add -- $relFiles
+
+    # Optionally add a changelog entry (changelogkit) so the release carries notes.
+    $changelogFile = Join-Path $repoRoot 'docs\change-history.md'
+    if ($Notes) {
+        if (Get-Command changelogkit -ErrorAction SilentlyContinue) {
+            Write-Host "新增變更歷史：$Notes" -ForegroundColor Cyan
+            changelogkit add "$Notes" --date (Get-Date -Format 'yyyy.MM.dd')
+            if ($LASTEXITCODE -ne 0) { Write-Host '[警告] changelogkit add 失敗，略過' -ForegroundColor DarkYellow }
+        } else {
+            Write-Host '[警告] 找不到 changelogkit，略過變更歷史（稍後可 changelogkit add 補）' -ForegroundColor DarkYellow
+        }
+    }
+
+    $addFiles = @($relFiles)
+    if (Test-Path $changelogFile) { $addFiles += $changelogFile }
+    git -C $repoRoot add -- $addFiles
     git -C $repoRoot commit -m "Release $newVersion"
     git -C $repoRoot tag $newVersion
     Write-Host '推送 main 與 tag（tag 會觸發 CI 發佈 :vX.Y.Z 與 :latest）...' -ForegroundColor Yellow

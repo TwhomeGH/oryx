@@ -169,6 +169,9 @@ Dockerfile 的基底映像標籤；但換完怎麼確認「Oryx 依賴的功能�
 ```powershell
 # 一鍵發佈（推薦）：patch+1 -> commit -> tag -> push（CI 隨即出 :vX.Y.Z 與 :latest）
 powershell -File scripts\bump-version.ps1 -Release
+
+# 發佈並附一筆變更歷史（changelogkit，寫入 docs/change-history.md）
+powershell -File scripts\bump-version.ps1 -Release -Notes "本次重點一句話"
 powershell -File scripts\bump-version.ps1 -Release -Minor        # minor+1
 powershell -File scripts\bump-version.ps1 -Release -New v6.0.0   # 指定版號
 powershell -File scripts\bump-version.ps1 -Release -DryRun       # 先預覽不執行
