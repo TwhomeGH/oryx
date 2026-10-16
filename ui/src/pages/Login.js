@@ -101,8 +101,8 @@ function LoginImpl({onLogin}) {
             </Form.Text>
           </Form.Group>
           <Form.Group className="mb-3" controlId="formBasicCheckbox">
-            <Form.Check type="checkbox" label={t('login.labelShow')} defaultChecked={plaintext}
-              onClick={() => setPlaintext(!plaintext)}/>
+            <Form.Check type="checkbox" label={t('login.labelShow')} checked={!!plaintext}
+              onChange={(e) => setPlaintext(e.target.checked)}/>
           </Form.Group>
           <Button variant="primary" type="submit" disabled={operating} onClick={(e) => handleLogin(e)}>
             {t('login.labelLogin')}

@@ -168,7 +168,7 @@ function ScenarioRecordVodImpl({activeKey, defaultApplyAll, enabled}) {
         <Accordion.Body>
           <Form>
             <Form.Group className="mb-3" controlId="formVodAllCheckbox">
-              <Form.Check type="checkbox" label="录制所有流" disabled={!enabled} defaultChecked={vodAll} onClick={() => setVodAll(!vodAll)} />
+              <Form.Check type="checkbox" label="录制所有流" disabled={!enabled} checked={!!vodAll} onChange={(e) => setVodAll(e.target.checked)} />
             </Form.Group>
             <Button variant="primary" type="submit" disabled={!enabled} onClick={(e) => setupVodPattern(e)}>
               提交

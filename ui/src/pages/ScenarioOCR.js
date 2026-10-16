@@ -282,7 +282,7 @@ function ScenarioOCRImpl({activeKey, defaultEnabled, defaultConf, defaultUuid}) 
               {configItem === 'chat' && <Card.Body>
                 <Form.Group className="mb-3">
                   <Form.Group className="mb-3" controlId="formAiChatEnabledCheckbox">
-                    <Form.Check type="checkbox" label={t('lr.room.chate')} defaultChecked={aiChatEnabled} onClick={() => setAiChatEnabled(!aiChatEnabled)} />
+                    <Form.Check type="checkbox" label={t('lr.room.chate')} checked={!!aiChatEnabled} onChange={(e) => setAiChatEnabled(e.target.checked)} />
                   </Form.Group>
                 </Form.Group>
                 <Form.Group className="mb-3">

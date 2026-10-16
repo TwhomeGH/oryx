@@ -581,7 +581,7 @@ function LiveRoomAssistant({room, requesting, updateRoom}) {
         {configItem === 'asr' && <Card.Body>
           <Form.Group className="mb-3">
             <Form.Group className="mb-3" controlId="formAiAsrEnabledCheckbox">
-              <Form.Check type="checkbox" label={t('lr.room.asre')} defaultChecked={aiAsrEnabled} onClick={() => setAiAsrEnabled(!aiAsrEnabled)} />
+              <Form.Check type="checkbox" label={t('lr.room.asre')} checked={!!aiAsrEnabled} onChange={(e) => setAiAsrEnabled(e.target.checked)} />
             </Form.Group>
           </Form.Group>
           <Form.Group className="mb-3">
@@ -607,7 +607,7 @@ function LiveRoomAssistant({room, requesting, updateRoom}) {
         {configItem === 'chat' && <Card.Body>
           <Form.Group className="mb-3">
             <Form.Group className="mb-3" controlId="formAiChatEnabledCheckbox">
-              <Form.Check type="checkbox" label={t('lr.room.chate')} defaultChecked={aiChatEnabled} onClick={() => setAiChatEnabled(!aiChatEnabled)} />
+              <Form.Check type="checkbox" label={t('lr.room.chate')} checked={!!aiChatEnabled} onChange={(e) => setAiChatEnabled(e.target.checked)} />
             </Form.Group>
           </Form.Group>
           <Form.Group className="mb-3">
@@ -635,7 +635,7 @@ function LiveRoomAssistant({room, requesting, updateRoom}) {
         {configItem === 'post' && <Card.Body>
           <Form.Group className="mb-3">
             <Form.Group className="mb-3" controlId="formAiChatEnabledCheckbox">
-              <Form.Check type="checkbox" label={t('lr.room.chate')} defaultChecked={aiPostEnabled} onClick={() => setAiPostEnabled(!aiPostEnabled)} />
+              <Form.Check type="checkbox" label={t('lr.room.chate')} checked={!!aiPostEnabled} onChange={(e) => setAiPostEnabled(e.target.checked)} />
             </Form.Group>
           </Form.Group>
           <Form.Group className="mb-3">
@@ -663,7 +663,7 @@ function LiveRoomAssistant({room, requesting, updateRoom}) {
         {configItem === 'tts' && <Card.Body>
           <Form.Group className="mb-3">
             <Form.Group className="mb-3" controlId="formAiTtsEnabledCheckbox">
-              <Form.Check type="checkbox" label={t('lr.room.ttse')} defaultChecked={aiTtsEnabled} onClick={() => setAiTtsEnabled(!aiTtsEnabled)} />
+              <Form.Check type="checkbox" label={t('lr.room.ttse')} checked={!!aiTtsEnabled} onChange={(e) => setAiTtsEnabled(e.target.checked)} />
             </Form.Group>
           </Form.Group>
           <LiveRoomAssistantUpdateButtons {...{requesting, onUpdateRoom, onDisableRoom}} />

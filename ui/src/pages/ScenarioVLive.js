@@ -279,7 +279,7 @@ function ScenarioVLiveImpl({defaultActiveKey, defaultSecrets}) {
                   <Row>
                     <Col xs='auto'>
                       <Form.Group className="mb-3" controlId={`formCustomCheckbox-${conf.platform}`}>
-                        <Form.Check type="checkbox" label={t('plat.com.custom')} defaultChecked={conf.custom} onClick={() => updateConfigObject({...conf, custom: !conf.custom})} />
+                        <Form.Check type="checkbox" label={t('plat.com.custom')} checked={!!conf.custom} onChange={() => updateConfigObject({...conf, custom: !conf.custom})} />
                       </Form.Group>
                     </Col>
                   </Row>

@@ -423,7 +423,7 @@ function DubbingSettings({project, requesting, updateProject}) {
         {configItem === 'asr' && <Card.Body>
           <Form.Group className="mb-3">
             <Form.Group className="mb-3" controlId="formAiAsrEnabledCheckbox">
-              <Form.Check type="checkbox" disabled={true} label={t('lr.room.asre')} defaultChecked={aiAsrEnabled} onClick={() => setAiAsrEnabled(!aiAsrEnabled)} />
+              <Form.Check type="checkbox" disabled={true} label={t('lr.room.asre')} checked={!!aiAsrEnabled} onChange={(e) => setAiAsrEnabled(e.target.checked)} />
             </Form.Group>
           </Form.Group>
           <Form.Group className="mb-3">
@@ -456,7 +456,7 @@ function DubbingSettings({project, requesting, updateProject}) {
         {configItem === 'trans' && <Card.Body>
           <Form.Group className="mb-3">
             <Form.Group className="mb-3" controlId="formAiChatEnabledCheckbox">
-              <Form.Check type="checkbox" label={t('lr.room.chate')} defaultChecked={aiChatEnabled} onClick={() => setAiChatEnabled(!aiChatEnabled)} />
+              <Form.Check type="checkbox" label={t('lr.room.chate')} checked={!!aiChatEnabled} onChange={(e) => setAiChatEnabled(e.target.checked)} />
             </Form.Group>
           </Form.Group>
           <Form.Group className="mb-3">
@@ -490,7 +490,7 @@ function DubbingSettings({project, requesting, updateProject}) {
         {configItem === 'rephrase' && <Card.Body>
           <Form.Group className="mb-3">
             <Form.Group className="mb-3" controlId="formAiRephraseEnabledCheckbox">
-              <Form.Check type="checkbox" label={t('dubb.setting.rephrase2')} defaultChecked={aiRephraseEnabled} onClick={() => setAiRephraseEnabled(!aiRephraseEnabled)} />
+              <Form.Check type="checkbox" label={t('dubb.setting.rephrase2')} checked={!!aiRephraseEnabled} onChange={(e) => setAiRephraseEnabled(e.target.checked)} />
             </Form.Group>
           </Form.Group>
           <Form.Group className="mb-3">
@@ -524,7 +524,7 @@ function DubbingSettings({project, requesting, updateProject}) {
         {configItem === 'tts' && <Card.Body>
           <Form.Group className="mb-3">
             <Form.Group className="mb-3" controlId="formAiTtsEnabledCheckbox">
-              <Form.Check type="checkbox" label={t('lr.room.ttse')} defaultChecked={aiTtsEnabled} onClick={() => setAiTtsEnabled(!aiTtsEnabled)} />
+              <Form.Check type="checkbox" label={t('lr.room.ttse')} checked={!!aiTtsEnabled} onChange={(e) => setAiTtsEnabled(e.target.checked)} />
             </Form.Group>
           </Form.Group>
           <Form.Group className="mb-3">
@@ -590,10 +590,10 @@ function DubbingUIControls({task, isFullscreen, setIsFullscreen, showHeader, set
   return <>
     {task?.status !== 'done' && <>
       <Form.Group className="mb-3">
-        <Form.Check type="checkbox" inline id="cbFse" label={t('lr.room.fse')} defaultChecked={isFullscreen} onClick={() => setIsFullscreen(!isFullscreen)} />
-        <Form.Check type="checkbox" inline id="cbShdr" label={t('lr.room.shdr')} defaultChecked={showHeader} onClick={() => setShowHeader(!showHeader)} />
-        <Form.Check type="checkbox" inline id="cbSasr" label={t('lr.room.sasr')} defaultChecked={showASR} onClick={() => setShowASR(!showASR)} />
-        <Form.Check type="checkbox" inline id="cbStrans" label={t('lr.room.strans')} defaultChecked={showTranslation} onClick={() => setShowTranslation(!showTranslation)} />
+        <Form.Check type="checkbox" inline id="cbFse" label={t('lr.room.fse')} checked={!!isFullscreen} onChange={(e) => setIsFullscreen(e.target.checked)} />
+        <Form.Check type="checkbox" inline id="cbShdr" label={t('lr.room.shdr')} checked={!!showHeader} onChange={(e) => setShowHeader(e.target.checked)} />
+        <Form.Check type="checkbox" inline id="cbSasr" label={t('lr.room.sasr')} checked={!!showASR} onChange={(e) => setShowASR(e.target.checked)} />
+        <Form.Check type="checkbox" inline id="cbStrans" label={t('lr.room.strans')} checked={!!showTranslation} onChange={(e) => setShowTranslation(e.target.checked)} />
       </Form.Group>
       <Form.Group className="mb-3">
         <Button variant="primary" type="submit" disabled={requesting || processing} onClick={startDubbingTask}>
@@ -606,10 +606,10 @@ function DubbingUIControls({task, isFullscreen, setIsFullscreen, showHeader, set
     </>}
     {isFullscreen && !startupRequesting && task?.status === 'done' && <>
       <Form.Group className="mb-3">
-        <Form.Check type="checkbox" inline id="cbFse" label={t('lr.room.fse')} defaultChecked={isFullscreen} onClick={() => setIsFullscreen(!isFullscreen)} />
-        <Form.Check type="checkbox" inline id="cbShdr" label={t('lr.room.shdr')} defaultChecked={showHeader} onClick={() => setShowHeader(!showHeader)} />
-        <Form.Check type="checkbox" inline id="cbSasr" label={t('lr.room.sasr')} defaultChecked={showASR} onClick={() => setShowASR(!showASR)} />
-        <Form.Check type="checkbox" inline id="cbStrans" label={t('lr.room.strans')} defaultChecked={showTranslation} onClick={() => setShowTranslation(!showTranslation)} />
+        <Form.Check type="checkbox" inline id="cbFse" label={t('lr.room.fse')} checked={!!isFullscreen} onChange={(e) => setIsFullscreen(e.target.checked)} />
+        <Form.Check type="checkbox" inline id="cbShdr" label={t('lr.room.shdr')} checked={!!showHeader} onChange={(e) => setShowHeader(e.target.checked)} />
+        <Form.Check type="checkbox" inline id="cbSasr" label={t('lr.room.sasr')} checked={!!showASR} onChange={(e) => setShowASR(e.target.checked)} />
+        <Form.Check type="checkbox" inline id="cbStrans" label={t('lr.room.strans')} checked={!!showTranslation} onChange={(e) => setShowTranslation(e.target.checked)} />
       </Form.Group>
       <Form.Group className='mb-3'>
         <Button variant='primary' type='submit' disabled={requesting || processing || !allGroupReady}
@@ -626,10 +626,10 @@ function DubbingUIControls({task, isFullscreen, setIsFullscreen, showHeader, set
     </>}
     {!isFullscreen && !startupRequesting && task?.status === 'done' && <>
       <Form.Group className="mb-3">
-        <Form.Check type="checkbox" inline id="cbFse" label={t('lr.room.fse')} defaultChecked={isFullscreen} onClick={() => setIsFullscreen(!isFullscreen)} />
-        <Form.Check type="checkbox" inline id="cbShdr" label={t('lr.room.shdr')} defaultChecked={showHeader} onClick={() => setShowHeader(!showHeader)} />
-        <Form.Check type="checkbox" inline id="cbSasr" label={t('lr.room.sasr')} defaultChecked={showASR} onClick={() => setShowASR(!showASR)} />
-        <Form.Check type="checkbox" inline id="cbStrans" label={t('lr.room.strans')} defaultChecked={showTranslation} onClick={() => setShowTranslation(!showTranslation)} />
+        <Form.Check type="checkbox" inline id="cbFse" label={t('lr.room.fse')} checked={!!isFullscreen} onChange={(e) => setIsFullscreen(e.target.checked)} />
+        <Form.Check type="checkbox" inline id="cbShdr" label={t('lr.room.shdr')} checked={!!showHeader} onChange={(e) => setShowHeader(e.target.checked)} />
+        <Form.Check type="checkbox" inline id="cbSasr" label={t('lr.room.sasr')} checked={!!showASR} onChange={(e) => setShowASR(e.target.checked)} />
+        <Form.Check type="checkbox" inline id="cbStrans" label={t('lr.room.strans')} checked={!!showTranslation} onChange={(e) => setShowTranslation(e.target.checked)} />
       </Form.Group>
       <Form.Group className='mb-3'>
         <Button variant='primary' type='submit' disabled={requesting || processing || !allGroupReady}

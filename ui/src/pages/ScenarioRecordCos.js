@@ -164,7 +164,7 @@ function ScenarioRecordCosImpl({activeKey, defaultApplyAll, enabled}) {
         <Accordion.Body>
           <Form>
             <Form.Group className="mb-3" controlId="formDvrAllCheckbox">
-              <Form.Check type="checkbox" label="录制所有流" disabled={!enabled} defaultChecked={dvrAll} onClick={() => setDvrAll(!dvrAll)} />
+              <Form.Check type="checkbox" label="录制所有流" disabled={!enabled} checked={!!dvrAll} onChange={(e) => setDvrAll(e.target.checked)} />
             </Form.Group>
             <Button variant="primary" type="submit" disabled={!enabled} onClick={(e) => setupDvrPattern(e)}>
               提交

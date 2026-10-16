@@ -345,7 +345,7 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
                   </Form.Select>
                 </Form.Group>
                 <Form.Group className="mb-3">
-                  <Form.Check type='checkbox' label={t('forward.normalize')} defaultChecked={!!conf.normalize}
+                  <Form.Check type='checkbox' label={t('forward.normalize')} checked={!!conf.normalize}
                     onChange={(e) => updateConfigObject({ ...conf, normalize: e.target.checked })} />
                   <Form.Text className="text-muted">{t('forward.normalizeHint')}</Form.Text>
                 </Form.Group>
@@ -353,7 +353,7 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
                   <Row>
                     <Col xs='auto'>
                       <Form.Group className="mb-3" controlId={`formCustomCheckbox-${conf.platform}`}>
-                        <Form.Check type="checkbox" label={t('plat.com.custom')} defaultChecked={conf.custom} onClick={() => updateConfigObject({ ...conf, custom: !conf.custom })} />
+                        <Form.Check type="checkbox" label={t('plat.com.custom')} checked={!!conf.custom} onChange={() => updateConfigObject({ ...conf, custom: !conf.custom })} />
                       </Form.Group>
                     </Col>
                   </Row>

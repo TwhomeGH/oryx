@@ -435,7 +435,7 @@ function ScenarioTranscriptImpl({activeKey, defaultEnabled, defaultConf, default
               {configItem === 'overlay' && <Card.Body>
                 <Form.Group className="mb-3">
                   <Form.Group className="mb-3" controlId="formOverlayEnabledCheckbox">
-                    <Form.Check type="checkbox" label={t('transcript.ole')} defaultChecked={overlayEnabled} onClick={() => setOverlayEnabled(!overlayEnabled)} />
+                    <Form.Check type="checkbox" label={t('transcript.ole')} checked={!!overlayEnabled} onChange={(e) => setOverlayEnabled(e.target.checked)} />
                   </Form.Group>
                 </Form.Group>
                 <Form.Group className="mb-3">
@@ -480,7 +480,7 @@ function ScenarioTranscriptImpl({activeKey, defaultEnabled, defaultConf, default
               {configItem === 'webvtt' && <Card.Body>
                 <Form.Group className="mb-3">
                   <Form.Group className="mb-3" controlId="formWebvttEnabledCheckbox">
-                    <Form.Check type="checkbox" label={t('transcript.vtt2')} defaultChecked={webvttEnabled} onClick={() => setWebvttEnabled(!webvttEnabled)} />
+                    <Form.Check type="checkbox" label={t('transcript.vtt2')} checked={!!webvttEnabled} onChange={(e) => setWebvttEnabled(e.target.checked)} />
                   </Form.Group>
                 </Form.Group>
                 <Form.Group className="mb-3">
