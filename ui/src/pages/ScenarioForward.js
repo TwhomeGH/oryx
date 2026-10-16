@@ -210,7 +210,7 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
   }, [configs, setConfigs]);
 
   // Update the forward config to server.
-  const updateSecrets = React.useCallback((e, action, platform, stream, server, secret, enabled, custom, label, failover, onSuccess) => {
+  const updateSecrets = React.useCallback((e, action, platform, stream, server, secret, enabled, custom, label, failover, normalize, onSuccess) => {
     e.preventDefault();
     if (!server) return alert(t('plat.com.addr'));
     if (custom && !label) return alert(t('plat.com.label'));
@@ -219,7 +219,7 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
       setSubmiting(true);
 
       axios.post('/terraform/v1/ffmpeg/forward/secret', {
-        action, platform, stream, server, secret, enabled: !!enabled, custom: !!custom, label, failover,
+        action, platform, stream, server, secret, enabled: !!enabled, custom: !!custom, label, failover, normalize: !!normalize,
       }, {
         headers: Token.loadBearerHeader(),
       }).then(res => {
@@ -240,7 +240,7 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
     const rindex = configs.length ? Math.max(...configs.map(e => Number(e.index) || 0)) + 1 : 1;
     setConfigs([...configs, {
       platform: `forwarding-${Date.now().toString(36)}-${rid}`, enabled: false, index: String(rindex), allowCustom: false,
-      server: null, secret: null, custom: true, label: `${t('forward.defaultLabel')} ${rindex}`, failover: '',
+      server: null, secret: null, custom: true, label: `${t('forward.defaultLabel')} ${rindex}`, failover: '', normalize: false,
     }]);
   }, [configs, env, t]);
 
@@ -344,6 +344,11 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
                     <option value='slate'>{t('forward.failoverSlate')}</option>
                   </Form.Select>
                 </Form.Group>
+                <Form.Group className="mb-3">
+                  <Form.Check type='checkbox' label={t('forward.normalize')} defaultChecked={!!conf.normalize}
+                    onChange={(e) => updateConfigObject({ ...conf, normalize: e.target.checked })} />
+                  <Form.Text className="text-muted">{t('forward.normalizeHint')}</Form.Text>
+                </Form.Group>
                 {conf?.allowCustom && (
                   <Row>
                     <Col xs='auto'>
@@ -358,7 +363,7 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
                   type="submit"
                   disabled={submiting}
                   onClick={(e) => {
-                    updateSecrets(e, 'update', conf.platform, conf.stream, conf.server, conf.secret, !conf.enabled, conf.custom, conf.label, conf.failover || '', () => {
+                    updateSecrets(e, 'update', conf.platform, conf.stream, conf.server, conf.secret, !conf.enabled, conf.custom, conf.label, conf.failover || '', !!conf.normalize, () => {
                       updateConfigObject({ ...conf, enabled: !conf.enabled });
                     });
                   }}
