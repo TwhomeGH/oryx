@@ -1,5 +1,12 @@
 name: Publish Docker Image (GHCR)
 
+# Release model:
+#   * push to main -> development images only: an immutable commit image (:sha-<sha>) and a
+#     moving :edge pointer. No :latest and no version tag, so it is never mistaken for a release.
+#   * tag vX.Y.Z   -> release images: the version tag (:vX.Y.Z) and the moving :latest.
+#   * platform/version.go must equal the git tag; the workflow fails otherwise.
+#   * Tagging is done for you by `scripts/bump-version.ps1 -Release` (bump + commit + tag + push).
+
 on:
   push:
     branches:
@@ -22,10 +29,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      # Version comes from platform/version.go, e.g. v5.15.20
-      - name: Generate version
-        id: version
-        run: echo "SRS_TAG=$(bash scripts/version.sh)" >> $GITHUB_OUTPUT
+      # Guard: a release tag must match platform/version.go, so an image is never mislabelled.
+      - name: Verify version matches tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          ver="$(bash scripts/version.sh)"
+          want="${GITHUB_REF_NAME}"
+          if [ "$ver" != "$want" ]; then
+            echo "::error::platform/version.go ($ver) != git tag ($want). Run scripts/bump-version.ps1 -Release."
+            exit 1
+          fi
+          echo "Release $ver"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -43,11 +57,13 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=${{ steps.version.outputs.SRS_TAG }}
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=ref,event=tag
-            # Immutable tag per build, e.g. sha-a1b2c3d — always available for rollback.
+            # Immutable per-commit image (dev + rollback), e.g. sha-a1b2c3d.
             type=sha,prefix=sha-
+            # Moving dev pointer on the default branch.
+            type=raw,value=edge,enable={{is_default_branch}}
+            # Release: the git tag (vX.Y.Z) and the moving :latest, only when tagging v*.
+            type=ref,event=tag
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
 
       # The root Dockerfile builds the UI itself from the source in the build context
       # (make -j build includes make -C ui), so no separate pre-build step is needed.

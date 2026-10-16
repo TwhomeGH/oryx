@@ -10,10 +10,10 @@
 | 項目 | 內容 |
 |---|---|
 | 映像位置 | `ghcr.io/twhomegh/oryx` |
-| 版本標籤 | `v5.15.20` 這類版本號，對應 `platform/version.go` 的 `const version` |
-| 浮動標籤 | `latest` 永遠指向 main 分支最新的成功建置 |
-| 自動建置 | push 到 `main` 或打 `v*` 標籤時，由 `.github/workflows/docker-publish.yml` 自動建置推送 |
-| 標籤策略 | `:版本號` 與 `:latest` 會被同版推送覆蓋；`:sha-xxxxxxx` 綁定 commit 不可變，供回退 |
+| 版本標籤 | `:vX.Y.Z` 這類**正式版本**，只在打 `vX.Y.Z` tag 時產生，對應 `platform/version.go` 的 `const version`，**不可變** |
+| 浮動標籤 | `:latest` 指向**最近一次正式 release**（tag 觸發）；`:edge` 指向 main 最新開發建置 |
+| 自動建置 | push `main` → **開發**映像（`:sha-*`、`:edge`）；打 `v*` tag → **正式**映像（`:vX.Y.Z`、`:latest`）。由 `.github/workflows/docker-publish.yml` 執行 |
+| 標籤策略 | `:vX.Y.Z` **不會被覆蓋**（release 專屬）；`:sha-xxxxxxx` 綁定 commit 不可變，供回退 |
 | 套件清理 | `.github/workflows/package-cleanup.yml` 每日刪除無標籤殘留；`sha-*` 建置滾動保留最近 20 個（`:latest`/`:v版號` 受保護永不刪） |
 | 支援架構 | 目前僅 `linux/amd64` |
 
@@ -115,13 +115,17 @@ docker compose ps           # 查看狀態
 
 ### 發布端（fork 維護者）
 
-1. 修改 `platform/version.go`：
+一鍵發佈（bump 版號 → commit → tag → push）：
 
-   ```go
-   const version = "v5.16.0"
-   ```
+```powershell
+powershell -File scripts\bump-version.ps1 -Release -Minor   # 或 -Release（patch+1）／-Release -New v6.0.0
+```
 
-2. commit 後 push 到 `main` → GitHub Actions 自動建置並推送 `ghcr.io/twhomegh/oryx:v5.16.0` 和 `:latest`
+它會更新 `platform/version.go`、`git commit`、`git tag vX.Y.Z`、push；**CI 收到 tag 後才發佈**
+`ghcr.io/twhomegh/oryx:vX.Y.Z` 與 `:latest`。單獨 push main **不會**產生版本映像（只出 `:sha-*`／`:edge`）。
+
+> 前置檢查（需在 main、工作區乾淨、tag 不存在）與模型細節見
+> [版本體系與升級指南](version-and-upgrade.md) 第 3 節。
 
 ### 部署端（跑服務的機器）
 

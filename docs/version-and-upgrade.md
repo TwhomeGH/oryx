@@ -151,38 +151,49 @@ Dockerfile 的基底映像標籤；但換完怎麼確認「Oryx 依賴的功能�
 
 ---
 
-## 3. 一鍵版本工具 `scripts/bump-version.ps1`
+## 3. 發佈模型與一鍵工具 `scripts/bump-version.ps1`
+
+### 3-1. 發佈模型：main = 開發映像，tag = 正式 release
+
+| 觸發 | 產出映像 |
+|---|---|
+| push `main` | **開發**：`:sha-<commit>`（不可變，可回滾）、`:edge`（移動指標） |
+| 打 `vX.Y.Z` tag | **正式**：`:vX.Y.Z`（不可變）、`:latest`（移動到本版） |
+
+- 只有「打 tag」才算發佈 → `:latest` 與版號 tag 才是**不可變的正式識別**，不會被一般 push 覆蓋。
+- CI（`docker-publish.yml`）會**驗證 `platform/version.go` 等於 tag**，不一致就直接失敗（避免映像標錯版）。
+- 保留策略：`package-cleanup.yml` 只保留最新 20 個 `:sha-*`（開發/回滾用），**release tag 與 `:latest` 永不清除**。
+
+### 3-2. 用法
 
 ```powershell
-# patch 自動 +1：v5.15.20 -> v5.15.21（日常修復累積）
-powershell -File scripts\bump-version.ps1
+# 一鍵發佈（推薦）：patch+1 -> commit -> tag -> push（CI 隨即出 :vX.Y.Z 與 :latest）
+powershell -File scripts\bump-version.ps1 -Release
+powershell -File scripts\bump-version.ps1 -Release -Minor        # minor+1
+powershell -File scripts\bump-version.ps1 -Release -New v6.0.0   # 指定版號
+powershell -File scripts\bump-version.ps1 -Release -DryRun       # 先預覽不執行
 
-# minor +1：v5.15.20 -> v5.16.0（加了新功能）
+# 只升 SRS 核心一併發佈
+powershell -File scripts\bump-version.ps1 -Release -Minor -SrsCore 7
+
+# 只改版號檔（之後自己 commit/tag）
 powershell -File scripts\bump-version.ps1 -Minor
-
-# major +1：v5.15.20 -> v6.0.0（大改）
-powershell -File scripts\bump-version.ps1 -Major
-
-# 直接指定版本
-powershell -File scripts\bump-version.ps1 -New v6.0.0
 
 # 只升 SRS 核心，不動產品版本號
 powershell -File scripts\bump-version.ps1 -SrsCore 7
-
-# 同時做兩件事，先預覽不寫入
-powershell -File scripts\bump-version.ps1 -New v5.16.0 -SrsCore 7 -DryRun
 ```
 
-執行完會印出建議的 git 指令（add / commit / push / tag）。
+`-Release` 的前置檢查（任一不通過即中止）：必須在 `main`、工作區乾淨、目標 tag 不存在。它會依序
+`改版號 → git commit -m "Release vX.Y.Z" → git tag vX.Y.Z → git push origin main → git push origin vX.Y.Z`。
 
-### 版本節奏建議
+### 3-3. 版本節奏建議
 
 | 場景 | 動作 |
 |---|---|
-| 日常 cherry-pick 修復 | 不動版號（`sha-*` 標籤已可回退），push 即可 |
-| 累積一批修復想出正式點 | `-New` 或預設 patch+1 |
-| 新增功能（如 forward 改造落地） | `-Minor` |
-| SRS 核心/重大架構變更 | `-SrsCore` ＋ `-Minor`（或 `-Major`）一起 |
+| 日常修復／cherry-pick | 只 push main（`:sha-*`／`:edge` 可回退），**不打版號** |
+| 累積一批修復想出正式點 | `-Release`（patch +1） |
+| 新增功能（如 forward 改造落地） | `-Release -Minor` |
+| SRS 核心／重大架構變更 | `-Release -Minor -SrsCore 7` |
 
 ---
 
