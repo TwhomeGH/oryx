@@ -85,7 +85,7 @@
       "failover": "Source Outage",
       "failoverHint": "Behavior when the source goes offline",
       "failoverHold": "Hold last frame (default)",
-      "failoverSlate": "Show fallback slate",
+      "failoverSlate": "Show fallback slate (solid + ticking clock)",
       "normalize": "Normalize (transcode)",
       "normalizeHint": "Re-encode to a fixed frame rate (CFR) and regular timestamps, to mitigate source drops/VFR/jitter; costs CPU.",
       "switches": "Switches",

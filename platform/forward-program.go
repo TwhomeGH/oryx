@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -536,16 +535,25 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 			"-reconnect_delay_max", fmt.Sprintf("%v", forwardReconnectDelayMax),
 			"-i", srcURL,
 		)
+		// Zero-transcode relay; the program carries the source codec unchanged.
+		args = append(args, "-c", "copy", "-f", "flv", output)
 	case programModeSlate:
-		// Publish the pre-generated fallback slate, looped at realtime.
-		if err := ensureForwardSlate(ctx); err != nil {
-			return errors.Wrapf(err, "ensure slate")
-		}
-		args = append(args, "-stream_loop", "-1", "-re", "-i", forwardSlateFile())
+		// A live-rendered slate with a ticking clock, so viewers can tell the stream is still
+		// alive (a plain solid color looks frozen or ended). Unlike the relay this encodes,
+		// because drawtext requires it; the clock runs in realtime while the source is offline.
+		args = append(args,
+			"-re",
+			"-f", "lavfi", "-i", forwardSlateVideo(),
+			"-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
+			"-vf", forwardSlateDrawtext(),
+			"-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency",
+			"-profile:v", "high", "-pix_fmt", "yuv420p", "-g", "50",
+			"-c:a", "aac",
+			"-f", "flv", output,
+		)
 	default:
 		return errors.Errorf("invalid program mode %v", mode)
 	}
-	args = append(args, "-c", "copy", "-f", "flv", output)
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
 
@@ -602,40 +610,32 @@ func forwardPublishSecret(ctx context.Context) string {
 	return ""
 }
 
-// forwardSlateFile is the location of the pre-generated slate clip.
-func forwardSlateFile() string {
-	return filepath.Join(os.TempDir(), "oryx-forward-slate.mp4")
+// forwardSlateVideo is the lavfi video source for the slate (a dark solid color).
+func forwardSlateVideo() string {
+	return "color=c=0x111111:s=1280x720:r=25"
 }
 
-var forwardSlateLock sync.Mutex
-
-// ensureForwardSlate generates the fallback slate clip once, if it does not exist yet.
-func ensureForwardSlate(ctx context.Context) error {
-	forwardSlateLock.Lock()
-	defer forwardSlateLock.Unlock()
-
-	file := forwardSlateFile()
-	if fi, err := os.Stat(file); err == nil && fi.Size() > 0 {
-		return nil
+// forwardSlateDrawtext overlays a realtime clock on the slate, so viewers can tell the stream is
+// still alive. It degrades to a pass-through when no font is available.
+func forwardSlateDrawtext() string {
+	font := forwardSlateFont()
+	if font == "" {
+		return "null"
 	}
+	return fmt.Sprintf("drawtext=fontfile=%v:text='%%{localtime\\:%%Y-%%m-%%d %%T}':fontcolor=white:fontsize=48:x=(w-text_w)/2:y=(h-text_h)/2", font)
+}
 
-	args := []string{
-		"-y",
-		"-f", "lavfi", "-i", "color=c=0x111111:s=1280x720:r=25",
-		"-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
-		"-t", "2",
-		"-c:v", "libx264", "-profile:v", "high", "-pix_fmt", "yuv420p", "-g", "50",
-		"-c:a", "aac",
-		"-shortest",
-		"-movflags", "+faststart",
-		file,
+// forwardSlateFont picks an available font for the slate clock, or "" if none is found.
+func forwardSlateFont() string {
+	for _, f := range []string{
+		"/usr/local/share/fonts/Roboto-Regular.ttf",
+		"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+		"/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+		"/System/Library/Fonts/Supplemental/Arial.ttf",
+	} {
+		if _, err := os.Stat(f); err == nil {
+			return f
+		}
 	}
-
-	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
-	if b, err := cmd.CombinedOutput(); err != nil {
-		return errors.Wrapf(err, "generate slate, output=%v", string(b))
-	}
-
-	logger.Tf(ctx, "forward slate generated, file=%v", file)
-	return nil
+	return ""
 }

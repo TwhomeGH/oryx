@@ -458,7 +458,7 @@
       "failover": "ソース断時",
       "failoverHint": "ソースがオフラインになったときの動作",
       "failoverHold": "最後のフレームを保持（デフォルト）",
-      "failoverSlate": "代替映像を表示",
+      "failoverSlate": "代替映像を表示（単色＋時計）",
       "normalize": "正規化（再エンコード）",
       "normalizeHint": "固定フレームレート（CFR）へ変換しタイムスタンプを整え、ソースのドロップ/VFR/揺らぎを緩和（CPU増）。",
       "switches": "切替",

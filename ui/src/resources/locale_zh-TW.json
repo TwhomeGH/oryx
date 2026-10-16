@@ -719,7 +719,7 @@
       "failover": "來源中斷處理",
       "failoverHint": "來源中斷時的處理方式",
       "failoverHold": "凍結最後畫面（預設）",
-      "failoverSlate": "切換備用畫面",
+      "failoverSlate": "切換備用畫面（深灰底＋跳動時鐘）",
       "normalize": "補強轉碼（正規化）",
       "normalizeHint": "把輸出轉為固定幀率（CFR）並修正時間戳，降低來源掉幀/VFR/抖動的影響；開啟會增加 CPU。",
       "switches": "切換",
