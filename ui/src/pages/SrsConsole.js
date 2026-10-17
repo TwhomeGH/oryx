@@ -993,7 +993,7 @@ function SrsForwards({handleError}) {
       .then(refresh).catch(handleError);
   };
   const toggleTarget = (e) => {
-    axios.post('/terraform/v1/ffmpeg/forward/streams', {action: 'toggle', platform: e.platform, enabled: !e.enabled}, {headers: Token.loadBearerHeader()})
+    axios.post('/terraform/v1/ffmpeg/forward/secret', {action: 'toggle', platform: e.platform, enabled: !e.enabled}, {headers: Token.loadBearerHeader()})
       .then(refresh).catch(handleError);
   };
 

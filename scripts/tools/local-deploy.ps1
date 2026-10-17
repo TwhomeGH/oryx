@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env pwsh
+#!/usr/bin/env pwsh
 <#
 .SYNOPSIS
     本地快速部署：建置 oryx:local、回報「目前容器實際用哪個 build」，並可一鍵重建。
@@ -6,7 +6,7 @@
     解決「改了碼、build 了，但容器還是跑舊 image」的困擾：
       * 建置時把 git 修訂與版本寫進映像標籤（oryx.revision/oryx.version）。
       * 回報正在執行的容器用的 image ID / revision / version，並和最新的 oryx:local 比對是否落後。
-      * -Deploy 直接 docker compose up -d 以新映像重建（資料在 /data volume，不動）。
+      * -Deploy 直接 docker compose up -d --force-recreate 以新映像重建（資料在 /data volume，不動）。
 
     設定（首次指定即記住）：帶 -ComposeDir 會把 compose 目錄（與 container/image）寫入
     scripts/tools/local-deploy.ini（已 gitignore），之後 -Deploy 不必再指定。
@@ -126,13 +126,13 @@ if ($Deploy) {
     $composeFile = Join-Path $ComposeDir 'docker-compose.yml'
     if (-not (Test-Path $composeFile)) { Write-Host "[失敗] 找不到 $composeFile（用 -ComposeDir 指定）" -ForegroundColor Red; exit 1 }
 
-    Step "docker compose up -d（重建容器，/data 不動）: $ComposeDir"
+    Step "docker compose up -d --force-recreate（重建容器，/data 不動）: $ComposeDir"
     if ($DryRun) {
-        Write-Host "[DryRun] cd $ComposeDir && docker compose up -d"
+        Write-Host "[DryRun] cd $ComposeDir && docker compose up -d --force-recreate"
     } else {
         Push-Location $ComposeDir
         try {
-            docker compose up -d
+            docker compose up -d --force-recreate
             if ($LASTEXITCODE -ne 0) { Write-Host '[失敗] docker compose 失敗' -ForegroundColor Red; exit 1 }
         } finally { Pop-Location }
         $ok = Describe-Image (docker inspect $Container --format '{{.Image}}' 2>$null)
