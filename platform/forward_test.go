@@ -180,16 +180,31 @@ func TestForward_SlateSizing(t *testing.T) {
 	// The slate must match the source size and frame rate, so a handoff does not change the
 	// resolution mid-stream (which would disturb the copied downstream).
 	for _, e := range []struct {
-		w, h, fps int32
-		expect    string
+		w, h   int32
+		rate   string
+		expect string
 	}{
-		{w: 1920, h: 1080, fps: 30, expect: "color=c=0x111111:s=1920x1080:r=30"},
-		{w: 1280, h: 720, fps: 25, expect: "color=c=0x111111:s=1280x720:r=25"},
-		{w: 0, h: 0, fps: 0, expect: "color=c=0x111111:s=1280x720:r=25"},          // defaults
-		{w: 1920, h: 1080, fps: 999, expect: "color=c=0x111111:s=1920x1080:r=25"}, // fps clamped
+		{w: 1920, h: 1080, rate: "30", expect: "color=c=0x111111:s=1920x1080:r=30"},
+		{w: 1280, h: 720, rate: "25", expect: "color=c=0x111111:s=1280x720:r=25"},
+		{w: 0, h: 0, rate: "", expect: "color=c=0x111111:s=1280x720:r=25"}, // defaults
+		{w: 1920, h: 1080, rate: "30000/1001", expect: "color=c=0x111111:s=1920x1080:r=30000/1001"},
 	} {
-		if got := forwardSlateVideo(e.w, e.h, e.fps); got != e.expect {
-			t.Errorf("slate w=%v h=%v fps=%v, got %v, expect %v", e.w, e.h, e.fps, got, e.expect)
+		if got := forwardSlateVideo(e.w, e.h, e.rate); got != e.expect {
+			t.Errorf("slate w=%v h=%v rate=%v, got %v, expect %v", e.w, e.h, e.rate, got, e.expect)
+		}
+	}
+
+	// The base rate must prefer the average (real media rate) over the reported r_frame_rate, so
+	// the video clock tracks the source's real time instead of drifting against its audio.
+	for _, e := range []struct{ r, avg, expect string }{
+		{"60/1", "30000/1001", "30000/1001"},
+		{"60/1", "120000/2002", "60000/1001"}, // reduced
+		{"60/1", "60/1", "60"},
+		{"60/1", "0/0", "60"}, // fall back to r
+		{"0/0", "0/0", "25"},  // default
+	} {
+		if got := forwardSlateRate(e.r, e.avg); got != e.expect {
+			t.Errorf("rate r=%v avg=%v, got %v, expect %v", e.r, e.avg, got, e.expect)
 		}
 	}
 

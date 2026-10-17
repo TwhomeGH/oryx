@@ -207,7 +207,10 @@ type ProgramBus struct {
 
 	// The source's video size and frame rate, probed while it is live, so the slate can match
 	// it — a resolution/fps change at the handoff would disturb the copied downstream.
-	srcWidth, srcHeight, srcFPS int32
+	srcWidth, srcHeight int32
+	// The source's average frame rate as a rational (e.g. "60" or "1475589000/24728941"), used
+	// as the slate/base frame rate so the video's media clock tracks the source's real time.
+	srcRate string
 
 	// The program diagnostics timeline (bounded ring).
 	events []ForwardEvent
@@ -572,7 +575,7 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		// ticking clock, the source overlaid end-on-EOF, and the audio mixed with silence (so
 		// it lasts when the source ends). The program never republishes, so a source outage is
 		// seamless for the downstream, see runComposite.
-		w, h, fps := v.sourceSize()
+		w, h, rate := v.sourceSize()
 		srcURL := fmt.Sprintf("http://localhost:%v/%v/%v.flv", forwardProgramHTTPPort, v.sourceApp, v.sourceStream)
 		slateConf := forwardSlateConfigLoad(ctx)
 		filter := fmt.Sprintf(
@@ -581,7 +584,7 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		)
 		args = append(args,
 			"-re",
-			"-f", "lavfi", "-i", forwardSlateVideo(w, h, fps),
+			"-f", "lavfi", "-i", forwardSlateVideo(w, h, rate),
 			"-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
 			"-i", srcURL,
 			"-filter_complex", filter,
@@ -656,29 +659,70 @@ func forwardPublishSecret(ctx context.Context) string {
 	return ""
 }
 
-// forwardSlateVideo is the lavfi video source for the slate (a dark solid color), sized to match
-// the source so switching does not change the resolution or frame rate mid-stream.
-func forwardSlateVideo(w, h, fps int32) string {
+// forwardSlateVideo is the lavfi video source for the slate (a dark solid color), sized and paced
+// to match the source so switching does not change the resolution or frame rate mid-stream. The
+// rate is the source's average frame rate, so the video's media clock tracks the source's real
+// time (a source that reports 60 but averages 59.67 would otherwise drift ~33s/hour against its
+// own audio, because the audio keeps the source timestamps while this base re-clocks the video).
+func forwardSlateVideo(w, h int32, rate string) string {
 	if w <= 0 || h <= 0 {
 		w, h = 1280, 720
 	}
-	if fps <= 0 || fps > 120 {
-		fps = 25
+	if rate == "" {
+		rate = "25"
 	}
-	return fmt.Sprintf("color=c=0x111111:s=%dx%d:r=%d", w, h, fps)
+	return fmt.Sprintf("color=c=0x111111:s=%dx%d:r=%v", w, h, rate)
+}
+
+// forwardSlateRate picks the base frame rate from ffprobe's average/r frame rate, preferring the
+// average (the real media rate) and reducing it to a rational ffmpeg accepts.
+func forwardSlateRate(rFrame, avgFrame string) string {
+	reduce := func(s string) (string, bool) {
+		num, den, ok := parseFPS(s)
+		if !ok || den <= 0 || num <= 0 {
+			return "", false
+		}
+		if g := gcd(num, den); g > 1 {
+			num, den = num/g, den/g
+		}
+		if num/den < 1 || num/den > 120 {
+			return "", false
+		}
+		if den == 1 {
+			return fmt.Sprintf("%d", num), true
+		}
+		return fmt.Sprintf("%d/%d", num, den), true
+	}
+	if s, ok := reduce(avgFrame); ok {
+		return s
+	}
+	if s, ok := reduce(rFrame); ok {
+		return s
+	}
+	return "25"
+}
+
+func gcd(a, b int) int {
+	for b != 0 {
+		a, b = b, a%b
+	}
+	if a < 0 {
+		a = -a
+	}
+	return a
 }
 
 // setSourceSize / sourceSize guard the probed source size and frame rate.
-func (v *ProgramBus) setSourceSize(w, h, fps int32) {
+func (v *ProgramBus) setSourceSize(w, h int32, rate string) {
 	v.lock.Lock()
 	defer v.lock.Unlock()
-	v.srcWidth, v.srcHeight, v.srcFPS = w, h, fps
+	v.srcWidth, v.srcHeight, v.srcRate = w, h, rate
 }
 
-func (v *ProgramBus) sourceSize() (w, h, fps int32) {
+func (v *ProgramBus) sourceSize() (w, h int32, rate string) {
 	v.lock.Lock()
 	defer v.lock.Unlock()
-	return v.srcWidth, v.srcHeight, v.srcFPS
+	return v.srcWidth, v.srcHeight, v.srcRate
 }
 
 // probeSourceSize probes the live source once to learn its video size and frame rate, so the
@@ -686,26 +730,21 @@ func (v *ProgramBus) sourceSize() (w, h, fps int32) {
 func (v *ProgramBus) probeSourceSize(ctx context.Context) {
 	url := fmt.Sprintf("http://localhost:%v/%v/%v.flv", forwardProgramHTTPPort, v.sourceApp, v.sourceStream)
 	out, err := exec.CommandContext(ctx, "ffprobe", "-v", "error", "-select_streams", "v:0",
-		"-show_entries", "stream=width,height,r_frame_rate", "-of", "csv=p=0", url).Output()
+		"-show_entries", "stream=width,height,r_frame_rate,avg_frame_rate", "-of", "csv=p=0", url).Output()
 	if err != nil {
 		return
 	}
 
 	parts := strings.Split(strings.TrimSpace(string(out)), ",")
-	if len(parts) != 3 {
+	if len(parts) != 4 {
 		return
 	}
 	w, _ := strconv.Atoi(strings.TrimSpace(parts[0]))
 	h, _ := strconv.Atoi(strings.TrimSpace(parts[1]))
-	fps := int32(25)
-	if num, den, ok := parseFPS(parts[2]); ok && den > 0 {
-		if f := (num + den/2) / den; f >= 1 && f <= 120 {
-			fps = int32(f)
-		}
-	}
+	rate := forwardSlateRate(parts[2], parts[3])
 	if w > 0 && h > 0 {
-		v.setSourceSize(int32(w), int32(h), fps)
-		logger.Tf(ctx, "forward program probed source size %vx%v@%vfps", w, h, fps)
+		v.setSourceSize(int32(w), int32(h), rate)
+		logger.Tf(ctx, "forward program probed source size %vx%v@%v (r=%v avg=%v)", w, h, rate, parts[2], parts[3])
 	}
 }
 
