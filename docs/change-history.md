@@ -7,6 +7,7 @@
 **類型**: 發佈
 
 ### 修改
+
 - 總開關文案改清楚：恢復/暫停（不會自動開啟其他目標）＋提示
 - 修正多平台轉播頁的 TDZ：forward/enabled 查詢 effect 移到 handleError 之後
 - 修正轉推 slate 整合測試：composite 模式的斷言
@@ -22,7 +23,8 @@
 
 **類型**: 發佈
 
-### 修改
+### 修改 - 轉推 slate 改用單一 composite（來源中斷端無縫）
+
 - 修正markdownlint提示問題 DEVELOPER文件
 - 轉推 slate 改用單一 composite（來源中斷端無縫）
 - 新增 zmqsend（ZMQ PUB 發送端）並編進映像，供 program 合成器執行期切畫面
@@ -47,7 +49,8 @@
 
 **類型**: 功能 · **檔案**: `platform/utils.go`、`platform/service.go`、`platform/disk.go`、`ui/src/pages/Settings.js`
 
-### 修改
+### 修改 - 新增 SRS 延遲模式（`min_latency`/`tcp_nodelay`）設定
+
 - 新增 SRS 延遲模式（`min_latency`/`tcp_nodelay`）設定。
 - 設定頁：延遲模式選擇 + 澄清 HLS 選項說明。
 - 新增 HLS 總開關與磁碟容量診斷。
@@ -75,6 +78,7 @@ push main 會出 `:latest` 與 `:<version>`，但版號（繼承自上游的 `v5
 - 本次發佈 `v5.16.0`。
 
 **相關文件**:
+
 - [版本體系與升級指南](version-and-upgrade.md)
 - [Docker 使用說明](docker-usage.md)
 
@@ -102,7 +106,7 @@ push main 會出 `:latest` 與 `:<version>`，但版號（繼承自上游的 `v5
 
 ### 問題 - 不知從何測起、來源掉幀/VFR 無法補強
 
-### 修改
+### 修改 - `forward-quick-test` 快速檢查工具
 
 - `forward-quick-test.ps1`：一鍵起本機來源 → 轉推到本機目標 → 印品質指標與事件；`-Outage`／`-Play`／`-Normalize`。
 - 每個轉推目標可選 `normalize`：以 `-fps_mode cfr` 轉碼把來源掉幀／VFR／抖動正規化為固定幀率。
@@ -139,6 +143,7 @@ FFmpeg 的 HTTP-FLV `-reconnect` 在串流被取消發布再重新發布後不�
 - 來源中斷時下游凍結（hold）或切備用畫面（slate），不立即斷線。
 
 **相關文件**:
+
 - [轉推程式總線設計](forward-program-bus.md)
 
 ---
@@ -147,7 +152,7 @@ FFmpeg 的 HTTP-FLV `-reconnect` 在串流被取消發布再重新發布後不�
 
 **類型**: 修正 · **檔案**: `.github/workflows/pullrequest.yml`、`scripts/tools/github-test-annotations.sh`
 
-### 修改
+### 修改 - CI 失敗分類：逐測試錯誤、根因提示、噪音過濾
 
 - 測試輸入改用 `develop/doc/source.flv`（原路徑是 symlink）+ `curl --fail` + 大小驗證。
 - CI 失敗分類：逐測試錯誤、根因提示、噪音過濾。

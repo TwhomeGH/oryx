@@ -133,7 +133,7 @@ if ($Release) {
         $subjects = @(git -C $repoRoot log $range --no-merges --format='- %s' 2>$null)
 
         $entry = @("## $(Get-Date -Format 'yyyy.MM.dd HH:mm') $newVersion $Notes", '', '**類型**: 發佈', '')
-        if ($subjects.Count -gt 0) { $entry += '### 修改'; $entry += $subjects; $entry += '' }
+        if ($subjects.Count -gt 0) { $entry += "### 修改 - $newVersion", ''; $entry += $subjects; $entry += '' }
         $entry += '---'
 
         if (Test-Path $changelogFile) {
