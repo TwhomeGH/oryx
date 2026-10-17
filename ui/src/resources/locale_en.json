@@ -124,7 +124,8 @@
         "hint": "Processing FPS is not source frame rate. Buffered data may raise it at startup. Speed is also cumulative, not a recent rate; neither alone indicates a fault. Source FPS is not sampled in this table.",
         "destination": "These are local FFmpeg reports, not confirmation of destination reception or playback. Check the destination platform.",
         "ffmpegArgs": "FFmpeg arguments",
-        "sourceRate": "Source fps"
+        "sourceRate": "Source fps",
+        "empty": "No metrics yet (the target may not be running)."
       },
       "statusTitle": "Forward status",
       "statusShort": "Forward",

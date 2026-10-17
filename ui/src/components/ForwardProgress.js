@@ -62,7 +62,11 @@ export default function ForwardProgress({log, metrics, events, logs, encoder, ff
     }
   }
 
-  return <div>
+  if (!log && !metrics && !events?.length && !logs?.length && !ffmpegArgs) {
+    return <div className="small text-muted">{t('forward.progress.empty')}</div>;
+  }
+
+  return <div className="small">
     {log && <>
       <div>{t('forward.progress.fps')}: {progress.fps ?? '—'}</div>
       <div>{t('forward.progress.speed')}: {progress.speed ?? '—'}</div>
