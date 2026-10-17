@@ -75,8 +75,8 @@
       "expandAll": "Expand all",
       "master": "Forward master",
       "collapseAll": "Collapse all",
-      "startAll": "Start all",
-      "stopAll": "Stop all",
+      "startAll": "Resume",
+      "stopAll": "Pause all",
       "remove": "Remove",
       "removeConfirm": "Remove this forwarding config? This cannot be undone.",
       "defaultLabel": "Custom forwarding",
@@ -130,7 +130,8 @@
       "statusOn": "on",
       "statusOff": "off",
       "statusNone": "No forwarding targets",
-      "statusOpen": "Open settings"
+      "statusOpen": "Open settings",
+      "masterHint": "Pause/resume ALL forwards without changing each target's own enabled setting. It only resumes the targets you enabled; it never enables the others."
     },
     "camera": {
       "s3": "There is no stream. Please start the live event and wait for about 30 seconds, the list will update automatically.",

@@ -710,8 +710,8 @@
       "expandAll": "全部展開",
       "master": "轉播總開關",
       "collapseAll": "全部收合",
-      "startAll": "全部開始直播",
-      "stopAll": "全部停止直播",
+      "startAll": "恢復轉播",
+      "stopAll": "暫停轉播",
       "remove": "刪除",
       "removeConfirm": "確認刪除該轉播設定？刪除後不可恢復。",
       "defaultLabel": "自定義轉播",
@@ -765,7 +765,8 @@
       "statusOn": "開",
       "statusOff": "關",
       "statusNone": "尚無轉播目標",
-      "statusOpen": "前往設定"
+      "statusOpen": "前往設定",
+      "masterHint": "暫停/恢復全部轉播，不會改動各目標的啟用設定；只會恢復你已啟用的目標，不會自動開啟其他目標。"
     },
     "vle": {
       "tip": "將檔案轉直播流",

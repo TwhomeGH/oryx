@@ -284,9 +284,10 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
     <div className="d-flex flex-wrap gap-2 my-2">
       <Button size="sm" variant="outline-secondary" onClick={() => setActiveKeys(configs.map((c) => c.index).concat(['0', '99']))}>{t('forward.expandAll')}</Button>
       <Button size="sm" variant="outline-secondary" onClick={() => setActiveKeys([])}>{t('forward.collapseAll')}</Button>
-      <span className="ms-2 align-self-center small text-muted">{t('forward.master')}:</span>
-      <Button size="sm" variant={masterEnabled ? 'success' : 'outline-success'} disabled={submiting} onClick={() => updateMaster(true)}>{t('forward.startAll')}</Button>
-      <Button size="sm" variant={!masterEnabled ? 'danger' : 'outline-danger'} disabled={submiting} onClick={() => updateMaster(false)}>{t('forward.stopAll')}</Button>
+      <span className="ms-2 align-self-center small text-muted" title={t('forward.masterHint')}>{t('forward.master')}:</span>
+      <Button size="sm" variant={masterEnabled ? 'success' : 'outline-success'} disabled={submiting} title={t('forward.masterHint')} onClick={() => updateMaster(true)}>{t('forward.startAll')}</Button>
+      <Button size="sm" variant={!masterEnabled ? 'danger' : 'outline-danger'} disabled={submiting} title={t('forward.masterHint')} onClick={() => updateMaster(false)}>{t('forward.stopAll')}</Button>
+      <span className="align-self-center small text-muted">{t('forward.masterHint')}</span>
     </div>
     <Accordion activeKey={activeKeys} onSelect={(k) => setActiveKeys(k || [])} alwaysOpen>
       <React.Fragment>
