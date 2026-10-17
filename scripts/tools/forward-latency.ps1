@@ -45,7 +45,7 @@ $pidStr = "$PID"
 $srcStream = "latency-src-$pidStr"
 $tgtStream = "latency-tgt-$pidStr"
 $tgtPlatform = "forwarding-latency-$pidStr"
-$secretValue = if ($pub) { "$tgtStream?secret=$pub" } else { $tgtStream }
+$secretValue = $tgtStream
 $target = @{
     action = "update"; platform = $tgtPlatform; server = "rtmp://localhost/live/"; secret = $secretValue
     stream = $srcStream
@@ -111,7 +111,12 @@ stdbuf -oL timeout 5 ffprobe -v error -select_streams v:0 -show_entries packet=p
 wait
 cat /tmp/_lp; cat /tmp/_lt
 "@
+        # PowerShell here-strings use CRLF; sh -c would treat the trailing \r as part of the
+        # command (e.g. "cat /tmp/_lp\r"), so normalize to LF before running.
+        $sh = $sh.Replace("`r`n", "`n")
+        if ($env:LATENCY_DEBUG) { Write-Host "SH<<$sh>>" }
         $raw = (docker exec $Container sh -c $sh) -split "`n" | Where-Object { $_.Trim() -ne "" }
+        if ($env:LATENCY_DEBUG) { Write-Host "RAW<<$($raw -join ' | ')>>" }
         if ($raw.Count -lt 2) { Write-Warning "sample $i failed"; continue }
         $p = [double]($raw[0].Trim()); $t = [double]($raw[1].Trim())
         $d = $p - $t
@@ -124,12 +129,15 @@ cat /tmp/_lp; cat /tmp/_lt
         $avg = ($latencies | Measure-Object -Average).Average
         $min = ($latencies | Measure-Object -Minimum).Minimum
         $max = ($latencies | Measure-Object -Maximum).Maximum
+        $sorted = @($latencies | Sort-Object)
+        $mid = [int][math]::Floor($sorted.Count / 2)
+        $median = if ($sorted.Count % 2 -eq 1) { $sorted[$mid] } else { ($sorted[$mid - 1] + $sorted[$mid]) / 2 }
         ""
-        "forward latency: avg={0:N2}s  min={1:N2}s  max={2:N2}s  (samples={3})" -f $avg, $min, $max, $latencies.Count
+        "forward latency: median={0:N2}s  avg={1:N2}s  min={2:N2}s  max={3:N2}s  (samples={4})" -f $median, $avg, $min, $max, $latencies.Count
         "note: this excludes the platform's own latency; add that for the viewer-side delay."
     }
 } finally {
     Write-Host "cleaning up..."
-    try { Api "/terraform/v1/ffmpeg/forward/streams" @{ action = "delete"; platform = $tgtPlatform } | Out-Null } catch { }
+    try { Api "/terraform/v1/ffmpeg/forward/secret" @{ action = "delete"; platform = $tgtPlatform } | Out-Null } catch { }
     if ($script:srcProc) { try { Stop-Process -Id $script:srcProc.Id -Force -ErrorAction SilentlyContinue } catch { } }
 }

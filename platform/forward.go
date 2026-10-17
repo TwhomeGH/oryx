@@ -1458,6 +1458,14 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 		outputServer += "/"
 	}
 	outputURL := fmt.Sprintf("%v%v", outputServer, v.config.Secret)
+	// A local target on this SRS still needs publish authentication, but its secret must stay a
+	// clean stream name: if ?secret= were part of the secret field, SRS would parse the stream
+	// wrongly (e.g. the stream becomes the secret value). Append the local publish secret here.
+	if strings.Contains(v.config.Server, "localhost") && !strings.Contains(outputURL, "?secret=") {
+		if pub := forwardPublishSecret(ctx); pub != "" {
+			outputURL += "?secret=" + pub
+		}
+	}
 
 	// B4: Check the output URL structure before probing, to fail fast with a clear reason
 	// instead of a cryptic FFmpeg error like exit status 251.
