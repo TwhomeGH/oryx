@@ -244,6 +244,17 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 				if err := rdb.Set(ctx, SRS_FORWARD_ENABLED, fmt.Sprintf("%v", enabled), 0).Err(); err != nil && err != redis.Nil {
 					return errors.Wrapf(err, "set %v", SRS_FORWARD_ENABLED)
 				}
+				// Apply immediately: a task only re-checks the switch between FFmpeg runs, so a
+				// running forward must be restarted to pause it (otherwise the pause appears to
+				// do nothing until the current run ends).
+				v.tasks.Range(func(_, tv interface{}) bool {
+					if task, ok := tv.(*ForwardTask); ok {
+						if err := task.Restart(ctx); err != nil {
+							logger.Wf(ctx, "forward restart for master switch err %+v", err)
+						}
+					}
+					return true
+				})
 				ohttp.WriteData(ctx, w, r, &struct {
 					Enabled bool `json:"enabled"`
 				}{Enabled: enabled})
