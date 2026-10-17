@@ -9,6 +9,7 @@ import {Navbar, Nav} from 'react-bootstrap';
 import {Link, useLocation} from "react-router-dom";
 import logo from '../resources/logo.svg';
 import LanguageSwitch from "../components/LanguageSwitch";
+import ForwardStatus from "../components/ForwardStatus";
 import ThemeSwitch from "../components/ThemeSwitch";
 import {useTranslation} from "react-i18next";
 
@@ -33,8 +34,9 @@ export default function Navigator({initialized, token, localChanged}) {
       {eventKey: '5', to: '/routers-console', text: t('nav.console')},
       {eventKey: '6', to: '/routers-contact', text: t('nav.contact')},
       {eventKey: '7', to: '/routers-logout', text: t('nav.logout')},
+      {eventKey: '8', href: '/players/pushdiag.html', text: t('nav.pushdiag')},
     ].map(e => {
-      if (r0.indexOf(e.to) >= 0) {
+      if (e.to && r0.indexOf(e.to) >= 0) {
         e.className = 'text-light';
         setActiveKey(e.eventKey);
       }
@@ -56,6 +58,13 @@ export default function Navigator({initialized, token, localChanged}) {
         </Navbar.Brand>
         <Nav className='me-auto' variant="pills" activeKey={activekey}>
           {navs.map((e, index) => {
+            if (e.href) {
+              return (
+                <Nav.Link as="a" href={e.href} target="_blank" rel="noreferrer" key={index} className={e.className}>
+                  {e.text}
+                </Nav.Link>
+              );
+            }
             return (
               <Nav.Link
                 as={Link}
@@ -70,6 +79,7 @@ export default function Navigator({initialized, token, localChanged}) {
           })}
         </Nav>
         <Navbar.Collapse className="justify-content-end">
+          {token && <ForwardStatus />}
           <ThemeSwitch />
           <LanguageSwitch localChanged={localChanged} />
         </Navbar.Collapse>

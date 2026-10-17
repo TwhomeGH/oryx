@@ -24,7 +24,8 @@
       "system": "系統設定",
       "component": "元件管理",
       "console": "控制台",
-      "contact": "關於"
+      "contact": "關於",
+      "pushdiag": "推流診斷"
     },
     "dashboard": {
       "sys": "系統狀態",
@@ -757,7 +758,14 @@
         "destination": "本表顯示本機 FFmpeg 的輸出回報，不代表目的平臺已確認接收或播放正常；請至目的平臺確認。",
         "encoder": "編碼器",
         "gpu": "（GPU 硬體）"
-      }
+      },
+      "statusTitle": "轉播狀態",
+      "statusShort": "轉播",
+      "statusCount": "執行中",
+      "statusOn": "開",
+      "statusOff": "關",
+      "statusNone": "尚無轉播目標",
+      "statusOpen": "前往設定"
     },
     "vle": {
       "tip": "將檔案轉直播流",

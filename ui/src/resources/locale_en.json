@@ -107,8 +107,8 @@
         "noOutput": "No-output time",
         "drift": "Media clock drift",
         "reconnects": "Source reconnects",
-      "encoder": "Encoder",
-      "gpu": "(GPU hardware)",
+        "encoder": "Encoder",
+        "gpu": "(GPU hardware)",
         "events": "Diagnostics timeline",
         "logs": "Recent logs",
         "speed": "Cumulative processing speed",
@@ -123,7 +123,14 @@
         "update": "Last output report",
         "hint": "Processing FPS is not source frame rate. Buffered data may raise it at startup. Speed is also cumulative, not a recent rate; neither alone indicates a fault. Source FPS is not sampled in this table.",
         "destination": "These are local FFmpeg reports, not confirmation of destination reception or playback. Check the destination platform."
-      }
+      },
+      "statusTitle": "Forward status",
+      "statusShort": "Forward",
+      "statusCount": "Running",
+      "statusOn": "on",
+      "statusOff": "off",
+      "statusNone": "No forwarding targets",
+      "statusOpen": "Open settings"
     },
     "camera": {
       "s3": "There is no stream. Please start the live event and wait for about 30 seconds, the list will update automatically.",
@@ -546,7 +553,8 @@
       "system": "System",
       "component": "Components",
       "console": "Console",
-      "contact": "Contact"
+      "contact": "Contact",
+      "pushdiag": "Push diagnostics"
     },
     "dashboard": {
       "sys": "System",
