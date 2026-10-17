@@ -590,7 +590,7 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 			"-filter_complex", filter,
 			"-map", "[v]", "-map", "[a]",
 		)
-		gop := forwardGOPFrames(rate)
+		gop := forwardGOPFrames(rate, slateConf.KeyframeSeconds)
 		args = append(args, forwardVideoEncodeArgs()...)
 		args = append(args, "-g", fmt.Sprintf("%d", gop), "-keyint_min", fmt.Sprintf("%d", gop),
 			"-sc_threshold", "0", "-c:a", "aac", "-f", "flv", output)

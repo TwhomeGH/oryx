@@ -22,6 +22,8 @@ type forwardSlateConfig struct {
 	Text               string `json:"text"`
 	OfflineStopEnabled bool   `json:"offlineStopEnabled"`
 	OfflineStopMinutes int    `json:"offlineStopMinutes"`
+	// KeyframeSeconds is the target GOP duration used by normalize/composite transcoding.
+	KeyframeSeconds int `json:"keyframeSeconds"`
 }
 
 // forwardSlateDefaultText is the default message; the slate is shown on a (usually temporary)
@@ -34,6 +36,7 @@ func defaultForwardSlateConfig() forwardSlateConfig {
 		Text:               forwardSlateDefaultText,
 		OfflineStopEnabled: false,
 		OfflineStopMinutes: 5,
+		KeyframeSeconds:    2,
 	}
 }
 
@@ -50,6 +53,9 @@ func forwardSlateConfigLoad(ctx context.Context) forwardSlateConfig {
 	if conf.OfflineStopMinutes <= 0 {
 		conf.OfflineStopMinutes = 5
 	}
+	if conf.KeyframeSeconds <= 0 || conf.KeyframeSeconds > 10 {
+		conf.KeyframeSeconds = 2
+	}
 	return conf
 }
 
@@ -60,6 +66,12 @@ func forwardSlateConfigSave(ctx context.Context, conf forwardSlateConfig) error 
 	}
 	if conf.OfflineStopMinutes > 24*60 {
 		return errors.Errorf("invalid offlineStopMinutes=%v", conf.OfflineStopMinutes)
+	}
+	if conf.KeyframeSeconds <= 0 {
+		conf.KeyframeSeconds = 2
+	}
+	if conf.KeyframeSeconds > 10 {
+		return errors.Errorf("invalid keyframeSeconds=%v", conf.KeyframeSeconds)
 	}
 	if len([]rune(conf.Text)) > 200 {
 		return errors.Errorf("slate text too long (max 200 chars)")

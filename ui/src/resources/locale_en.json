@@ -724,7 +724,9 @@
       "slateOfflineStopHint": "Stop the forward after the source has been offline for the set minutes, so an ended live does not keep the slate forever. Off by default.",
       "slateOfflineMinutes": "Offline stop minutes",
       "slateSave": "Save",
-      "slateSaved": "Saved"
+      "slateSaved": "Saved",
+      "keyframeSeconds": "Keyframe interval (seconds)",
+      "keyframeSecondsHint": "Used by normalize/composite transcoding: GOP = interval × output fps. 2s is the common platform requirement."
     },
     "coms": {
       "srs4": "SRS(Stable)",

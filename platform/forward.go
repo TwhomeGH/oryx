@@ -1225,14 +1225,17 @@ const forwardKeyframeIntervalSeconds = 2
 // forwardGOPFrames computes the GOP in frames from the source's average frame rate, so the
 // keyframe interval stays the required duration. A hardcoded -g 50 is 2s at 25fps but only 0.83s
 // at 60fps, which adds I-frames and causes bitrate spikes.
-func forwardGOPFrames(rate string) int {
+func forwardGOPFrames(rate string, seconds int) int {
 	fps := 25.0
 	if num, den, ok := parseFPS(rate); ok && den > 0 && num > 0 {
 		if f := float64(num) / float64(den); f >= 1 && f <= 120 {
 			fps = f
 		}
 	}
-	gop := int(fps*forwardKeyframeIntervalSeconds + 0.5)
+	if seconds <= 0 || seconds > 10 {
+		seconds = forwardKeyframeIntervalSeconds
+	}
+	gop := int(fps*float64(seconds) + 0.5)
 	if gop < 1 {
 		gop = 1
 	}
@@ -1466,7 +1469,7 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 	gop := 50
 	if bus := v.programBus(); bus != nil {
 		_, _, rate := bus.sourceSize()
-		gop = forwardGOPFrames(rate)
+		gop = forwardGOPFrames(rate, forwardSlateConfigLoad(ctx).KeyframeSeconds)
 	}
 	args := forwardFanoutArgs(v.config != nil && v.config.Normalize, gop, programInputURL, outputURL)
 	v.setFFmpegArgs(args)

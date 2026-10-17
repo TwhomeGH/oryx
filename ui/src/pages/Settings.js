@@ -1198,6 +1198,12 @@ function SettingForwardSlate() {
       <Form.Control as="input" type="number" min="1" max="1440" disabled={!conf.offlineStopEnabled}
         value={conf.offlineStopMinutes || 5} onChange={e => setConf({...conf, offlineStopMinutes: Number(e.target.value) || 5})} />
     </Form.Group>
+    <Form.Group className="mb-3">
+      <Form.Label>{t('settings.keyframeSeconds')}</Form.Label>
+      <Form.Control as="input" type="number" min="1" max="10"
+        value={conf.keyframeSeconds || 2} onChange={e => setConf({...conf, keyframeSeconds: Number(e.target.value) || 2})} />
+      <Form.Text className="text-muted">{t('settings.keyframeSecondsHint')}</Form.Text>
+    </Form.Group>
     <Button variant="primary" disabled={saving} onClick={save}>{t('settings.slateSave')}</Button>
     {saved && <span className="ms-2 text-success">{t('settings.slateSaved')}</span>}
   </>);

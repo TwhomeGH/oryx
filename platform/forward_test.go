@@ -182,7 +182,7 @@ func TestForward_FanoutArgs(t *testing.T) {
 	}{
 		{"60", 120}, {"30000/1001", 60}, {"25", 50}, {"", 50}, {"0/0", 50},
 	} {
-		if got := forwardGOPFrames(e.rate); got != e.gop {
+		if got := forwardGOPFrames(e.rate, 2); got != e.gop {
 			t.Errorf("gop rate=%v, got %v, expect %v", e.rate, got, e.gop)
 		}
 	}

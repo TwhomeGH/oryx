@@ -353,7 +353,9 @@
       "slateOfflineStopHint": "ソースが指定分オフラインになったら転送を停止します（終了後ずっとフォールバックを表示しない）。既定はオフ。",
       "slateOfflineMinutes": "オフライン停止の分数",
       "slateSave": "保存",
-      "slateSaved": "保存しました"
+      "slateSaved": "保存しました",
+      "keyframeSeconds": "キーフレーム間隔（秒）",
+      "keyframeSecondsHint": "正規化/コンポジットのトランスコードで使用。GOP = 間隔 × 出力 fps。2 秒が一般的なプラットフォーム要件です。"
     },
     "cb": {
       "title": "シーン紹介",

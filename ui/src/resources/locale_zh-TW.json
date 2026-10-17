@@ -192,7 +192,9 @@
       "slateOfflineStopHint": "來源離線超過設定分鐘數後停止該轉播（避免直播已結束後一直顯示備援畫面）。預設關閉。",
       "slateOfflineMinutes": "離線停止分鐘數",
       "slateSave": "儲存",
-      "slateSaved": "已儲存"
+      "slateSaved": "已儲存",
+      "keyframeSeconds": "關鍵幀間隔（秒）",
+      "keyframeSecondsHint": "用於補強轉碼；GOP = 間隔 × 輸出 fps。平臺一般為 ≤2 秒。"
     },
     "coms": {
       "srs4": "SRS(穩定版)",
