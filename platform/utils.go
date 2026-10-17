@@ -290,7 +290,10 @@ const (
 	SRS_VOD_COS_TOKEN = "SRS_VOD_COS_TOKEN"
 	// For stream forwarding by FFmpeg.
 	SRS_FORWARD_CONFIG = "SRS_FORWARD_CONFIG"
-	SRS_FORWARD_TASK   = "SRS_FORWARD_TASK"
+	// The global forward switch: when "false", all forwarding is paused without changing the
+	// per-target enabled preference.
+	SRS_FORWARD_ENABLED = "SRS_FORWARD_ENABLED"
+	SRS_FORWARD_TASK    = "SRS_FORWARD_TASK"
 	// For virtual live channel/stream.
 	SRS_VLIVE_CONFIG = "SRS_VLIVE_CONFIG"
 	SRS_VLIVE_TASK   = "SRS_VLIVE_TASK"

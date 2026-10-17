@@ -87,6 +87,18 @@ func (v *ForwardWorker) RemoveTask(platform string) {
 	v.tasks.Delete(platform)
 }
 
+// forwardMasterEnabled reports the global forward switch. When it is off, every forward is
+// paused regardless of each target's own enabled preference, so "stop all" does not discard the
+// user's chosen set of platforms.
+func forwardMasterEnabled(ctx context.Context) bool {
+	if v, err := rdb.Get(ctx, SRS_FORWARD_ENABLED).Result(); err != nil && err != redis.Nil {
+		logger.Wf(ctx, "ignore forward master get err %+v", err)
+	} else if v == "false" {
+		return false
+	}
+	return true
+}
+
 func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) error {
 	ep := "/terraform/v1/ffmpeg/forward/secret"
 	logger.Tf(ctx, "Handle %v", ep)
@@ -203,6 +215,43 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 				logger.Tf(ctx, "forward query configures ok")
 				return nil
 			}
+		}(); err != nil {
+			ohttp.WriteError(ctx, w, r, err)
+		}
+	})))
+
+	// The global forward switch: query or toggle whether all forwarding is paused, without
+	// changing each target's own enabled preference.
+	ep = "/terraform/v1/ffmpeg/forward/enabled"
+	logger.Tf(ctx, "Handle %v", ep)
+	handler.Handle(ep, middlewareAuthTokenInBody(ctx, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := func() error {
+			var action string
+			enabled := true
+			if err := ParseBody(ctx, r.Body, &struct {
+				Action  *string `json:"action"`
+				Enabled *bool   `json:"enabled"`
+			}{Action: &action, Enabled: &enabled}); err != nil {
+				return errors.Wrapf(err, "parse body")
+			}
+
+			switch action {
+			case "", "query":
+				ohttp.WriteData(ctx, w, r, &struct {
+					Enabled bool `json:"enabled"`
+				}{Enabled: forwardMasterEnabled(ctx)})
+			case "update":
+				if err := rdb.Set(ctx, SRS_FORWARD_ENABLED, fmt.Sprintf("%v", enabled), 0).Err(); err != nil && err != redis.Nil {
+					return errors.Wrapf(err, "set %v", SRS_FORWARD_ENABLED)
+				}
+				ohttp.WriteData(ctx, w, r, &struct {
+					Enabled bool `json:"enabled"`
+				}{Enabled: enabled})
+				logger.Tf(ctx, "forward master switch enabled=%v", enabled)
+			default:
+				return errors.Errorf("invalid action=%v", action)
+			}
+			return nil
 		}(); err != nil {
 			ohttp.WriteError(ctx, w, r, err)
 		}
@@ -985,8 +1034,9 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 	}
 
 	pfn := func(ctx context.Context) error {
-		// Ignore when not enabled.
-		if !v.config.Enabled {
+		// Ignore when not enabled, or when the global forward switch is off (a pause that does
+		// not change each target's own enabled preference).
+		if !v.config.Enabled || !forwardMasterEnabled(ctx) {
 			v.releaseProgram()
 			v.markHealthy()
 			return nil

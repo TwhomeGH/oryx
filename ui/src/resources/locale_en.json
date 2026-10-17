@@ -73,6 +73,7 @@
       "currentSource": "Currently forwarding to",
       "add": "Add forwarding target",
       "expandAll": "Expand all",
+      "master": "Forward master",
       "collapseAll": "Collapse all",
       "startAll": "Start all",
       "stopAll": "Stop all",

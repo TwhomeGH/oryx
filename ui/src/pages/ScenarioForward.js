@@ -52,6 +52,14 @@ export default function ScenarioForward() {
 function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
   // The accordion is controlled so the batch buttons (expand/collapse all) can drive it.
   const [activeKeys, setActiveKeys] = React.useState([defaultActiveKey]);
+  const [masterEnabled, setMasterEnabled] = React.useState(true);
+
+  // The global forward switch (pause/resume all without changing per-target preferences).
+  React.useEffect(() => {
+    axios.post('/terraform/v1/ffmpeg/forward/enabled', { action: 'query' }, {
+      headers: Token.loadBearerHeader(),
+    }).then(res => setMasterEnabled(res.data.data?.enabled !== false)).catch(handleError);
+  }, [handleError]);
   const language = useSrsLanguage();
   const { t } = useTranslation();
   const handleError = useErrorHandler();
@@ -229,21 +237,18 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
     }
   }, [t, handleError, setSubmiting]);
 
-  // Enable or disable forward(s) without changing the config: one conf, or all (with a server)
-  // when conf is null. Used by the batch buttons, so it stays quiet (no per-target alert).
-  const setForwardEnabled = React.useCallback((conf, enabled) => {
-    const list = (conf ? [conf] : configs.filter((c) => c.server));
-    if (!list.length) return;
+  // Toggle the global forward switch: pauses/resumes ALL forwards without changing any target's
+  // own enabled preference (which stays the user's chosen set). Persisted server-side.
+  const updateMaster = React.useCallback((enabled) => {
     setSubmiting(true);
-    Promise.all(list.map((c) => axios.post('/terraform/v1/ffmpeg/forward/secret', {
-      action: 'update', platform: c.platform, stream: c.stream, server: c.server, secret: c.secret,
-      enabled: !!enabled, custom: !!c.custom, label: c.label, failover: c.failover || '', normalize: !!c.normalize,
-    }, { headers: Token.loadBearerHeader() }).catch(handleError))).then(() => {
-      setConfigs(configs.map((x) => list.some((c) => c.platform === x.platform) ? {...x, enabled: !!enabled} : x));
-    }).finally(() => {
-      new Promise((resolve) => setTimeout(resolve, 3000)).then(() => setSubmiting(false));
+    axios.post('/terraform/v1/ffmpeg/forward/enabled', { action: 'update', enabled: !!enabled }, {
+      headers: Token.loadBearerHeader(),
+    }).then(() => {
+      setMasterEnabled(!!enabled);
+    }).catch(handleError).finally(() => {
+      new Promise((resolve) => setTimeout(resolve, 1500)).then(() => setSubmiting(false));
     });
-  }, [configs, handleError]);
+  }, [handleError]);
 
   // Append a new empty custom forwarding config, persisted when user starts it.
   const addForwarding = React.useCallback(() => {
@@ -277,8 +282,9 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
     <div className="d-flex flex-wrap gap-2 my-2">
       <Button size="sm" variant="outline-secondary" onClick={() => setActiveKeys(configs.map((c) => c.index).concat(['0', '99']))}>{t('forward.expandAll')}</Button>
       <Button size="sm" variant="outline-secondary" onClick={() => setActiveKeys([])}>{t('forward.collapseAll')}</Button>
-      <Button size="sm" variant="outline-success" disabled={submiting} onClick={() => setForwardEnabled(null, true)}>{t('forward.startAll')}</Button>
-      <Button size="sm" variant="outline-danger" disabled={submiting} onClick={() => setForwardEnabled(null, false)}>{t('forward.stopAll')}</Button>
+      <span className="ms-2 align-self-center small text-muted">{t('forward.master')}:</span>
+      <Button size="sm" variant={masterEnabled ? 'success' : 'outline-success'} disabled={submiting} onClick={() => updateMaster(true)}>{t('forward.startAll')}</Button>
+      <Button size="sm" variant={!masterEnabled ? 'danger' : 'outline-danger'} disabled={submiting} onClick={() => updateMaster(false)}>{t('forward.stopAll')}</Button>
     </div>
     <Accordion activeKey={activeKeys} onSelect={(k) => setActiveKeys(k || [])} alwaysOpen>
       <React.Fragment>
