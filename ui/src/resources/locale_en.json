@@ -132,7 +132,8 @@
       "statusOff": "off",
       "statusNone": "No forwarding targets",
       "statusOpen": "Open settings",
-      "masterHint": "Pause/resume ALL forwards without changing each target's own enabled setting. It only resumes the targets you enabled; it never enables the others."
+      "masterHint": "Pause/resume ALL forwards without changing each target's own enabled setting. It only resumes the targets you enabled; it never enables the others.",
+      "normalizeArgs": "Arguments used"
     },
     "camera": {
       "s3": "There is no stream. Please start the live event and wait for about 30 seconds, the list will update automatically.",

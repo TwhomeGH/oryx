@@ -377,6 +377,10 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
                   <Form.Check type='checkbox' label={t('forward.normalize')} checked={!!conf.normalize}
                     onChange={(e) => updateConfigObject({ ...conf, normalize: e.target.checked })} />
                   <Form.Text className="text-muted">{t('forward.normalizeHint')}</Form.Text>
+                  <details className="mt-1">
+                    <summary className="small text-muted">{t('forward.normalizeArgs')}</summary>
+                    <pre className="small mb-0" style={{whiteSpace: 'pre-wrap', overflowWrap: 'anywhere'}}>{`-reconnect … -i <program>.flv -fflags +genpts -fps_mode cfr -c:v h264_nvenc（或 libx264） -preset … -pix_fmt yuv420p -g 50 -c:a aac -b:a 128k -ar 44100 → <target>`}</pre>
+                  </details>
                 </Form.Group>
                 {conf?.allowCustom && (
                   <Row>
