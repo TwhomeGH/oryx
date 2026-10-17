@@ -1012,7 +1012,7 @@ function SrsForwards({handleError}) {
       <tbody>
         {list.length === 0 ? <tr><td colSpan="5" className="text-muted">{t('forward.statusNone')}</td></tr> : list.map((e, i) => (
           <tr key={i}>
-            <td>{name(e)}</td>
+            <td>{name(e)}{(e.label || '').startsWith('TEST ') && <Badge bg="warning" text="dark" className="ms-1">{t('console.fwTest')}</Badge>}</td>
             <td>
               <Badge bg={e.status === 'running' ? 'success' : 'secondary'}>{e.status || '-'}</Badge>
               {e.fallback && <Badge bg="dark" className="ms-1">{t('forward.fallback')}</Badge>}

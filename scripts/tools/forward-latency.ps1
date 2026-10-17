@@ -49,7 +49,7 @@ $secretValue = if ($pub) { "$tgtStream?secret=$pub" } else { $tgtStream }
 $target = @{
     action = "update"; platform = $tgtPlatform; server = "rtmp://localhost/live/"; secret = $secretValue
     stream = $srcStream
-    enabled = $true; custom = $true; label = "latency-$pidStr"; failover = ""; normalize = $false
+    enabled = $true; custom = $true; label = "TEST latency-$pidStr"; failover = ""; normalize = $false
 }
 function Api([string]$path, $body) {
     return Invoke-RestMethod -Method Post -Uri "$Endpoint$path" -Headers $headers -ContentType "application/json" -Body ($body | ConvertTo-Json -Compress)

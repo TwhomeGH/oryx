@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env pwsh
+#!/usr/bin/env pwsh
 #
 # 轉推快速測試工具 (forward quick test)
 #
@@ -152,7 +152,7 @@ try {
     $fmode = if ($Slate) { "slate" } else { "hold" }
     Step "啟用轉推：本機目標 rtmp://localhost/live/$($script:TgtID) normalize=$([bool]$Normalize) failover=$fmode"
     Api "POST" "/terraform/v1/ffmpeg/forward/secret" @{
-        action = "update"; platform = $script:Platform; server = "rtmp://localhost/live/"; secret = "$($script:TgtID)?secret=$($script:Pub)"; enabled = $true; custom = $true; label = "quick-test"; normalize = [bool]$Normalize; failover = $(if ($Slate) { "slate" } else { "" })
+        action = "update"; platform = $script:Platform; server = "rtmp://localhost/live/"; secret = "$($script:TgtID)?secret=$($script:Pub)"; enabled = $true; custom = $true; label = "TEST quick"; normalize = [bool]$Normalize; failover = $(if ($Slate) { "slate" } else { "" })
     } | Out-Null
 
     $playURL = "$Endpoint/live/$($script:TgtID).flv"
