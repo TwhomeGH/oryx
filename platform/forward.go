@@ -115,7 +115,7 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 				return errors.Wrapf(err, "parse body")
 			}
 
-			allowedActions := []string{"update", "delete"}
+			allowedActions := []string{"update", "delete", "toggle"}
 			allowedPlatforms := []string{"wx", "bilibili", "kuaishou"}
 			if action != "" {
 				if !slicesContains(allowedActions, action) {
@@ -182,6 +182,33 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 
 				ohttp.WriteData(ctx, w, r, nil)
 				logger.Tf(ctx, "Forward update secret ok")
+				return nil
+			case "toggle":
+				// Enable/disable one target without resending its (possibly secret) full config.
+				if userConf.Platform == "" {
+					return errors.Errorf("invalid platform=%v", userConf.Platform)
+				}
+				var toggleConf ForwardConfigure
+				if config, err := rdb.HGet(ctx, SRS_FORWARD_CONFIG, userConf.Platform).Result(); err != nil && err != redis.Nil {
+					return errors.Wrapf(err, "hget %v %v", SRS_FORWARD_CONFIG, userConf.Platform)
+				} else if config == "" {
+					return errors.Errorf("no such platform=%v", userConf.Platform)
+				} else if err = json.Unmarshal([]byte(config), &toggleConf); err != nil {
+					return errors.Wrapf(err, "unmarshal %v", config)
+				}
+				toggleConf.Enabled = userConf.Enabled
+				if newB, err := json.Marshal(&toggleConf); err != nil {
+					return errors.Wrapf(err, "marshal %v", toggleConf.String())
+				} else if err = rdb.HSet(ctx, SRS_FORWARD_CONFIG, userConf.Platform, string(newB)).Err(); err != nil && err != redis.Nil {
+					return errors.Wrapf(err, "hset %v %v %v", SRS_FORWARD_CONFIG, userConf.Platform, string(newB))
+				}
+				if task := v.GetTask(userConf.Platform); task != nil {
+					if err := task.Restart(ctx); err != nil {
+						return errors.Wrapf(err, "restart task %v", userConf.Platform)
+					}
+				}
+				ohttp.WriteData(ctx, w, r, nil)
+				logger.Tf(ctx, "forward toggle ok, platform=%v enabled=%v", userConf.Platform, userConf.Enabled)
 				return nil
 			case "delete":
 				// Only custom forwarding configs are removable, built-in platforms are protected.

@@ -133,7 +133,8 @@
       "statusNone": "No forwarding targets",
       "statusOpen": "Open settings",
       "masterHint": "Pause/resume ALL forwards without changing each target's own enabled setting. It only resumes the targets you enabled; it never enables the others.",
-      "normalizeArgs": "Arguments used"
+      "normalizeArgs": "Arguments used",
+      "statusPaused": "Forward paused"
     },
     "camera": {
       "s3": "There is no stream. Please start the live event and wait for about 30 seconds, the list will update automatically.",
@@ -726,7 +727,10 @@
       "slateSave": "Save",
       "slateSaved": "Saved",
       "keyframeSeconds": "Keyframe interval (seconds)",
-      "keyframeSecondsHint": "Used by normalize/composite transcoding: GOP = interval × output fps. 2s is the common platform requirement."
+      "keyframeSecondsHint": "Used by normalize/composite transcoding: GOP = interval × output fps. 2s is the common platform requirement.",
+      "forwardMasterTitle": "Global switch",
+      "forwardMaster": "Enable multi-platform forwarding",
+      "forwardMasterHint": "Turning this off pauses ALL forwarding (it does not change each target's own enabled setting) and persists across restarts."
     },
     "coms": {
       "srs4": "SRS(Stable)",
@@ -955,7 +959,17 @@
       "cfgRawReload": "Whether config reload is allowed",
       "cfgRawQuery": "Whether config query is allowed",
       "cfgRawUpdate": "Whether config update is allowed",
-      "rawApiRemoved": "HTTP RAW API is removed, please read"
+      "rawApiRemoved": "HTTP RAW API is removed, please read",
+      "forwards": "Forwards",
+      "fwPlatform": "Platform",
+      "fwStatus": "Status",
+      "fwEnabled": "Enabled",
+      "fwFps": "Avg FPS",
+      "fwOn": "Enabled",
+      "fwOff": "Disabled",
+      "fwStart": "Enable",
+      "fwStop": "Disable",
+      "fwHint": "Per-target enable/disable only changes that target; the global switch pauses all forwarding."
     }
   },
   "meta": {

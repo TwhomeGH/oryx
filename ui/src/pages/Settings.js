@@ -1157,12 +1157,22 @@ function SettingForwardSlate() {
   const [conf, setConf] = React.useState();
   const [saving, setSaving] = React.useState();
   const [saved, setSaved] = React.useState();
+  const [master, setMaster] = React.useState();
 
   React.useEffect(() => {
     axios.post('/terraform/v1/ffmpeg/forward/slate', {action: 'query'}, {
       headers: Token.loadBearerHeader(),
     }).then(res => setConf(res.data.data)).catch(handleError);
+    axios.post('/terraform/v1/ffmpeg/forward/enabled', {action: 'query'}, {
+      headers: Token.loadBearerHeader(),
+    }).then(res => setMaster(res.data.data?.enabled !== false)).catch(handleError);
   }, [handleError]);
+
+  const updateMaster = (enabled) => {
+    axios.post('/terraform/v1/ffmpeg/forward/enabled', {action: 'update', enabled: !!enabled}, {
+      headers: Token.loadBearerHeader(),
+    }).then(res => setMaster(res.data.data?.enabled !== false)).catch(handleError);
+  };
 
   if (!conf) return <Spinner animation="border" size="sm" />;
 
@@ -1174,6 +1184,11 @@ function SettingForwardSlate() {
   };
 
   return (<>
+    <h6>{t('settings.forwardMasterTitle')}</h6>
+    <Form.Check type="checkbox" id="forward-master"
+      label={t('settings.forwardMaster')} checked={!!master} onChange={e => updateMaster(e.target.checked)} />
+    <Form.Text className="text-muted d-block mb-3">{t('settings.forwardMasterHint')}</Form.Text>
+    <hr/>
     <h6>{t('settings.slateTitle')}</h6>
     <p className="text-muted small">{t('settings.slateHint')}</p>
     <Form.Group className="mb-3">

@@ -59,6 +59,9 @@ function SrsConsoleImpl() {
     <>
       <Container fluid className="pt-3">
         <Tabs activeKey={key} onSelect={(k) => setKey(k)} className="mb-3">
+          <Tab eventKey="forwards" title={t('console.forwards')}>
+            <SrsForwards {...{handleError}} />
+          </Tab>
           <Tab eventKey="overview" title={t('console.overview')}>
             <SrsOverview {...{handleError}} />
           </Tab>
@@ -968,3 +971,63 @@ function SrsConfigs({handleError}) {
 }
 
 export {SrsStreams, fmtBitrate, fmtBytes, fmtClock, fmtFixed, fmtFPSInterval, fmtFPSIntervalRange, fmtPercent, fmtSec, mergeFPSProbe};
+
+// Multi-platform forward control: the compact status of every target with a per-target
+// enable/disable and the global switch, instead of digging through scenario cards.
+function SrsForwards({handleError}) {
+  const {t} = useTranslation();
+  const [list, setList] = React.useState([]);
+  const [master, setMaster] = React.useState(true);
+
+  const refresh = React.useCallback(() => {
+    axios.post('/terraform/v1/ffmpeg/forward/streams', {}, {headers: Token.loadBearerHeader()})
+      .then(res => setList(res.data.data || [])).catch(handleError);
+    axios.post('/terraform/v1/ffmpeg/forward/enabled', {action: 'query'}, {headers: Token.loadBearerHeader()})
+      .then(res => setMaster(res.data.data?.enabled !== false)).catch(handleError);
+  }, [handleError]);
+  React.useEffect(() => { refresh(); const tm = setInterval(refresh, 5000); return () => clearInterval(tm); }, [refresh]);
+
+  const name = (e) => e.custom ? (e.label || t('plat.com.custom')) : (e.platform || '');
+  const toggleMaster = (enabled) => {
+    axios.post('/terraform/v1/ffmpeg/forward/enabled', {action: 'update', enabled}, {headers: Token.loadBearerHeader()})
+      .then(refresh).catch(handleError);
+  };
+  const toggleTarget = (e) => {
+    axios.post('/terraform/v1/ffmpeg/forward/streams', {action: 'toggle', platform: e.platform, enabled: !e.enabled}, {headers: Token.loadBearerHeader()})
+      .then(refresh).catch(handleError);
+  };
+
+  return (<>
+    <div className="d-flex align-items-center mb-3">
+      <Badge bg={master ? 'success' : 'danger'} className="me-2">{t('forward.master')}: {master ? t('forward.statusOn') : t('forward.statusOff')}</Badge>
+      <Button size="sm" variant={master ? 'outline-danger' : 'outline-success'} onClick={() => toggleMaster(!master)}>
+        {master ? t('forward.stopAll') : t('forward.startAll')}
+      </Button>
+    </div>
+    <Table size="sm" striped hover className="mb-0">
+      <thead><tr>
+        <th>{t('console.fwPlatform')}</th><th>{t('console.fwStatus')}</th><th>{t('console.fwEnabled')}</th>
+        <th>{t('console.fwFps')}</th><th className="text-end"></th>
+      </tr></thead>
+      <tbody>
+        {list.length === 0 ? <tr><td colSpan="5" className="text-muted">{t('forward.statusNone')}</td></tr> : list.map((e, i) => (
+          <tr key={i}>
+            <td>{name(e)}</td>
+            <td>
+              <Badge bg={e.status === 'running' ? 'success' : 'secondary'}>{e.status || '-'}</Badge>
+              {e.fallback && <Badge bg="dark" className="ms-1">{t('forward.fallback')}</Badge>}
+            </td>
+            <td>{e.enabled ? t('console.fwOn') : t('console.fwOff')}</td>
+            <td>{e.metrics && e.metrics.avgFps ? e.metrics.avgFps.toFixed(1) : '-'}</td>
+            <td className="text-end">
+              <Button size="sm" variant={e.enabled ? 'outline-danger' : 'outline-success'} onClick={() => toggleTarget(e)}>
+                {e.enabled ? t('console.fwStop') : t('console.fwStart')}
+              </Button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </Table>
+    <div className="small text-muted mt-2">{t('console.fwHint')}</div>
+  </>);
+}

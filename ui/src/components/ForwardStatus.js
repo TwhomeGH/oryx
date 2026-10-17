@@ -35,7 +35,7 @@ export default function ForwardStatus() {
   const total = forwards.length;
   const running = forwards.filter(e => e.status === 'running').length;
   const anyFallback = forwards.some(e => e.fallback);
-  const variant = !master ? 'secondary' : (anyFallback ? 'warning' : (running > 0 ? 'success' : 'secondary'));
+  const variant = !master ? 'danger' : (anyFallback ? 'warning' : (running > 0 ? 'success' : 'secondary'));
 
   // A target name: built-in platforms show their name, custom targets their label.
   const name = (e) => e.custom ? (e.label || t('plat.com.custom')) : (e.platform || '');
@@ -69,7 +69,7 @@ export default function ForwardStatus() {
       </Popover>
     }>
       <a role="button" className="text-decoration-none align-self-center me-2" title={t('forward.statusTitle')}>
-        <Badge bg={variant}>{t('forward.statusShort')} {running}/{total}</Badge>
+        <Badge bg={variant}>{master ? `${t('forward.statusShort')} ${running}/${total}` : t('forward.statusPaused')}</Badge>
       </a>
     </OverlayTrigger>
   );

@@ -194,7 +194,10 @@
       "slateSave": "保存",
       "slateSaved": "已保存",
       "keyframeSeconds": "关键帧间隔（秒）",
-      "keyframeSecondsHint": "用于补强转码；GOP = 间隔 × 输出 fps。平台一般为 ≤2 秒。"
+      "keyframeSecondsHint": "用于补强转码；GOP = 间隔 × 输出 fps。平台一般为 ≤2 秒。",
+      "forwardMasterTitle": "全域总开关",
+      "forwardMaster": "启用多平台转播",
+      "forwardMasterHint": "关闭后所有转播都会暂停（不会改各目标的启用设定），且会持久保留、重启后仍有效。"
     },
     "coms": {
       "srs4": "SRS(稳定版)",
@@ -782,7 +785,8 @@
       "statusNone": "尚无转播目标",
       "statusOpen": "前往设置",
       "masterHint": "暂停/恢复全部转播，不会改动各目标的启用设置；只会恢复你已启用的目标，不会自动开启其他目标。",
-      "normalizeArgs": "将使用的参数"
+      "normalizeArgs": "将使用的参数",
+      "statusPaused": "转播已暂停"
     },
     "vle": {
       "tip": "将文件转直播流",
@@ -955,7 +959,17 @@
       "cfgRawReload": "是否允许重载配置",
       "cfgRawQuery": "是否允许查询配置",
       "cfgRawUpdate": "是否允许更新配置",
-      "rawApiRemoved": "HTTP RAW API 已移除，请阅读"
+      "rawApiRemoved": "HTTP RAW API 已移除，请阅读",
+      "forwards": "转播",
+      "fwPlatform": "平台",
+      "fwStatus": "状态",
+      "fwEnabled": "启用",
+      "fwFps": "平均 FPS",
+      "fwOn": "已启用",
+      "fwOff": "已停用",
+      "fwStart": "启用",
+      "fwStop": "停用",
+      "fwHint": "逐目标的启用/停用只影响该目标；全域总开关会暂停所有转播。"
     }
   },
   "meta": {
