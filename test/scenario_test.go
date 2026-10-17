@@ -1789,7 +1789,7 @@ func testForwardKeepalive(t *testing.T, failover string, expectSlate bool) {
 
 	// The program should be live, and the fanout running.
 	if !waitStatus("live", func(m map[string]interface{}) bool {
-		return m["status"] == "running" && m["programMode"] == "live" && m["fallback"] == false
+		return m["status"] == "running" && forwardLiveMode(m["programMode"]) && m["fallback"] == false
 	}) {
 		r1 = errors.Errorf("forward not live, status=%v", forwardStatus())
 		return
@@ -1831,9 +1831,11 @@ func testForwardKeepalive(t *testing.T, failover string, expectSlate bool) {
 
 	// The source exits now. The program must keep the downstream alive: hold the last frame
 	// (hold mode) or switch to the fallback slate (slate mode). The fanout must not restart.
+	// The composite failover (slate) renders the base+source overlay itself, so it keeps the
+	// "composite" mode and only flips fallback=true; the hold relay stays "live".
 	expectMode := "live"
 	if expectSlate {
-		expectMode = "slate"
+		expectMode = "composite"
 	}
 	if !waitStatus("fallback", func(m map[string]interface{}) bool {
 		return m["status"] == "running" && m["programMode"] == expectMode && m["fallback"] == true
@@ -1854,7 +1856,7 @@ func testForwardKeepalive(t *testing.T, failover string, expectSlate bool) {
 	// Bring the source back, the program bus must switch back to live.
 	runSource(20 * time.Second)
 	if !waitStatus("live again", func(m map[string]interface{}) bool {
-		return m["status"] == "running" && m["programMode"] == "live" && m["fallback"] == false
+		return m["status"] == "running" && forwardLiveMode(m["programMode"]) && m["fallback"] == false
 	}) {
 		r4 = errors.Errorf("forward not recovered, status=%v", forwardStatus())
 		return
@@ -1873,6 +1875,13 @@ func testForwardKeepalive(t *testing.T, failover string, expectSlate bool) {
 		r4 = errors.Errorf("forward did not resume output, status=%v", forwardStatus())
 		return
 	}
+}
+
+// forwardLiveMode reports whether the program is showing the live source: the hold relay
+// ("live") or the composite ("composite", which renders the source itself and falls back to the
+// slate base).
+func forwardLiveMode(v interface{}) bool {
+	return v == "live" || v == "composite"
 }
 
 func TestScenario_WithStream_PublishRtmpForwardKeepalive(t *testing.T) {
