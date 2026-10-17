@@ -6,8 +6,9 @@
 # 適合快速自我檢查：程式是否運作、來源中斷時是否不斷線、指標長怎樣。
 #
 # 用法:
-#   pwsh scripts/tools/forward-quick-test.ps1              # 快樂路徑
+#   pwsh scripts/tools/forward-quick-test.ps1              # 快樂路徑（預設會開 ffplay 預覽）
 #   pwsh scripts/tools/forward-quick-test.ps1 -Outage      # 加上「來源中斷」示範
+#   pwsh scripts/tools/forward-quick-test.ps1 -NoPlay      # 不開預覽（無顯示環境/CI）
 #   pwsh scripts/tools/forward-quick-test.ps1 -Keep        # 保留設定，方便自己點 UI 看
 #
 [CmdletBinding()]
@@ -17,12 +18,15 @@ param(
     [string]$Source = "",
     [string]$Rtmp = "",
     [switch]$Outage,
-    [switch]$Play,
+    [bool]$Play = $true,
+    [switch]$NoPlay,
     [switch]$Normalize,
     [switch]$Slate,
     [switch]$Keep,
     [switch]$Compare
 )
+
+if ($NoPlay) { $Play = $false }
 
 $ErrorActionPreference = "Stop"
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
@@ -119,6 +123,10 @@ function Cleanup() {
 # --- Preflight ---
 Step "檢查前置條件"
 if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) { Die "找不到 ffmpeg，請先安裝（winget install Gyan.FFmpeg）。" }
+if ($Play -and -not (Get-Command ffplay -ErrorAction SilentlyContinue)) {
+    Write-Host "   [注意] 找不到 ffplay，預覽已停用（不影響測試；可用 -NoPlay 明確關閉）。" -ForegroundColor DarkYellow
+    $Play = $false
+}
 if (-not (Test-Path $Source)) { Die "找不到來源檔：$Source" }
 $running = (docker ps --filter "name=^/$Container$" --format "{{.Names}}")
 if (-not $running) { Die "找不到執行中的容器 '$Container'。請先啟動平台，或改用 -Container <名稱>。" }
@@ -201,8 +209,8 @@ try {
     }
 
     Step "完成。轉推輸出（HTTP-FLV）：$playURL"
-    if (-not $Play) {
-        Write-Host "   看畫面：加 -Play 會自動開 ffplay 預覽（也可把上面的 HTTP-FLV 網址貼到播放器）。" -ForegroundColor Yellow
+    if (-not $Play -and -not $NoPlay) {
+        Write-Host "   看畫面：預設會自動開 ffplay 預覽；若沒開（找不到 ffplay），可把上面的 HTTP-FLV 網址貼到播放器。" -ForegroundColor Yellow
     }
     if ($Keep) {
         Write-Host "   已保留設定（-Keep）：UI 檢視請開 $Endpoint → 場景 → 轉推 → 展開「狀態」→ 該列『本機輸出進度』（含診斷時間線/近期日誌）。" -ForegroundColor Yellow
