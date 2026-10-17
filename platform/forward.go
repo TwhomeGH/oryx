@@ -268,6 +268,38 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 		}
 	})))
 
+	// The fallback slate configuration: timezone of the clock, the explanatory text, and whether
+	// to stop a forward after the source has been offline for a while.
+	ep = "/terraform/v1/ffmpeg/forward/slate"
+	logger.Tf(ctx, "Handle %v", ep)
+	handler.Handle(ep, middlewareAuthTokenInBody(ctx, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := func() error {
+			var action string
+			conf := defaultForwardSlateConfig()
+			if err := ParseBody(ctx, r.Body, &struct {
+				Action *string `json:"action"`
+				*forwardSlateConfig
+			}{Action: &action, forwardSlateConfig: &conf}); err != nil {
+				return errors.Wrapf(err, "parse body")
+			}
+
+			switch action {
+			case "", "query":
+				ohttp.WriteData(ctx, w, r, forwardSlateConfigLoad(ctx))
+			case "update":
+				if err := forwardSlateConfigSave(ctx, conf); err != nil {
+					return err
+				}
+				ohttp.WriteData(ctx, w, r, forwardSlateConfigLoad(ctx))
+			default:
+				return errors.Errorf("invalid action=%v", action)
+			}
+			return nil
+		}(); err != nil {
+			ohttp.WriteError(ctx, w, r, err)
+		}
+	})))
+
 	ep = "/terraform/v1/ffmpeg/forward/streams"
 	logger.Tf(ctx, "Handle %v", ep)
 	handler.Handle(ep, middlewareAuthTokenInBody(ctx, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1053,6 +1085,18 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 			return nil
 		}
 
+		// Optional policy: stop the forward when the source has been offline long enough, so a
+		// permanently-ended live does not keep the slate (and the forward) alive forever.
+		if off, mins := forwardSlateOfflineStop(ctx); off {
+			if bus := v.programBus(); bus != nil && bus.sourceInactiveFor() >= time.Duration(mins)*time.Minute {
+				logger.Tf(ctx, "forward platform=%v source offline over %vmin, stop", v.Platform, mins)
+				v.addEvent("offline-stop", fmt.Sprintf("source offline over %vmin", mins))
+				v.releaseProgram()
+				v.markWaitingInput()
+				return nil
+			}
+		}
+
 		// Bind the source and its internal program bus on first use. Once bound, we keep
 		// forwarding the program even when the source is temporarily offline, because the
 		// program bus keeps the program published (the downstream holds the last frame).
@@ -1285,6 +1329,29 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 	parentCtx := ctx
 	ctx, cancel := context.WithCancel(ctx)
 	v.cancel = cancel
+
+	// Stop the forward when the source has been offline long enough, if configured. The run loop
+	// only re-checks between FFmpeg runs, so a running fanout must be cancelled explicitly.
+	if off, mins := forwardSlateOfflineStop(ctx); off {
+		if bus := v.programBus(); bus != nil {
+			go func() {
+				ticker := time.NewTicker(10 * time.Second)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case <-ticker.C:
+						if bus.sourceInactiveFor() >= time.Duration(mins)*time.Minute {
+							logger.Tf(ctx, "forward platform=%v source offline over %vmin, cancel", v.Platform, mins)
+							cancel()
+							return
+						}
+					}
+				}
+			}()
+		}
+	}
 
 	// The program bus keeps the internal program stream alive, so we always read from the
 	// program instead of the source directly, see docs/forward-program-bus.md.

@@ -710,7 +710,19 @@
       "nginxProxyRequired": "Please input the location",
       "nginxBackendLocation": "Backend Server",
       "nginxBackendTip": "The backend server to proxy to",
-      "nginxBackendRequired": "Please input the backend server"
+      "nginxBackendRequired": "Please input the backend server",
+      "tabSlate": "Forward fallback",
+      "slateTitle": "Forward fallback slate",
+      "slateHint": "While a source is offline, forwarding shows a dark slate with a clock and this message.",
+      "slateTZ": "Clock timezone",
+      "slateTZHint": "IANA timezone, e.g. Asia/Taipei. Empty uses the container timezone (usually UTC).",
+      "slateText": "Message",
+      "slateTextHint": "Shown above the clock, e.g. Live source interrupted, reconnecting, please wait…",
+      "slateOfflineStop": "Stop when offline",
+      "slateOfflineStopHint": "Stop the forward after the source has been offline for the set minutes, so an ended live does not keep the slate forever. Off by default.",
+      "slateOfflineMinutes": "Offline stop minutes",
+      "slateSave": "Save",
+      "slateSaved": "Saved"
     },
     "coms": {
       "srs4": "SRS(Stable)",

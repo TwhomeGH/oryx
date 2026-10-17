@@ -195,8 +195,10 @@ type ProgramBus struct {
 	pid          int32
 	switches     int
 	sourceActive bool
-	lastSwitchAt *time.Time
-	lastError    string
+	// When the source first became inactive, to implement the optional offline-stop policy.
+	inactiveSince time.Time
+	lastSwitchAt  *time.Time
+	lastError     string
 
 	// Source reconnect evidence from the relay FFmpeg stderr.
 	reconnects      int
@@ -293,6 +295,21 @@ func (v *ProgramBus) setSourceActive(active bool) {
 	v.lock.Lock()
 	defer v.lock.Unlock()
 	v.sourceActive = active
+	if active {
+		v.inactiveSince = time.Time{}
+	} else if v.inactiveSince.IsZero() {
+		v.inactiveSince = time.Now()
+	}
+}
+
+// sourceInactiveFor reports how long the source has been inactive (zero when active or unknown).
+func (v *ProgramBus) sourceInactiveFor() time.Duration {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	if v.sourceActive || v.inactiveSince.IsZero() {
+		return 0
+	}
+	return time.Since(v.inactiveSince)
 }
 
 func (v *ProgramBus) setLastError(err error) {
@@ -557,9 +574,10 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		// seamless for the downstream, see runComposite.
 		w, h, fps := v.sourceSize()
 		srcURL := fmt.Sprintf("http://localhost:%v/%v/%v.flv", forwardProgramHTTPPort, v.sourceApp, v.sourceStream)
+		slateConf := forwardSlateConfigLoad(ctx)
 		filter := fmt.Sprintf(
-			"[0:v]%v[bg];[bg][2:v]overlay=eof_action=pass:x=0:y=0[v];[1:a][2:a]amix=inputs=2:duration=longest:dropout_transition=0[a]",
-			forwardSlateDrawtext(),
+			"[0:v]%v,%v[bg];[bg][2:v]overlay=eof_action=pass:x=0:y=0[v];[1:a][2:a]amix=inputs=2:duration=longest:dropout_transition=0[a]",
+			forwardSlateTextDrawtext(slateConf.Text), forwardSlateDrawtext(),
 		)
 		args = append(args,
 			"-re",
@@ -576,6 +594,13 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 	}
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
+	// The slate clock uses the process timezone; honor the configured one (the container default
+	// is usually UTC, which would show the wrong local time).
+	if mode == programModeComposite {
+		if conf := forwardSlateConfigLoad(ctx); conf.TZ != "" {
+			cmd.Env = append(os.Environ(), "TZ="+conf.TZ)
+		}
+	}
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {

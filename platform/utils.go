@@ -293,7 +293,9 @@ const (
 	// The global forward switch: when "false", all forwarding is paused without changing the
 	// per-target enabled preference.
 	SRS_FORWARD_ENABLED = "SRS_FORWARD_ENABLED"
-	SRS_FORWARD_TASK    = "SRS_FORWARD_TASK"
+	// The fallback slate configuration (timezone, text, offline-stop policy), a JSON string.
+	SRS_FORWARD_SLATE = "SRS_FORWARD_SLATE"
+	SRS_FORWARD_TASK  = "SRS_FORWARD_TASK"
 	// For virtual live channel/stream.
 	SRS_VLIVE_CONFIG = "SRS_VLIVE_CONFIG"
 	SRS_VLIVE_TASK   = "SRS_VLIVE_TASK"

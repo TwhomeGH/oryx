@@ -341,7 +341,19 @@
       "nginxProxyRequired": "プロキシのパスを入力してください",
       "nginxBackendLocation": "バックエンドサービスアドレス",
       "nginxBackendTip": "バックエンドサービスのアドレス",
-      "nginxBackendRequired": "バックエンドサービスのアドレスを入力してください"
+      "nginxBackendRequired": "バックエンドサービスのアドレスを入力してください",
+      "tabSlate": "転送フォールバック",
+      "slateTitle": "転送フォールバック画面",
+      "slateHint": "ソースがオフラインの間、転送は暗い背景＋時計のフォールバック画面にこのメッセージを表示します。",
+      "slateTZ": "時計のタイムゾーン",
+      "slateTZHint": "IANA タイムゾーン（例: Asia/Tokyo）。空欄ならコンテナのタイムゾーン（通常 UTC）。",
+      "slateText": "メッセージ",
+      "slateTextHint": "時計の上に表示されます（例: ライブソースが切断されました。しばらくお待ちください…）。",
+      "slateOfflineStop": "オフラインで停止",
+      "slateOfflineStopHint": "ソースが指定分オフラインになったら転送を停止します（終了後ずっとフォールバックを表示しない）。既定はオフ。",
+      "slateOfflineMinutes": "オフライン停止の分数",
+      "slateSave": "保存",
+      "slateSaved": "保存しました"
     },
     "cb": {
       "title": "シーン紹介",

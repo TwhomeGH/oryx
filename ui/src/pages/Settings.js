@@ -144,6 +144,7 @@ function SettingsImpl2({ defaultActiveTab }) {
                 <Nav.Link eventKey="hls">HLS</Nav.Link>
                 <Nav.Link eventKey="disk">{t('settings.tabDisk')}</Nav.Link>
                 <Nav.Link eventKey="streams">{t('settings.tabStreams')}</Nav.Link>
+              <Nav.Link eventKey="slate">{t('settings.tabSlate')}</Nav.Link>
 
                 <GroupLabel>{t('settings.groupIntegrations')}</GroupLabel>
                 <Nav.Link eventKey="callback">{t('settings.tabCallback')}</Nav.Link>
@@ -164,6 +165,7 @@ function SettingsImpl2({ defaultActiveTab }) {
                 <Tab.Pane eventKey="limits"><SettingLimits /></Tab.Pane>
                 <Tab.Pane eventKey="llm"><SettingLLM /></Tab.Pane>
                 <Tab.Pane eventKey="streams"><SettingStreams /></Tab.Pane>
+          <Tab.Pane eventKey="slate"><SettingForwardSlate /></Tab.Pane>
                 <Tab.Pane eventKey="callback"><SettingCallback /></Tab.Pane>
                 <Tab.Pane eventKey="api"><SettingOpenApi {...{ copyToClipboard }} /></Tab.Pane>
               </Tab.Content>
@@ -1146,3 +1148,57 @@ function OpenAPIResult({ apiSecret, api, data }) {
   );
 }
 
+
+// The fallback slate shown while a forwarded source is offline: the clock's timezone, the
+// explanatory text, and an optional policy to stop a forward after the source has been offline.
+function SettingForwardSlate() {
+  const {t} = useTranslation();
+  const handleError = useErrorHandler();
+  const [conf, setConf] = React.useState();
+  const [saving, setSaving] = React.useState();
+  const [saved, setSaved] = React.useState();
+
+  React.useEffect(() => {
+    axios.post('/terraform/v1/ffmpeg/forward/slate', {action: 'query'}, {
+      headers: Token.loadBearerHeader(),
+    }).then(res => setConf(res.data.data)).catch(handleError);
+  }, [handleError]);
+
+  if (!conf) return <Spinner animation="border" size="sm" />;
+
+  const save = () => {
+    setSaving(true); setSaved(false);
+    axios.post('/terraform/v1/ffmpeg/forward/slate', {...conf, action: 'update'}, {
+      headers: Token.loadBearerHeader(),
+    }).then(res => { setConf(res.data.data); setSaved(true); }).catch(handleError).finally(() => setSaving(false));
+  };
+
+  return (<>
+    <h6>{t('settings.slateTitle')}</h6>
+    <p className="text-muted small">{t('settings.slateHint')}</p>
+    <Form.Group className="mb-3">
+      <Form.Label>{t('settings.slateTZ')}</Form.Label>
+      <Form.Control as="input" value={conf.tz || ''} placeholder="Asia/Taipei"
+        onChange={e => setConf({...conf, tz: e.target.value})} />
+      <Form.Text className="text-muted">{t('settings.slateTZHint')}</Form.Text>
+    </Form.Group>
+    <Form.Group className="mb-3">
+      <Form.Label>{t('settings.slateText')}</Form.Label>
+      <Form.Control as="textarea" rows={2} value={conf.text || ''}
+        onChange={e => setConf({...conf, text: e.target.value})} />
+      <Form.Text className="text-muted">{t('settings.slateTextHint')}</Form.Text>
+    </Form.Group>
+    <Form.Group className="mb-3">
+      <Form.Check type="checkbox" label={t('settings.slateOfflineStop')} checked={!!conf.offlineStopEnabled}
+        onChange={e => setConf({...conf, offlineStopEnabled: e.target.checked})} />
+      <Form.Text className="text-muted">{t('settings.slateOfflineStopHint')}</Form.Text>
+    </Form.Group>
+    <Form.Group className="mb-3">
+      <Form.Label>{t('settings.slateOfflineMinutes')}</Form.Label>
+      <Form.Control as="input" type="number" min="1" max="1440" disabled={!conf.offlineStopEnabled}
+        value={conf.offlineStopMinutes || 5} onChange={e => setConf({...conf, offlineStopMinutes: Number(e.target.value) || 5})} />
+    </Form.Group>
+    <Button variant="primary" disabled={saving} onClick={save}>{t('settings.slateSave')}</Button>
+    {saved && <span className="ms-2 text-success">{t('settings.slateSaved')}</span>}
+  </>);
+}

@@ -180,7 +180,19 @@
       "nginxProxyRequired": "请输入代理的路径",
       "nginxBackendLocation": "后端服务地址",
       "nginxBackendTip": "后端服务的地址",
-      "nginxBackendRequired": "请输入后端服务的地址"
+      "nginxBackendRequired": "请输入后端服务的地址",
+      "tabSlate": "转播备援",
+      "slateTitle": "转播备援画面",
+      "slateHint": "来源中断时，转播会显示一个深灰底＋时钟的备援画面，并填入这段说明文字。",
+      "slateTZ": "时钟时区",
+      "slateTZHint": "IANA 时区名称，例如 Asia/Taipei；留空则用容器时区（通常是 UTC）。",
+      "slateText": "说明文字",
+      "slateTextHint": "显示在时钟上方，例如「直播来源中断，正在尝试恢复，请稍候…」。",
+      "slateOfflineStop": "来源离线自动停止",
+      "slateOfflineStopHint": "来源离线超过设定分钟数后停止该转播（避免直播已结束后一直显示备援画面）。默认关闭。",
+      "slateOfflineMinutes": "离线停止分钟数",
+      "slateSave": "保存",
+      "slateSaved": "已保存"
     },
     "coms": {
       "srs4": "SRS(稳定版)",
