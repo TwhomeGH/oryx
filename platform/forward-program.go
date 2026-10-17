@@ -590,8 +590,10 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 			"-filter_complex", filter,
 			"-map", "[v]", "-map", "[a]",
 		)
+		gop := forwardGOPFrames(rate)
 		args = append(args, forwardVideoEncodeArgs()...)
-		args = append(args, "-g", "50", "-c:a", "aac", "-f", "flv", output)
+		args = append(args, "-g", fmt.Sprintf("%d", gop), "-keyint_min", fmt.Sprintf("%d", gop),
+			"-sc_threshold", "0", "-c:a", "aac", "-f", "flv", output)
 	default:
 		return errors.Errorf("invalid program mode %v", mode)
 	}

@@ -163,15 +163,27 @@ func TestForward_Diagnostics(t *testing.T) {
 func TestForward_FanoutArgs(t *testing.T) {
 	in, out := "http://localhost:2022/live/prog.flv", "rtmp://localhost/live/out"
 
-	copied := strings.Join(forwardFanoutArgs(false, in, out), " ")
+	copied := strings.Join(forwardFanoutArgs(false, 120, in, out), " ")
 	if !strings.Contains(copied, "-c copy") || strings.Contains(copied, "libx264") {
 		t.Fatalf("copy fanout must be -c copy without transcode: %v", copied)
 	}
 
-	normalized := strings.Join(forwardFanoutArgs(true, in, out), " ")
-	for _, want := range []string{"-fps_mode cfr", "+genpts", "libx264", "-c:a aac"} {
+	normalized := strings.Join(forwardFanoutArgs(true, 120, in, out), " ")
+	for _, want := range []string{"-fps_mode cfr", "+genpts", "-c:a aac", "-g 120", "-keyint_min 120", "-sc_threshold 0"} {
 		if !strings.Contains(normalized, want) {
 			t.Fatalf("normalize fanout missing %q: %v", want, normalized)
+		}
+	}
+
+	// The GOP must be 2 seconds of the output frame rate, not a fixed frame count.
+	for _, e := range []struct {
+		rate string
+		gop  int
+	}{
+		{"60", 120}, {"30000/1001", 60}, {"25", 50}, {"", 50}, {"0/0", 50},
+	} {
+		if got := forwardGOPFrames(e.rate); got != e.gop {
+			t.Errorf("gop rate=%v, got %v, expect %v", e.rate, got, e.gop)
 		}
 	}
 }

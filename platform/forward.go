@@ -1218,11 +1218,35 @@ func forwardVideoEncoderName() string {
 	return ""
 }
 
+// forwardKeyframeIntervalSeconds is the target GOP duration; platforms generally require a
+// keyframe interval of at most 2 seconds.
+const forwardKeyframeIntervalSeconds = 2
+
+// forwardGOPFrames computes the GOP in frames from the source's average frame rate, so the
+// keyframe interval stays the required duration. A hardcoded -g 50 is 2s at 25fps but only 0.83s
+// at 60fps, which adds I-frames and causes bitrate spikes.
+func forwardGOPFrames(rate string) int {
+	fps := 25.0
+	if num, den, ok := parseFPS(rate); ok && den > 0 && num > 0 {
+		if f := float64(num) / float64(den); f >= 1 && f <= 120 {
+			fps = f
+		}
+	}
+	gop := int(fps*forwardKeyframeIntervalSeconds + 0.5)
+	if gop < 1 {
+		gop = 1
+	}
+	if gop > 1000 {
+		gop = 1000
+	}
+	return gop
+}
+
 // forwardFanoutArgs builds the FFmpeg arguments for the fanout. When normalize is on, the
 // program is transcoded into a regular CFR stream (software H.264 + AAC) so a source with
 // dropped frames, variable frame rate or timestamp jitter is regularized; otherwise it is a
 // zero-transcode `-c copy`. The input reads the program via HTTP-FLV with reconnect.
-func forwardFanoutArgs(normalize bool, programInputURL, outputURL string) []string {
+func forwardFanoutArgs(normalize bool, gop int, programInputURL, outputURL string) []string {
 	args := []string{
 		"-reconnect", "1", "-reconnect_at_eof", "1", "-reconnect_streamed", "1",
 		"-reconnect_on_http_error", forwardReconnectHTTPError,
@@ -1236,8 +1260,11 @@ func forwardFanoutArgs(normalize bool, programInputURL, outputURL string) []stri
 			"-fps_mode", "cfr",
 		)
 		args = append(args, forwardVideoEncodeArgs()...)
+		if gop <= 0 {
+			gop = 50
+		}
 		args = append(args,
-			"-g", "50",
+			"-g", fmt.Sprintf("%d", gop), "-keyint_min", fmt.Sprintf("%d", gop), "-sc_threshold", "0",
 			"-c:a", "aac", "-b:a", "128k", "-ar", "44100",
 		)
 	} else {
@@ -1435,7 +1462,13 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 
 	// Build the FFmpeg arguments. Optionally normalize (transcode) the output into a regular
 	// CFR stream, to mitigate a source with dropped frames, VFR or timestamp jitter.
-	args := forwardFanoutArgs(v.config != nil && v.config.Normalize, programInputURL, outputURL)
+	// Keep the keyframe interval at 2s of the output's frame rate instead of a fixed 50 frames.
+	gop := 50
+	if bus := v.programBus(); bus != nil {
+		_, _, rate := bus.sourceSize()
+		gop = forwardGOPFrames(rate)
+	}
+	args := forwardFanoutArgs(v.config != nil && v.config.Normalize, gop, programInputURL, outputURL)
 	v.setFFmpegArgs(args)
 	// Create the command object.
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
