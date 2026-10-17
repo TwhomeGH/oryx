@@ -1017,7 +1017,7 @@ function SrsForwards({handleError}) {
               <Badge bg={e.status === 'running' ? 'success' : 'secondary'}>{e.status || '-'}</Badge>
               {e.fallback && <Badge bg="dark" className="ms-1">{t('forward.fallback')}</Badge>}
             </td>
-            <td>{e.enabled ? t('console.fwOn') : t('console.fwOff')}</td>
+            <td><Badge bg={e.enabled ? 'success' : 'secondary'} pill>{e.enabled ? t('console.fwOn') : t('console.fwOff')}</Badge></td>
             <td>{e.metrics && e.metrics.avgFps ? e.metrics.avgFps.toFixed(1) : '-'}</td>
             <td className="text-end">
               <Button size="sm" variant={e.enabled ? 'outline-danger' : 'outline-success'} onClick={() => toggleTarget(e)}>
