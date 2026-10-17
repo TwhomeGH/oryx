@@ -189,7 +189,7 @@
       "slateText": "说明文字",
       "slateTextHint": "显示在时钟上方，例如「直播来源中断，正在尝试恢复，请稍候…」。",
       "slateOfflineStop": "来源离线自动停止",
-      "slateOfflineStopHint": "来源离线超过设定分钟数后停止该转播（避免直播已结束后一直显示备援画面）。默认关闭。",
+      "slateOfflineStopHint": "来源离线超过设定分钟数后停止该转播（避免直播已结束后一直显示备援画面）。24 小时直播可关闭。默认开启。",
       "slateOfflineMinutes": "离线停止分钟数",
       "slateSave": "保存",
       "slateSaved": "已保存",

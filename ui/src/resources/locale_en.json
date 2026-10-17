@@ -721,7 +721,7 @@
       "slateText": "Message",
       "slateTextHint": "Shown above the clock, e.g. Live source interrupted, reconnecting, please wait…",
       "slateOfflineStop": "Stop when offline",
-      "slateOfflineStopHint": "Stop the forward after the source has been offline for the set minutes, so an ended live does not keep the slate forever. Off by default.",
+      "slateOfflineStopHint": "Stop the forward after the source has been offline for the set minutes, so an ended live does not keep the slate forever. Disable this for a 24h stream. On by default.",
       "slateOfflineMinutes": "Offline stop minutes",
       "slateSave": "Save",
       "slateSaved": "Saved",

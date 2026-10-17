@@ -34,7 +34,7 @@ func defaultForwardSlateConfig() forwardSlateConfig {
 	return forwardSlateConfig{
 		TZ:                 "",
 		Text:               forwardSlateDefaultText,
-		OfflineStopEnabled: false,
+		OfflineStopEnabled: true,
 		OfflineStopMinutes: 5,
 		KeyframeSeconds:    2,
 	}

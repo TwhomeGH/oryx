@@ -350,7 +350,7 @@
       "slateText": "メッセージ",
       "slateTextHint": "時計の上に表示されます（例: ライブソースが切断されました。しばらくお待ちください…）。",
       "slateOfflineStop": "オフラインで停止",
-      "slateOfflineStopHint": "ソースが指定分オフラインになったら転送を停止します（終了後ずっとフォールバックを表示しない）。既定はオフ。",
+      "slateOfflineStopHint": "ソースが指定分オフラインになったら転送を停止します（終了後ずっとフォールバックを表示しない）。24 時間配信ではオフに。既定はオン。",
       "slateOfflineMinutes": "オフライン停止の分数",
       "slateSave": "保存",
       "slateSaved": "保存しました",
