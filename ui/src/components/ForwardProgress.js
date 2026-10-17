@@ -63,9 +63,11 @@ export default function ForwardProgress({log, metrics, events, logs, encoder, ff
   }
 
   return <div>
-    <div>{t('forward.progress.fps')}: {progress.fps ?? '—'}</div>
-    <div>{t('forward.progress.speed')}: {progress.speed ?? '—'}</div>
-    <div>{t('forward.progress.time')}: {progress.time ?? '—'}</div>
+    {log && <>
+      <div>{t('forward.progress.fps')}: {progress.fps ?? '—'}</div>
+      <div>{t('forward.progress.speed')}: {progress.speed ?? '—'}</div>
+      <div>{t('forward.progress.time')}: {progress.time ?? '—'}</div>
+    </>}
     {metrics && <>
           <div>{t('forward.progress.avgFps')}: {fmt(metrics.avgFps)}</div>
           {programSourceRate && <div>{t('forward.progress.sourceRate')}: {programSourceRate} → {fmt(metrics.avgFps)}</div>}

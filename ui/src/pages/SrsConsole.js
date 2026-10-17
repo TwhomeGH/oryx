@@ -1031,7 +1031,7 @@ function SrsForwards({handleError}) {
               </td>
             </tr>
             {expanded === e.platform && (
-              <tr><td colSpan="5" className="bg-light">
+              <tr><td colSpan="5" className="bg-light p-3 border-top">
                 <ForwardProgress log={''} metrics={e.metrics} events={e.events} logs={e.logs} encoder={e.encoder} ffmpegArgs={e.ffmpegArgs} programSourceRate={e.programSourceRate} />
               </td></tr>
             )}
