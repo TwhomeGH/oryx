@@ -225,6 +225,8 @@ type ProgramStatus struct {
 	PID          int32
 	Switches     int
 	SourceActive bool
+	// The source's probed average frame rate, to compare with the output (normalize/CFR).
+	SourceRate   string
 	LastSwitchAt string
 	LastError    string
 
@@ -372,6 +374,7 @@ func (v *ProgramBus) queryStatus() ProgramStatus {
 		PID:             v.pid,
 		Switches:        v.switches,
 		SourceActive:    v.sourceActive,
+		SourceRate:      v.srcRate,
 		LastError:       v.lastError,
 		Reconnects:      v.reconnects,
 		ReconnectReason: v.reconnectReason,

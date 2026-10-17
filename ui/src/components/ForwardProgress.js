@@ -45,7 +45,7 @@ function Sparkline({data}) {
  *   log, the metrics object, and the diagnostics timeline / recent logs of the target.
  * @returns {React.ReactElement} Local progress summary and raw diagnostics.
  */
-export default function ForwardProgress({log, metrics, events, logs, encoder, ffmpegArgs}) {
+export default function ForwardProgress({log, metrics, events, logs, encoder, ffmpegArgs, programSourceRate}) {
   const {t} = useTranslation();
   const progress = parseForwardProgress(log);
   // Hardware encoders (NVENC/VAAPI/QSV/AMF/VideoToolbox) vs software (libx264).
@@ -67,7 +67,8 @@ export default function ForwardProgress({log, metrics, events, logs, encoder, ff
     <div>{t('forward.progress.speed')}: {progress.speed ?? '—'}</div>
     <div>{t('forward.progress.time')}: {progress.time ?? '—'}</div>
     {metrics && <>
-      <div>{t('forward.progress.avgFps')}: {fmt(metrics.avgFps)}</div>
+          <div>{t('forward.progress.avgFps')}: {fmt(metrics.avgFps)}</div>
+          {programSourceRate && <div>{t('forward.progress.sourceRate')}: {programSourceRate} → {fmt(metrics.avgFps)}</div>}
       <div>{t('forward.progress.noOutput')}: {fmt(metrics.noOutputSeconds)}s</div>
       <div>{t('forward.progress.drift')}: {fmt(metrics.mediaClockDriftSec)}s</div>
       {metrics.relayReconnects > 0 && <div>{t('forward.progress.reconnects')}: {metrics.relayReconnects}</div>}

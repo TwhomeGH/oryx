@@ -368,6 +368,9 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 						elem["fallback"] = !status.ProgramSourceActive
 					}
 					elem["programSwitches"] = status.ProgramSwitches
+					if status.ProgramSourceRate != "" {
+						elem["programSourceRate"] = status.ProgramSourceRate
+					}
 					if status.Encoder != "" {
 						elem["encoder"] = status.Encoder
 					}
@@ -661,6 +664,7 @@ type ForwardTaskStatus struct {
 	ProgramMode         string
 	ProgramFailover     string
 	ProgramSourceActive bool
+	ProgramSourceRate   string
 	ProgramSwitches     int
 	Encoder             string
 	FFmpegArgs          string
@@ -820,6 +824,7 @@ func (v *ForwardTask) queryStatus() ForwardTaskStatus {
 			ps = &p
 			status.ProgramMode, status.ProgramFailover = ps.Mode, ps.Failover
 			status.ProgramSourceActive, status.ProgramSwitches = ps.SourceActive, ps.Switches
+			status.ProgramSourceRate = ps.SourceRate
 		}
 	}
 	// Which video encoder this target's pipeline uses: the composite/slate program and the
