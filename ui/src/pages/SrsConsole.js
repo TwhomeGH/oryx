@@ -16,6 +16,7 @@ import moment from "moment";
 import {useTranslation} from "react-i18next";
 import {useErrorHandler} from "react-error-boundary";
 import {SrsErrorBoundary} from "../components/SrsErrorBoundary";
+import ForwardProgress from "../components/ForwardProgress";
 import {LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer} from "recharts";
 
 export default function SrsConsole() {
@@ -978,6 +979,7 @@ function SrsForwards({handleError}) {
   const {t} = useTranslation();
   const [list, setList] = React.useState([]);
   const [master, setMaster] = React.useState(true);
+  const [expanded, setExpanded] = React.useState(String());
 
   const refresh = React.useCallback(() => {
     axios.post('/terraform/v1/ffmpeg/forward/streams', {}, {headers: Token.loadBearerHeader()})
@@ -1011,20 +1013,29 @@ function SrsForwards({handleError}) {
       </tr></thead>
       <tbody>
         {list.length === 0 ? <tr><td colSpan="5" className="text-muted">{t('forward.statusNone')}</td></tr> : list.map((e, i) => (
-          <tr key={i}>
-            <td>{name(e)}{(e.label || '').startsWith('TEST ') && <Badge bg="warning" text="dark" className="ms-1">{t('console.fwTest')}</Badge>}</td>
-            <td>
-              <Badge bg={e.status === 'running' ? 'success' : 'secondary'}>{e.status || '-'}</Badge>
-              {e.fallback && <Badge bg="dark" className="ms-1">{t('forward.fallback')}</Badge>}
-            </td>
-            <td><Badge bg={e.enabled ? 'success' : 'secondary'} pill>{e.enabled ? t('console.fwOn') : t('console.fwOff')}</Badge></td>
-            <td>{e.metrics && e.metrics.avgFps ? e.metrics.avgFps.toFixed(1) : '-'}</td>
-            <td className="text-end">
-              <Button size="sm" variant={e.enabled ? 'outline-danger' : 'outline-success'} onClick={() => toggleTarget(e)}>
-                {e.enabled ? t('console.fwStop') : t('console.fwStart')}
-              </Button>
-            </td>
-          </tr>
+          <React.Fragment key={i}>
+            <tr>
+              <td>{name(e)}{(e.label || '').startsWith('TEST ') && <Badge bg="warning" text="dark" className="ms-1">{t('console.fwTest')}</Badge>}</td>
+              <td>
+                <Badge bg={e.status === 'running' ? 'success' : 'secondary'}>{e.status || '-'}</Badge>
+                {e.fallback && <Badge bg="dark" className="ms-1">{t('forward.fallback')}</Badge>}
+              </td>
+              <td><Badge bg={e.enabled ? 'success' : 'secondary'} pill>{e.enabled ? t('console.fwOn') : t('console.fwOff')}</Badge></td>
+              <td>{e.metrics && e.metrics.avgFps ? e.metrics.avgFps.toFixed(1) : '-'}</td>
+              <td className="text-end">
+                {e.ownStream && <a className="btn btn-sm btn-outline-secondary me-1" href={`/players/srs_player.html?stream=live/${e.ownStream}`} target="_blank" rel="noreferrer">{t('console.fwWatch')}</a>}
+                <Button size="sm" variant="outline-primary" className="me-1" onClick={() => setExpanded(expanded === e.platform ? '' : e.platform)}>{t('console.fwDetail')}</Button>
+                <Button size="sm" variant={e.enabled ? 'outline-danger' : 'outline-success'} onClick={() => toggleTarget(e)}>
+                  {e.enabled ? t('console.fwStop') : t('console.fwStart')}
+                </Button>
+              </td>
+            </tr>
+            {expanded === e.platform && (
+              <tr><td colSpan="5" className="bg-light">
+                <ForwardProgress log={''} metrics={e.metrics} events={e.events} logs={e.logs} encoder={e.encoder} ffmpegArgs={e.ffmpegArgs} programSourceRate={e.programSourceRate} />
+              </td></tr>
+            )}
+          </React.Fragment>
         ))}
       </tbody>
     </Table>

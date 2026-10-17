@@ -971,7 +971,9 @@
       "fwStart": "Enable",
       "fwStop": "Disable",
       "fwHint": "Per-target enable/disable only changes that target; the global switch pauses all forwarding.",
-      "fwTest": "TEST"
+      "fwTest": "TEST",
+      "fwWatch": "Preview",
+      "fwDetail": "Details"
     }
   },
   "meta": {

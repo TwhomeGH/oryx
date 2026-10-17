@@ -341,8 +341,9 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 						return errors.Wrapf(err, "unmarshal %v %v", k, configItem)
 					}
 
+					task := v.GetTask(config.Platform)
 					status := ForwardTaskStatus{State: forwardStateIdle}
-					if task := v.GetTask(config.Platform); task != nil {
+					if task != nil {
 						status = task.queryStatus()
 					}
 
@@ -356,6 +357,13 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 					}
 					if status.Input != "" {
 						elem["stream"] = status.Input
+						// The local output stream name (safe, no secret), so the console can offer a
+						// direct preview of the forwarded picture for local targets.
+						if task != nil {
+							if own := task.ownOutputStream(); own != "" {
+								elem["ownStream"] = own
+							}
+						}
 					}
 					if status.Program != "" {
 						elem["program"] = status.Program

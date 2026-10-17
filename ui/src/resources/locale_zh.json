@@ -971,7 +971,9 @@
       "fwStart": "启用",
       "fwStop": "停用",
       "fwHint": "逐目标的启用/停用只影响该目标；全域总开关会暂停所有转播。",
-      "fwTest": "TEST"
+      "fwTest": "TEST",
+      "fwWatch": "看画面",
+      "fwDetail": "详情"
     }
   },
   "meta": {
