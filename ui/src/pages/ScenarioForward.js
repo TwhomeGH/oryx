@@ -50,16 +50,6 @@ export default function ScenarioForward() {
 }
 
 function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
-  // The accordion is controlled so the batch buttons (expand/collapse all) can drive it.
-  const [activeKeys, setActiveKeys] = React.useState([defaultActiveKey]);
-  const [masterEnabled, setMasterEnabled] = React.useState(true);
-
-  // The global forward switch (pause/resume all without changing per-target preferences).
-  React.useEffect(() => {
-    axios.post('/terraform/v1/ffmpeg/forward/enabled', { action: 'query' }, {
-      headers: Token.loadBearerHeader(),
-    }).then(res => setMasterEnabled(res.data.data?.enabled !== false)).catch(handleError);
-  }, [handleError]);
   const language = useSrsLanguage();
   const { t } = useTranslation();
   const handleError = useErrorHandler();
@@ -70,6 +60,18 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
   // Active streams on SRS, for source suggestions and auto-selection hints.
   const [activeStreams, setActiveStreams] = React.useState();
   const [submiting, setSubmiting] = React.useState();
+  // The accordion is controlled so the batch buttons (expand/collapse all) can drive it.
+  const [activeKeys, setActiveKeys] = React.useState([defaultActiveKey]);
+  const [masterEnabled, setMasterEnabled] = React.useState(true);
+
+  // The global forward switch (pause/resume all without changing per-target preferences).
+  // Declared after handleError, which it lists as a dependency (referring to it earlier is a
+  // temporal dead zone error).
+  React.useEffect(() => {
+    axios.post('/terraform/v1/ffmpeg/forward/enabled', { action: 'query' }, {
+      headers: Token.loadBearerHeader(),
+    }).then(res => setMasterEnabled(res.data.data?.enabled !== false)).catch(handleError);
+  }, [handleError]);
 
   // Convert default config from kv to objects in array.
   React.useEffect(() => {
