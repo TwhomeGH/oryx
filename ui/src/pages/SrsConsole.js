@@ -1023,7 +1023,7 @@ function SrsForwards({handleError}) {
               <td><Badge bg={e.enabled ? 'success' : 'secondary'} pill>{e.enabled ? t('console.fwOn') : t('console.fwOff')}</Badge></td>
               <td>{e.metrics && e.metrics.avgFps ? e.metrics.avgFps.toFixed(1) : '-'}</td>
               <td className="text-end">
-                {e.ownStream && <a className="btn btn-sm btn-outline-secondary me-1" href={`/players/srs_player.html?stream=live/${e.ownStream}`} target="_blank" rel="noreferrer">{t('console.fwWatch')}</a>}
+                {e.ownStream && <a className="btn btn-sm btn-outline-secondary me-1" href={`/players/srs_player.html?stream=${e.ownStream}.flv`} target="_blank" rel="noreferrer">{t('console.fwWatch')}</a>}
                 <Button size="sm" variant="outline-primary" className="me-1" onClick={() => setExpanded(expanded === e.platform ? '' : e.platform)}>{t('console.fwDetail')}</Button>
                 <Button size="sm" variant={e.enabled ? 'outline-danger' : 'outline-success'} onClick={() => toggleTarget(e)}>
                   {e.enabled ? t('console.fwStop') : t('console.fwStart')}
@@ -1031,7 +1031,7 @@ function SrsForwards({handleError}) {
               </td>
             </tr>
             {expanded === e.platform && (
-              <tr><td colSpan="5" className="bg-light p-3 border-top">
+              <tr><td colSpan="5" className="p-3 border-top">
                 <ForwardProgress log={''} metrics={e.metrics} events={e.events} logs={e.logs} encoder={e.encoder} ffmpegArgs={e.ffmpegArgs} programSourceRate={e.programSourceRate} />
               </td></tr>
             )}
