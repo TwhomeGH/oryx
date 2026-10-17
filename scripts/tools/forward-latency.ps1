@@ -48,6 +48,7 @@ $tgtPlatform = "forwarding-latency-$pidStr"
 $secretValue = if ($pub) { "$tgtStream?secret=$pub" } else { $tgtStream }
 $target = @{
     action = "update"; platform = $tgtPlatform; server = "rtmp://localhost/live/"; secret = $secretValue
+    stream = $srcStream
     enabled = $true; custom = $true; label = "latency-$pidStr"; failover = ""; normalize = $false
 }
 function Api([string]$path, $body) {
@@ -55,16 +56,27 @@ function Api([string]$path, $body) {
 }
 
 "endpoint=$Endpoint  pubSecret=($($pub.Length) bytes)"
+try {
+    $m = (Api "/terraform/v1/ffmpeg/forward/enabled" @{ action = "query" }).data
+    if ($m -and $m.enabled -eq $false) {
+        Write-Warning "global forward switch is OFF; enable it in the UI (or the API) or the forward will not run."
+    }
+} catch { }
 
 try {
     if ($TestSource) {
         $Source = "live/$srcStream"
-        $srcURL = if ($pub) { "rtmp://localhost/$Source`?secret=$pub" } else { "rtmp://localhost/$Source" }
-        Write-Host "starting test source $Source"
-        docker exec -d $Container ffmpeg -hide_banner -loglevel error -re `
-            -f lavfi -i "testsrc=size=640x360:rate=25" `
-            -f lavfi -i "anullsrc=channel_layout=stereo:sample_rate=44100" `
-            -c:v libx264 -preset veryfast -tune zerolatency -g 50 -pix_fmt yuv420p -c:a aac -f flv $srcURL | Out-Null
+        $rtmpPort = Get-DockerPort $Container 1935
+        if (-not $rtmpPort) { $rtmpPort = 1935 }
+        $srcURL = if ($pub) { "rtmp://localhost:$rtmpPort/$Source`?secret=$pub" } else { "rtmp://localhost:$rtmpPort/$Source" }
+        Write-Host "starting test source $Source (host ffmpeg -> port $rtmpPort)"
+        $srcLog = Join-Path $env:TEMP "forward-latency-src.log"
+        $script:srcProc = Start-Process ffmpeg -ArgumentList @(
+            "-re", "-f", "lavfi", "-i", "testsrc=size=640x360:rate=25",
+            "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
+            "-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency", "-g", "50", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-f", "flv", $srcURL
+        ) -PassThru -WindowStyle Hidden -RedirectStandardError $srcLog
         Start-Sleep -Seconds 3
     }
 
@@ -94,8 +106,8 @@ try {
     for ($i = 1; $i -le $Samples; $i++) {
         $sh = @"
 rm -f /tmp/_lp /tmp/_lt
-timeout 5 ffprobe -v error -select_streams v:0 -show_entries packet=pts_time -of csv=p=0 '$progUrl' 2>/dev/null | tail -1 > /tmp/_lp &
-timeout 5 ffprobe -v error -select_streams v:0 -show_entries packet=pts_time -of csv=p=0 '$tgtUrl' 2>/dev/null | tail -1 > /tmp/_lt &
+stdbuf -oL timeout 5 ffprobe -v error -select_streams v:0 -show_entries packet=pts_time -of csv=p=0 '$progUrl' 2>/dev/null | tail -1 > /tmp/_lp &
+stdbuf -oL timeout 5 ffprobe -v error -select_streams v:0 -show_entries packet=pts_time -of csv=p=0 '$tgtUrl' 2>/dev/null | tail -1 > /tmp/_lt &
 wait
 cat /tmp/_lp; cat /tmp/_lt
 "@
@@ -119,5 +131,5 @@ cat /tmp/_lp; cat /tmp/_lt
 } finally {
     Write-Host "cleaning up..."
     try { Api "/terraform/v1/ffmpeg/forward/streams" @{ action = "delete"; platform = $tgtPlatform } | Out-Null } catch { }
-    if ($TestSource) { try { docker exec $Container sh -c "pkill -f 'latency-src-$pidStr' || true" | Out-Null } catch { } }
+    if ($script:srcProc) { try { Stop-Process -Id $script:srcProc.Id -Force -ErrorAction SilentlyContinue } catch { } }
 }
