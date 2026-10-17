@@ -20,7 +20,8 @@ param(
     [switch]$Play,
     [switch]$Normalize,
     [switch]$Slate,
-    [switch]$Keep
+    [switch]$Keep,
+    [switch]$Compare
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,6 +32,7 @@ $script:Token = ""
 $script:SourceProc = $null
 $script:PlayProc = $null
 $script:Platform = ""
+$script:ComparePlatform = ""
 
 function Step($msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
 
@@ -54,16 +56,19 @@ function Get-RedisField($hash, $field) {
 
 function Show-Status() {
     $list = Api "GET" "/terraform/v1/ffmpeg/forward/streams" $null
-    $b = $list | Where-Object { $_.platform -eq $script:Platform }
-    if (-not $b) { Write-Host "   (no status yet)"; return }
-    $m = $b.metrics
-    $line = "   status={0} mode={1} fallback={2} restarts={3}" -f $b.status, $b.programMode, $b.fallback, $b.restartCount
-    if ($m) {
-        $line += " | avgFps={0:N1} noOutput={1:N1}s drift={2:N1}s reconnects={3}" -f $m.avgFps, $m.noOutputSeconds, $m.mediaClockDriftSec, $m.relayReconnects
-    }
-    Write-Host $line
-    if ($b.events) {
-        $b.events | Select-Object -Last 3 | ForEach-Object { Write-Host ("   event {0} {1} {2}" -f $_.at, $_.name, $_.detail) -ForegroundColor DarkGray }
+    foreach ($platform in @($script:Platform, $script:ComparePlatform) | Where-Object { $_ }) {
+        $b = $list | Where-Object { $_.platform -eq $platform }
+        if (-not $b) { Write-Host "   [$platform] (no status yet)"; continue }
+        $m = $b.metrics
+        $line = "   {0} status={1} mode={2} fallback={3} restarts={4}" -f $b.label, $b.status, $b.programMode, $b.fallback, $b.restartCount
+        if ($m) {
+            $line += " | avgFps={0:N1} noOutput={1:N1}s drift={2:N1}s reconnects={3}" -f $m.avgFps, $m.noOutputSeconds, $m.mediaClockDriftSec, $m.relayReconnects
+        }
+        $color = if ($b.fallback) { 'Yellow' } elseif ($b.status -eq 'running') { 'Green' } elseif ($b.status -in @('retrying', 'degraded')) { 'Red' } else { 'Gray' }
+        Write-Host $line -ForegroundColor $color
+        if ($b.events) {
+            $b.events | Select-Object -Last 3 | ForEach-Object { Write-Host ("   event {0} {1} {2}" -f $_.at, $_.name, $_.detail) -ForegroundColor DarkGray }
+        }
     }
 }
 
@@ -104,12 +109,10 @@ function Stop-Play() {
 function Cleanup() {
     Stop-Source
     Stop-Play
-    if ($script:Token -and $script:Platform -and -not $Keep) {
-        try {
-            Api "POST" "/terraform/v1/ffmpeg/forward/secret" @{
-                action = "delete"; platform = $script:Platform
-            } | Out-Null
-        } catch { }
+    if ($script:Token -and -not $Keep) {
+        foreach ($p in @($script:Platform, $script:ComparePlatform) | Where-Object { $_ }) {
+            try { Api "POST" "/terraform/v1/ffmpeg/forward/secret" @{ action = "delete"; platform = $p } | Out-Null } catch { }
+        }
     }
 }
 
@@ -150,10 +153,20 @@ try {
     Start-Sleep -Seconds 3
 
     $fmode = if ($Slate) { "slate" } else { "hold" }
-    Step "啟用轉推：本機目標 rtmp://localhost/live/$($script:TgtID) normalize=$([bool]$Normalize) failover=$fmode"
+    $label = if ($Compare) { "TEST quick (copy)" } elseif ($Normalize) { "TEST quick (normalize)" } else { "TEST quick" }
+    Step "啟用轉推：本機目標 rtmp://localhost/live/$($script:TgtID)（$label）failover=$fmode"
     Api "POST" "/terraform/v1/ffmpeg/forward/secret" @{
-        action = "update"; platform = $script:Platform; server = "rtmp://localhost/live/"; secret = $script:TgtID; enabled = $true; custom = $true; label = "TEST quick"; normalize = [bool]$Normalize; failover = $(if ($Slate) { "slate" } else { "" })
+        action = "update"; platform = $script:Platform; server = "rtmp://localhost/live/"; secret = $script:TgtID; enabled = $true; custom = $true; label = $label; normalize = (-not $Compare -and [bool]$Normalize); failover = $(if ($Slate) { "slate" } else { "" })
     } | Out-Null
+
+    if ($Compare) {
+        $script:CompareTgtID = "quick-cmp-$PID"
+        $script:ComparePlatform = "forwarding-quick-cmp-$PID"
+        Step "啟用對照目標：rtmp://localhost/live/$($script:CompareTgtID)（TEST quick (normalize)：開啟補強轉碼 CFR）"
+        Api "POST" "/terraform/v1/ffmpeg/forward/secret" @{
+            action = "update"; platform = $script:ComparePlatform; server = "rtmp://localhost/live/"; secret = $script:CompareTgtID; enabled = $true; custom = $true; label = "TEST quick (normalize)"; normalize = $true; failover = ""
+        } | Out-Null
+    }
 
     $playURL = "$Endpoint/live/$($script:TgtID).flv"
     if ($Play) {
@@ -166,7 +179,11 @@ try {
         ) -PassThru -RedirectStandardError $script:PlayErr
     }
 
-    Step "等待並觀察指標（約 12 秒）"
+    if ($Compare) {
+        Step "等待並觀察指標（約 12 秒）：對照「copy 不轉碼」與「normalize CFR 補強」的 avgFps / drift / noOutput"
+    } else {
+        Step "等待並觀察指標（約 12 秒）"
+    }
     for ($i = 0; $i -lt 4; $i++) { Start-Sleep -Seconds 3; Show-Status }
 
     if ($Outage) {
