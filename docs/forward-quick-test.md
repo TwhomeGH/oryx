@@ -82,3 +82,32 @@ pwsh scripts/tools/forward-quick-test.ps1 -Container oryx -Endpoint http://local
 - **健康時 `avgFps` 卻偏低**：來源本身掉幀，或主機（如 WSL2）資源不足；看 `noOutput`／`drift` 佐證。
 - **中斷後一直沒有恢復**：代表「下游恢復」鏈路異常——這正是本工具要抓的；請附上
   `-Outage` 的輸出（`metrics`/`events`）。
+
+## 量測轉推延遲（forward-latency.ps1）
+
+`scripts/tools/forward-latency.ps1` 量「Oryx 轉推自己多出來的延遲」：在同一個瞬間比對
+**program（來源端）**與**轉推輸出**的視訊 PTS，差值就是轉推這段（**不含平台端**）的延遲。
+
+```powershell
+# 用現有直播來源（建議；先確認來源正在推流）
+pwsh scripts/tools/forward-latency.ps1 -Source live/livestream
+
+# 本機自帶測試來源（無現有直播時；目前部分環境的自動就緒較不穩，建議優先用 -Source）
+pwsh scripts/tools/forward-latency.ps1 -TestSource
+
+# 多取樣
+pwsh scripts/tools/forward-latency.ps1 -Source live/livestream -Samples 10 -IntervalSec 2
+```
+
+輸出範例：
+```
+ 1. program=  123.456s  target=  121.200s  forward latency=  2.26s
+ ...
+forward latency: avg=2.30s  min=2.20s  max=2.40s  (samples=5)
+note: this excludes the platform's own latency; add that for the viewer-side delay.
+```
+
+注意：
+- 這**不含平台端**延遲（Twitch/YouTube 自己的 5–15s）；觀眾端總延遲 ≈ 轉推延遲 + 平台延遲。
+- 量測會建立一個臨時的 `forwarding-latency-*` 本機目標，結束自動刪除。
+- 需要容器在跑（預設名稱 `oryx`）；API/RTMP 連接埠會自動偵測。
