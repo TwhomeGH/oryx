@@ -45,7 +45,7 @@ function Sparkline({data}) {
  *   log, the metrics object, and the diagnostics timeline / recent logs of the target.
  * @returns {React.ReactElement} Local progress summary and raw diagnostics.
  */
-export default function ForwardProgress({log, metrics, events, logs, encoder}) {
+export default function ForwardProgress({log, metrics, events, logs, encoder, ffmpegArgs}) {
   const {t} = useTranslation();
   const progress = parseForwardProgress(log);
   // Hardware encoders (NVENC/VAAPI/QSV/AMF/VideoToolbox) vs software (libx264).
@@ -77,6 +77,10 @@ export default function ForwardProgress({log, metrics, events, logs, encoder}) {
     {log && <details className="mt-1">
       <summary>{t('forward.progress.raw')}</summary>
       <pre className="small mb-0" style={{whiteSpace: 'pre-wrap', overflowWrap: 'anywhere'}}>{log}</pre>
+    </details>}
+    {ffmpegArgs && <details className="mt-1">
+      <summary>{t('forward.progress.ffmpegArgs')}</summary>
+      <pre className="small mb-0" style={{whiteSpace: 'pre-wrap', overflowWrap: 'anywhere'}}>{ffmpegArgs}</pre>
     </details>}
     {events?.length > 0 && <details className="mt-1">
       <summary>{t('forward.progress.events')}</summary>

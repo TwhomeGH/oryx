@@ -344,6 +344,9 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 					if status.Encoder != "" {
 						elem["encoder"] = status.Encoder
 					}
+					if status.FFmpegArgs != "" {
+						elem["ffmpegArgs"] = status.FFmpegArgs
+					}
 					if status.Start != "" {
 						elem["start"] = status.Start
 					}
@@ -591,6 +594,8 @@ type ForwardTask struct {
 	// The diagnostics timeline and recent FFmpeg logs (bounded rings).
 	logs   []string
 	events []ForwardEvent
+	// The last fanout FFmpeg command line (secret redacted), for troubleshooting.
+	ffmpegArgs string
 	// The last update time.
 	update *time.Time
 	// The task start time.
@@ -631,6 +636,7 @@ type ForwardTaskStatus struct {
 	ProgramSourceActive bool
 	ProgramSwitches     int
 	Encoder             string
+	FFmpegArgs          string
 	Frame               string
 	FrameUpdate         string
 	Start               string
@@ -799,6 +805,7 @@ func (v *ForwardTask) queryStatus() ForwardTaskStatus {
 	} else {
 		status.Encoder = "copy"
 	}
+	status.FFmpegArgs = v.ffmpegArgs
 	status.Metrics = v.queryMetrics(ps)
 	status.Logs = append([]string(nil), v.logs...)
 	status.Events = append([]ForwardEvent(nil), v.events...)
@@ -910,6 +917,25 @@ func (v *ForwardTask) markRunning(pid int32, inputURL, inputStreamURL, outputURL
 	// Reset the output metrics of the previous run.
 	v.metrics, v.metricsFirstSec, v.metricsFirstAt = forwardProgress{}, 0, time.Time{}
 	v.addEventLocked("start", outputURL)
+}
+
+// setFFmpegArgs records the fanout command line for troubleshooting, with any ?secret= value
+// masked so credentials are not exposed in the status/API/UI.
+func (v *ForwardTask) setFFmpegArgs(args []string) {
+	redacted := make([]string, len(args))
+	for i, a := range args {
+		if j := strings.Index(a, "secret="); j >= 0 {
+			if k := strings.IndexAny(a[j:], "& "); k >= 0 {
+				a = a[:j] + "secret=***" + a[j+k:]
+			} else {
+				a = a[:j] + "secret=***"
+			}
+		}
+		redacted[i] = a
+	}
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	v.ffmpegArgs = strings.Join(redacted, " ")
 }
 
 func (v *ForwardTask) markFailure(err error) time.Duration {
@@ -1407,6 +1433,7 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 	// Build the FFmpeg arguments. Optionally normalize (transcode) the output into a regular
 	// CFR stream, to mitigate a source with dropped frames, VFR or timestamp jitter.
 	args := forwardFanoutArgs(v.config != nil && v.config.Normalize, programInputURL, outputURL)
+	v.setFFmpegArgs(args)
 	// Create the command object.
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
 

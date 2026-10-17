@@ -769,7 +769,8 @@
         "hint": "处理 FPS 并非来源影格率。启动时可能因缓冲资料而偏高；累计处理速度也不是近期速度，不能单凭数字判断异常。来源 FPS 尚未在此表采样。",
         "destination": "本表显示本机 FFmpeg 的输出回报，不代表目的平台已确认接收或播放正常；请至目的平台确认。",
         "encoder": "编码器",
-        "gpu": "（GPU 硬件）"
+        "gpu": "（GPU 硬件）",
+        "ffmpegArgs": "FFmpeg 参数"
       },
       "statusTitle": "转播状态",
       "statusShort": "转播",

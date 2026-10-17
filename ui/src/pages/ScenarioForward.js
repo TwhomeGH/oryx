@@ -464,7 +464,7 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
                             {file.lastErrorAt?.format('YYYY-MM-DD HH:mm:ss')}
                           </div>}
                         </td>
-                        <td style={{ maxWidth: 360, wordBreak: 'break-word' }}><ForwardProgress log={file.frame?.log} metrics={file.metrics} events={file.events} logs={file.logs} encoder={file.encoder} /></td>
+                        <td style={{ maxWidth: 360, wordBreak: 'break-word' }}><ForwardProgress log={file.frame?.log} metrics={file.metrics} events={file.events} logs={file.logs} encoder={file.encoder} ffmpegArgs={file.ffmpegArgs} /></td>
                       </tr>;
                     })
                   }
