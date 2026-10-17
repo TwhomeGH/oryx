@@ -1191,8 +1191,11 @@ var forwardEncoderArgs []string
 
 func forwardVideoEncodeArgs() []string {
 	forwardEncoderOnce.Do(func() {
+		// Use a size above the hardware encoders' minimum: NVENC rejects small frames (e.g. 64x64
+		// with "Frame Dimension less than the minimum supported value"), which would make a
+		// working GPU look unavailable and silently fall back to libx264.
 		probe := exec.CommandContext(context.Background(), "ffmpeg", "-hide_banner", "-loglevel", "error",
-			"-f", "lavfi", "-i", "color=c=black:s=64x64:r=1", "-frames:v", "1",
+			"-f", "lavfi", "-i", "color=c=black:s=256x256:r=1", "-frames:v", "1",
 			"-c:v", "h264_nvenc", "-f", "null", "-")
 		if err := probe.Run(); err == nil {
 			forwardEncoderArgs = []string{"-c:v", "h264_nvenc", "-preset", "p4", "-tune", "ll", "-profile:v", "high", "-pix_fmt", "yuv420p"}
