@@ -200,9 +200,15 @@ try {
         if (Test-Path $script:PlayErr) { Get-Content $script:PlayErr -Tail 6 | ForEach-Object { Write-Host "     $_" -ForegroundColor DarkGray } }
     }
 
-    Step "完成。輸出可播放（HTTP-FLV）：$playURL"
-    Write-Host "   UI 檢視：開啟 $Endpoint → 場景 → 轉推 → 展開「狀態」→ 該列『本機輸出進度』（含診斷時間線/近期日誌）。" -ForegroundColor Yellow
-    if ($Keep) { Write-Host "   已保留設定（-Keep），要清理請自行停用該轉推。" -ForegroundColor Yellow }
+    Step "完成。轉推輸出（HTTP-FLV）：$playURL"
+    if (-not $Play) {
+        Write-Host "   看畫面：加 -Play 會自動開 ffplay 預覽（也可把上面的 HTTP-FLV 網址貼到播放器）。" -ForegroundColor Yellow
+    }
+    if ($Keep) {
+        Write-Host "   已保留設定（-Keep）：UI 檢視請開 $Endpoint → 場景 → 轉推 → 展開「狀態」→ 該列『本機輸出進度』（含診斷時間線/近期日誌）。" -ForegroundColor Yellow
+    } else {
+        Write-Host "   測試設定已清理（目標已刪除）；若想在 UI 看診斷，請加 -Keep 重跑一次。" -ForegroundColor DarkGray
+    }
 } finally {
     if (-not $Keep) { Step "清理"; Cleanup } else { Stop-Source; Stop-Play }
 }
