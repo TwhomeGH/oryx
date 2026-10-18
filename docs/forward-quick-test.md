@@ -12,10 +12,10 @@
 ## 一鍵測試
 
 ```powershell
-pwsh scripts/tools/forward-quick-test.ps1                 # 快樂路徑
-pwsh scripts/tools/forward-quick-test.ps1 -Outage         # 加上「來源中斷 → 恢復」示範
+pwsh scripts/tools/forward-quick-test.ps1                 # 正常流程（只測來源→轉推→指標，不含中斷/備援/對照）
+pwsh scripts/tools/forward-quick-test.ps1 -Outage         # 加上「來源中斷 → 恢復」示範（斷線行為）
 pwsh scripts/tools/forward-quick-test.ps1 -NoPlay         # 不開 ffplay 預覽（預設會自動開，CI/無顯示環境用）
-pwsh scripts/tools/forward-quick-test.ps1 -Normalize      # 啟用「補強轉碼（正規化 CFR）」再測
+pwsh scripts/tools/forward-quick-test.ps1 -Normalize      # 啟用「補強轉碼（正規化 CFR）」再測（畫質/時間戳）
 pwsh scripts/tools/forward-quick-test.ps1 -Outage -Slate  # 來源中斷改用備用畫面（深灰底＋跳動時鐘）
 pwsh scripts/tools/forward-quick-test.ps1 -Keep           # 保留設定，方便自己點 UI 看
 pwsh scripts/tools/forward-quick-test.ps1 -Container oryx -Endpoint http://localhost:882

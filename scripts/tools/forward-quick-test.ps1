@@ -6,7 +6,7 @@
 # 適合快速自我檢查：程式是否運作、來源中斷時是否不斷線、指標長怎樣。
 #
 # 用法:
-#   pwsh scripts/tools/forward-quick-test.ps1              # 快樂路徑（預設會開 ffplay 預覽）
+#   pwsh scripts/tools/forward-quick-test.ps1              # 正常流程（預設會開 ffplay 預覽）
 #   pwsh scripts/tools/forward-quick-test.ps1 -Outage      # 加上「來源中斷」示範
 #   pwsh scripts/tools/forward-quick-test.ps1 -NoPlay      # 不開預覽（無顯示環境/CI）
 #   pwsh scripts/tools/forward-quick-test.ps1 -Keep        # 保留設定，方便自己點 UI 看
