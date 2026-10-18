@@ -14,9 +14,9 @@
 ```powershell
 pwsh scripts/tools/forward-quick-test.ps1                 # 快樂路徑
 pwsh scripts/tools/forward-quick-test.ps1 -Outage         # 加上「來源中斷 → 恢復」示範
-pwsh scripts/tools/forward-quick-test.ps1 -Play           # 另外開 ffplay，即時看輸出（可看凍結/恢復）
+pwsh scripts/tools/forward-quick-test.ps1 -NoPlay         # 不開 ffplay 預覽（預設會自動開，CI/無顯示環境用）
 pwsh scripts/tools/forward-quick-test.ps1 -Normalize      # 啟用「補強轉碼（正規化 CFR）」再測
-pwsh scripts/tools/forward-quick-test.ps1 -Outage -Slate -Play   # 來源中斷改用備用畫面（深灰底＋跳動時鐘）
+pwsh scripts/tools/forward-quick-test.ps1 -Outage -Slate  # 來源中斷改用備用畫面（深灰底＋跳動時鐘）
 pwsh scripts/tools/forward-quick-test.ps1 -Keep           # 保留設定，方便自己點 UI 看
 pwsh scripts/tools/forward-quick-test.ps1 -Container oryx -Endpoint http://localhost:882
 ```
@@ -30,7 +30,7 @@ pwsh scripts/tools/forward-quick-test.ps1 -Container oryx -Endpoint http://local
 2. 從容器讀取 `SRS_PLATFORM_SECRET`（API）與 `SRS_AUTH_SECRET/pubSecret`（推流）。
 3. 用**本機 ffmpeg** 推一個來源到 `rtmp://localhost:1935/live/quick-src-<pid>`。
 4. 啟用一個**本機目標**的轉推：`rtmp://localhost/live/quick-tgt-<pid>`。
-5. `-Play` 時：用 `ffplay` 即時播放目標輸出（HTTP-FLV），可直接看到凍結與恢復。
+5. 預設會用 `ffplay` 即時播放目標輸出（HTTP-FLV），可直接看到凍結與恢復；`-NoPlay` 可關閉。
 6. 每 3 秒印出狀態與指標（`status/mode/fallback/restarts | avgFps/noOutput/drift/reconnects`）與最近事件。
 7. `-Outage` 時：中斷來源、觀察（`fallback=True`、`noOutput` 上升、restart 不變），再恢復來源、觀察恢復。
    - 預設 `failover=hold`：目標畫面**凍結在最後一格**；
