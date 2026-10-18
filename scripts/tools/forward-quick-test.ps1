@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 #
 # 轉推快速測試工具 (forward quick test)
 #
@@ -28,6 +28,7 @@ param(
 
 if ($NoPlay) { $Play = $false }
 
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 $ErrorActionPreference = "Stop"
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 if (-not $Source) { $Source = Join-Path $RepoRoot "test\source.200kbps.768x320.flv" }
