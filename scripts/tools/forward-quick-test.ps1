@@ -18,7 +18,7 @@ param(
     [string]$Source = "",
     [string]$Rtmp = "",
     [switch]$Outage,
-    [bool]$Play = $true,
+    [switch]$Play = $true,
     [switch]$NoPlay,
     [switch]$Normalize,
     [switch]$Slate,
