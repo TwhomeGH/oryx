@@ -780,6 +780,9 @@ func forwardSlateDrawtext() string {
 // forwardSlateFont picks an available font for the slate clock, or "" if none is found.
 func forwardSlateFont() string {
 	for _, f := range []string{
+		// Prefer a CJK-capable font first: Roboto has no Chinese glyphs, so the slate text
+		// (e.g. the outage message) would render as tofu boxes.
+		"/usr/local/share/fonts/NotoSansSC-Regular.ttf",
 		"/usr/local/share/fonts/Roboto-Regular.ttf",
 		"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
 		"/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
