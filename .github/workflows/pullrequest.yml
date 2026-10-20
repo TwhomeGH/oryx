@@ -12,8 +12,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  quiet-gate:
+    name: quiet-gate
+    runs-on: ubuntu-22.04
+    # Debounce main/release-branch pushes: wait for 30 minutes without a newer push before
+    # running the suite. PRs and release tags (v*) run immediately.
+    if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/v')
+    outputs:
+      stale: ${{ steps.check.outputs.stale }}
+    steps:
+      - name: Wait for a 30-minute quiet window
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "Waiting 30min for a quiet window; a newer push cancels this run."
+          sleep 1800
+          latest=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_REF_NAME}" --jq .sha)
+          if [ "$latest" != "$GITHUB_SHA" ]; then
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Newer commit ${latest} exists; skipping this stale run."
+          else
+            echo "stale=false" >> "$GITHUB_OUTPUT"
+          fi
   envs:
     name: envs
+    needs:
+      - quiet-gate
+    if: needs.quiet-gate.outputs.stale != 'true'
     steps:
       ##################################################################################################################
       # Git checkout
