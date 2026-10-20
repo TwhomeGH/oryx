@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"sort"
 	"strconv"
@@ -966,17 +967,26 @@ func (v *ForwardTask) markRunning(pid int32, inputURL, inputStreamURL, outputURL
 
 // setFFmpegArgs records the fanout command line for troubleshooting, with any ?secret= value
 // masked so credentials are not exposed in the status/API/UI.
+// redactForwardURL masks the stream key (the last path segment) and any ?secret= value, since
+// platform ingest URLs (e.g. Restream/Twitch) carry the key in the path, not the query.
+func redactForwardURL(s string) string {
+	u, err := url.Parse(s)
+	if err != nil || (u.Scheme != "rtmp" && u.Scheme != "rtmps") {
+		return s
+	}
+	if parts := strings.Split(strings.Trim(u.Path, "/"), "/"); len(parts) >= 2 {
+		parts[len(parts)-1] = "***"
+		u.Path = "/" + strings.Join(parts, "/")
+	}
+	if u.RawQuery != "" {
+		u.RawQuery = "secret=***"
+	}
+	return u.String()
+}
 func (v *ForwardTask) setFFmpegArgs(args []string) {
 	redacted := make([]string, len(args))
 	for i, a := range args {
-		if j := strings.Index(a, "secret="); j >= 0 {
-			if k := strings.IndexAny(a[j:], "& "); k >= 0 {
-				a = a[:j] + "secret=***" + a[j+k:]
-			} else {
-				a = a[:j] + "secret=***"
-			}
-		}
-		redacted[i] = a
+		redacted[i] = redactForwardURL(a)
 	}
 	v.lock.Lock()
 	defer v.lock.Unlock()
@@ -1187,7 +1197,7 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 
 		// Start forward task.
 		if err := v.doForward(ctx); err != nil {
-			return errors.Wrapf(err, "do forward")
+			return fmt.Errorf("do forward: %w", err)
 		}
 
 		return nil
