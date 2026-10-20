@@ -80,7 +80,14 @@ jobs:
           ffmpeg -version
       - name: Test by jest and Go
         run: |
-          make -j && make test -j
+          make -j
+          set +e
+          make test -j 2>&1 | tee test.log
+          ret=${PIPESTATUS[0]}
+          if [ "$ret" -ne 0 ]; then
+            bash scripts/tools/github-go-test-annotations.sh test.log
+          fi
+          exit "$ret"
 
   build-platform-image:
     name: Build platform image

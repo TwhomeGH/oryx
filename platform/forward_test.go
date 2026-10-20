@@ -146,7 +146,7 @@ func TestForward_Diagnostics(t *testing.T) {
 	for _, e := range status.Events {
 		names = append(names, e.Name)
 	}
-	if len(names) != 3 || names[0] != "start" || names[1] != "failure" || names[2] != "recovered" {
+	if len(names) != 3 || names[0] != "start" || names[1] != "failure" || names[2] != "source-back" {
 		t.Fatalf("invalid events %v", names)
 	}
 
