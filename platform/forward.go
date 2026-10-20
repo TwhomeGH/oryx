@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -45,6 +46,10 @@ const (
 	// the program publisher itself can change without republishing (design B).
 	forwardFanoutRestartOnSwitch = true
 )
+
+// errProgramNotReady means the source just went live but the program is not published yet;
+// this is a short wait before the fanout can read it, not a forwarding failure.
+var errProgramNotReady = errors.New("program not ready")
 
 type ForwardWorker struct {
 	cancel context.CancelFunc
@@ -1190,6 +1195,15 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 
 	for ctx.Err() == nil {
 		if err := pfn(ctx); err != nil {
+			// The program is not published yet (the source was just selected): wait briefly and
+			// retry without counting a failure/restart, so the diagnostics stay clean.
+			if stderrors.Is(err, errProgramNotReady) {
+				select {
+				case <-ctx.Done():
+				case <-time.After(500 * time.Millisecond):
+				}
+				continue
+			}
 			delay := v.markFailure(err)
 			logger.Wf(ctx, "ignore %v err %+v, retry in %v", v.String(), err, delay)
 
@@ -1508,7 +1522,7 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 	// program is not published yet (the platform proxy returns 502), which would cause a
 	// spurious restart.
 	if err := waitStreamReady(ctx, programInputURL, 10*time.Second); err != nil {
-		return errors.Wrapf(err, "program %v not published yet (source offline?), waiting", programInputURL)
+		return fmt.Errorf("%w: %v", errProgramNotReady, err)
 	}
 
 	// Build the FFmpeg arguments. Optionally normalize (transcode) the output into a regular
