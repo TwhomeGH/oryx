@@ -1003,7 +1003,7 @@ func (v *ForwardTask) markHealthy() {
 	v.lock.Lock()
 	defer v.lock.Unlock()
 	if v.ConsecutiveFailures > 0 {
-		v.addEventLocked("recovered", "")
+		v.addEventLocked("source-back", "resumed after failure")
 	}
 	v.ConsecutiveFailures = 0
 	v.LastError = ""
@@ -1508,7 +1508,7 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 	// program is not published yet (the platform proxy returns 502), which would cause a
 	// spurious restart.
 	if err := waitStreamReady(ctx, programInputURL, 10*time.Second); err != nil {
-		return errors.Wrapf(err, "wait program %v ready", programInputURL)
+		return errors.Wrapf(err, "program %v not published yet (source offline?), waiting", programInputURL)
 	}
 
 	// Build the FFmpeg arguments. Optionally normalize (transcode) the output into a regular
