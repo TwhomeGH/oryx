@@ -6,6 +6,10 @@ on:
       - main
       - release/*
 
+concurrency:
+  group: test-dev-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+
 jobs:
   envs:
     name: envs
