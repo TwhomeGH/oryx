@@ -363,7 +363,8 @@
       "gpuLoading": "GPU 状態を読み込み中...",
       "gpuNone": "コンテナに GPU がありません（CPU エンコードのみ）。",
       "gpuUtil": "GPU 使用率",
-      "gpuMem": "GPU メモリ"
+      "gpuMem": "GPU メモリ",
+      "gpuProcs": "GPU プロセス（コンテナ）"
     },
     "cb": {
       "title": "シーン紹介",

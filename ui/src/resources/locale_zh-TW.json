@@ -202,7 +202,8 @@
       "gpuLoading": "正在讀取 GPU 狀態…",
       "gpuNone": "容器內沒有可用 GPU（僅 CPU 編碼）。",
       "gpuUtil": "GPU 使用率",
-      "gpuMem": "GPU 記憶體"
+      "gpuMem": "GPU 記憶體",
+      "gpuProcs": "容器內 GPU 程式"
     },
     "coms": {
       "srs4": "SRS(穩定版)",

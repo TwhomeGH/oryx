@@ -117,6 +117,20 @@ function SettingDisk() {
               </Badge>
             </div>
             <div className="text-muted small">{t('settings.gpuMem')}: {gpu.memUsedMB} / {gpu.memTotalMB} MB</div>
+            {gpu.processes && gpu.processes.length > 0 && <>
+              <div className="small mt-2">{t('settings.gpuProcs')}</div>
+              <Table size="sm" borderless className="mb-0">
+                <tbody>
+                  {gpu.processes.map((p) => (
+                    <tr key={`${p.pid}-${p.name}`}>
+                      <td className="text-muted small">{p.pid}</td>
+                      <td className="small text-truncate" style={{maxWidth: 320}}>{p.name}</td>
+                      <td className="small text-end">{p.usedMB} MB</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </>}
           </>}
           <Button className="mt-2" variant="secondary" size="sm" onClick={() => refreshGpu()}>{t('settings.diskRefresh')}</Button>
         </Accordion.Body>

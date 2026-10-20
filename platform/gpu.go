@@ -15,12 +15,20 @@ import (
 )
 
 // gpuInfo is the host GPU state, so failures can be correlated with encoder saturation.
+// gpuProcess is one process the GPU reports as a compute client.
+type gpuProcess struct {
+	PID    int    `json:"pid"`
+	Name   string `json:"name"`
+	UsedMB int    `json:"usedMB"`
+}
+
 type gpuInfo struct {
-	Available  bool   `json:"available"`
-	Name       string `json:"name,omitempty"`
-	UtilPct    int    `json:"utilPct"`
-	MemUsedMB  int    `json:"memUsedMB"`
-	MemTotalMB int    `json:"memTotalMB"`
+	Available  bool         `json:"available"`
+	Name       string       `json:"name,omitempty"`
+	UtilPct    int          `json:"utilPct"`
+	MemUsedMB  int          `json:"memUsedMB"`
+	MemTotalMB int          `json:"memTotalMB"`
+	Processes  []gpuProcess `json:"processes"`
 }
 
 // queryGPU reads the first GPU via nvidia-smi. An absent GPU returns Available=false, not an
@@ -40,6 +48,21 @@ func queryGPU(ctx context.Context) gpuInfo {
 	info.UtilPct, _ = strconv.Atoi(strings.TrimSpace(strings.TrimSuffix(parts[1], "%")))
 	info.MemUsedMB, _ = strconv.Atoi(strings.TrimSpace(strings.TrimSuffix(parts[2], "MiB")))
 	info.MemTotalMB, _ = strconv.Atoi(strings.TrimSpace(strings.TrimSuffix(parts[3], "MiB")))
+
+	if out, err := exec.CommandContext(ctx, "nvidia-smi",
+		"--query-compute-apps=pid,process_name,used_memory", "--format=csv,noheader").Output(); err == nil {
+		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+			fields := strings.Split(line, ",")
+			if len(fields) != 3 {
+				continue
+			}
+			pid, _ := strconv.Atoi(strings.TrimSpace(fields[0]))
+			used, _ := strconv.Atoi(strings.TrimSpace(strings.TrimSuffix(fields[2], "MiB")))
+			info.Processes = append(info.Processes, gpuProcess{
+				PID: pid, Name: strings.TrimSpace(fields[1]), UsedMB: used,
+			})
+		}
+	}
 	return info
 }
 

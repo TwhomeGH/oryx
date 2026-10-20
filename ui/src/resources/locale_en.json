@@ -737,7 +737,8 @@
       "gpuLoading": "Loading GPU status...",
       "gpuNone": "No GPU exposed to the container (CPU encoding only).",
       "gpuUtil": "GPU utilization",
-      "gpuMem": "GPU memory"
+      "gpuMem": "GPU memory",
+      "gpuProcs": "GPU processes (container)"
     },
     "coms": {
       "srs4": "SRS(Stable)",
