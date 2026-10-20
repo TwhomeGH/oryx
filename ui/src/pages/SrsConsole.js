@@ -1051,8 +1051,13 @@ function SrsDiagnostics({handleError}) {
   const {t} = useTranslation();
   const [gpu, setGpu] = React.useState();
   React.useEffect(() => {
-    axios.post('/terraform/v1/mgmt/gpu/query', {}, {headers: Token.loadBearerHeader()})
-      .then(res => setGpu(res.data.data)).catch(handleError);
+    const refresh = () => {
+      axios.post('/terraform/v1/mgmt/gpu/query', {}, {headers: Token.loadBearerHeader()})
+        .then(res => setGpu(res.data.data)).catch(handleError);
+    };
+    refresh();
+    const timer = setInterval(refresh, 10000);
+    return () => clearInterval(timer);
   }, [handleError]);
 
   const gpuVariant = (u) => (u >= 90 ? 'danger' : u >= 70 ? 'warning' : 'success');

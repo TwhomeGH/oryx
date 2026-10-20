@@ -68,7 +68,12 @@ function SettingDisk() {
       .then(res => setGpu(res.data.data)).catch(handleError);
   }, [handleError]);
 
-  React.useEffect(() => { refresh(); refreshGpu(); }, [refresh, refreshGpu]);
+  React.useEffect(() => { refresh(); }, [refresh]);
+  React.useEffect(() => {
+    refreshGpu();
+    const timer = setInterval(refreshGpu, 10000);
+    return () => clearInterval(timer);
+  }, [refreshGpu]);
 
   const gb = (b) => (Number.isFinite(b) ? (b / 1024 / 1024 / 1024).toFixed(1) : '—');
   const variant = (p) => (p >= 95 ? 'danger' : p >= 85 ? 'warning' : 'success');
