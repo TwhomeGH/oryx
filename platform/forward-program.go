@@ -747,7 +747,10 @@ func (v *ProgramBus) probeSourceSize(ctx context.Context) {
 	w, _ := strconv.Atoi(strings.TrimSpace(parts[0]))
 	h, _ := strconv.Atoi(strings.TrimSpace(parts[1]))
 	rate := forwardSlateRate(parts[2], parts[3])
-	if w > 0 && h > 0 {
+	// Bound the dimensions before narrowing to int32: ffprobe output is untrusted, and a huge
+	// value would overflow the conversion (and no real video exceeds 16K).
+	const maxVideoDim = 16384
+	if w > 0 && h > 0 && w <= maxVideoDim && h <= maxVideoDim {
 		v.setSourceSize(int32(w), int32(h), rate)
 		logger.Tf(ctx, "forward program probed source size %vx%v@%v (r=%v avg=%v)", w, h, rate, parts[2], parts[3])
 	}
