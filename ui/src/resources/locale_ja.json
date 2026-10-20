@@ -358,7 +358,12 @@
       "keyframeSecondsHint": "正規化/コンポジットのトランスコードで使用。GOP = 間隔 × 出力 fps。2 秒が一般的なプラットフォーム要件です。",
       "forwardMasterTitle": "グローバルスイッチ",
       "forwardMaster": "マルチプラットフォーム転送を有効化",
-      "forwardMasterHint": "オフにすると全転送を一時停止します（各ターゲットの有効設定は変わりません）。再起動後も保持されます。"
+      "forwardMasterHint": "オフにすると全転送を一時停止します（各ターゲットの有効設定は変わりません）。再起動後も保持されます。",
+      "gpuTitle": "GPU",
+      "gpuLoading": "GPU 状態を読み込み中...",
+      "gpuNone": "コンテナに GPU がありません（CPU エンコードのみ）。",
+      "gpuUtil": "GPU 使用率",
+      "gpuMem": "GPU メモリ"
     },
     "cb": {
       "title": "シーン紹介",

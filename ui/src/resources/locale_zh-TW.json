@@ -197,7 +197,12 @@
       "keyframeSecondsHint": "用於補強轉碼；GOP = 間隔 × 輸出 fps。平臺一般為 ≤2 秒。",
       "forwardMasterTitle": "全域總開關",
       "forwardMaster": "啟用多平臺轉播",
-      "forwardMasterHint": "關閉後所有轉播都會暫停（不會改各目標的啟用設定），且會持久保留、重啟後仍有效。"
+      "forwardMasterHint": "關閉後所有轉播都會暫停（不會改各目標的啟用設定），且會持久保留、重啟後仍有效。",
+      "gpuTitle": "GPU",
+      "gpuLoading": "正在讀取 GPU 狀態…",
+      "gpuNone": "容器內沒有可用 GPU（僅 CPU 編碼）。",
+      "gpuUtil": "GPU 使用率",
+      "gpuMem": "GPU 記憶體"
     },
     "coms": {
       "srs4": "SRS(穩定版)",

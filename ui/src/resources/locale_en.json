@@ -732,7 +732,12 @@
       "keyframeSecondsHint": "Used by normalize/composite transcoding: GOP = interval × output fps. 2s is the common platform requirement.",
       "forwardMasterTitle": "Global switch",
       "forwardMaster": "Enable multi-platform forwarding",
-      "forwardMasterHint": "Turning this off pauses ALL forwarding (it does not change each target's own enabled setting) and persists across restarts."
+      "forwardMasterHint": "Turning this off pauses ALL forwarding (it does not change each target's own enabled setting) and persists across restarts.",
+      "gpuTitle": "GPU",
+      "gpuLoading": "Loading GPU status...",
+      "gpuNone": "No GPU exposed to the container (CPU encoding only).",
+      "gpuUtil": "GPU utilization",
+      "gpuMem": "GPU memory"
     },
     "coms": {
       "srs4": "SRS(Stable)",

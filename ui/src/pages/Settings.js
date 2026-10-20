@@ -49,6 +49,7 @@ function SystemsImpl() {
 // Disk capacity of the platform data dir, to correlate "out of space" with failures.
 function SettingDisk() {
   const [disk, setDisk] = React.useState();
+  const [gpu, setGpu] = React.useState();
   const handleError = useErrorHandler();
   const { t } = useTranslation();
 
@@ -62,7 +63,12 @@ function SettingDisk() {
     }).catch(handleError);
   }, [handleError]);
 
-  React.useEffect(() => { refresh(); }, [refresh]);
+  const refreshGpu = React.useCallback(() => {
+    axios.post('/terraform/v1/mgmt/gpu/query', {}, {headers: Token.loadBearerHeader()})
+      .then(res => setGpu(res.data.data)).catch(handleError);
+  }, [handleError]);
+
+  React.useEffect(() => { refresh(); refreshGpu(); }, [refresh, refreshGpu]);
 
   const gb = (b) => (Number.isFinite(b) ? (b / 1024 / 1024 / 1024).toFixed(1) : '—');
   const variant = (p) => (p >= 95 ? 'danger' : p >= 85 ? 'warning' : 'success');
@@ -96,6 +102,23 @@ function SettingDisk() {
               {t('settings.diskRefresh')}
             </Button>
           </>}
+        </Accordion.Body>
+      </Accordion.Item>
+      <Accordion.Item eventKey="2">
+        <Accordion.Header>{t('settings.gpuTitle')}</Accordion.Header>
+        <Accordion.Body>
+          {!gpu && <div className="text-muted">{t('settings.gpuLoading')}</div>}
+          {gpu && !gpu.available && <div className="text-muted">{t('settings.gpuNone')}</div>}
+          {gpu && gpu.available && <>
+            <div>{gpu.name}</div>
+            <div className="my-2">
+              <Badge bg={gpu.utilPct >= 90 ? 'danger' : gpu.utilPct >= 70 ? 'warning' : 'success'}>
+                {t('settings.gpuUtil')}: {gpu.utilPct}%
+              </Badge>
+            </div>
+            <div className="text-muted small">{t('settings.gpuMem')}: {gpu.memUsedMB} / {gpu.memTotalMB} MB</div>
+          </>}
+          <Button className="mt-2" variant="secondary" size="sm" onClick={() => refreshGpu()}>{t('settings.diskRefresh')}</Button>
         </Accordion.Body>
       </Accordion.Item>
     </Accordion>
