@@ -980,7 +980,10 @@
       "fwHint": "逐目標的啟用/停用隻影響該目標；全域總開關會暫停所有轉播。",
       "fwTest": "TEST",
       "fwWatch": "看畫面",
-      "fwDetail": "詳情"
+      "fwDetail": "詳情",
+      "diagnostics": "診斷",
+      "diagGpu": "GPU 與編碼器",
+      "diagForwards": "轉播目標"
     }
   },
   "meta": {

@@ -980,7 +980,10 @@
       "fwHint": "Per-target enable/disable only changes that target; the global switch pauses all forwarding.",
       "fwTest": "TEST",
       "fwWatch": "Preview",
-      "fwDetail": "Details"
+      "fwDetail": "Details",
+      "diagnostics": "Diagnostics",
+      "diagGpu": "GPU & encoder",
+      "diagForwards": "Forward targets"
     }
   },
   "meta": {

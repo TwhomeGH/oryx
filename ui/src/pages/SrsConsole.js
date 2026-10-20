@@ -60,6 +60,9 @@ function SrsConsoleImpl() {
     <>
       <Container fluid className="pt-3">
         <Tabs activeKey={key} onSelect={(k) => setKey(k)} className="mb-3">
+          <Tab eventKey="diagnostics" title={t('console.diagnostics')}>
+            <SrsDiagnostics {...{handleError}} />
+          </Tab>
           <Tab eventKey="forwards" title={t('console.forwards')}>
             <SrsForwards {...{handleError}} />
           </Tab>
@@ -1040,5 +1043,50 @@ function SrsForwards({handleError}) {
       </tbody>
     </Table>
     <div className="small text-muted mt-2">{t('console.fwHint')}</div>
+  </>);
+}
+// Consolidated diagnostics: GPU, per-target forward state, and the SRS streams on one page, so
+// a failure can be traced without switching between Settings and the console tabs.
+function SrsDiagnostics({handleError}) {
+  const {t} = useTranslation();
+  const [gpu, setGpu] = React.useState();
+  React.useEffect(() => {
+    axios.post('/terraform/v1/mgmt/gpu/query', {}, {headers: Token.loadBearerHeader()})
+      .then(res => setGpu(res.data.data)).catch(handleError);
+  }, [handleError]);
+
+  const gpuVariant = (u) => (u >= 90 ? 'danger' : u >= 70 ? 'warning' : 'success');
+
+  return (<>
+    <Card className="mb-3">
+      <Card.Header>{t('console.diagGpu')}</Card.Header>
+      <Card.Body>
+        {!gpu && <div className="text-muted small">{t('settings.gpuLoading')}</div>}
+        {gpu && !gpu.available && <div className="text-muted small">{t('settings.gpuNone')}</div>}
+        {gpu && gpu.available && <>
+          <div className="mb-2">
+            <b>{gpu.name}</b>
+            <Badge bg={gpuVariant(gpu.utilPct)} className="ms-2">{gpu.utilPct}%</Badge>
+            <span className="ms-2 small text-muted">{gpu.memUsedMB} / {gpu.memTotalMB} MB</span>
+          </div>
+          {gpu.processes && gpu.processes.length > 0 && <Table size="sm" borderless className="mb-0">
+            <tbody>
+              {gpu.processes.map((p) => (
+                <tr key={`${p.pid}-${p.name}`}>
+                  <td className="text-muted small">{p.pid}</td>
+                  <td className="small text-truncate" style={{maxWidth: 320}}>{p.name}</td>
+                  <td className="small text-end">{p.usedMB} MB</td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>}
+        </>}
+      </Card.Body>
+    </Card>
+    <Card className="mb-3">
+      <Card.Header>{t('console.diagForwards')}</Card.Header>
+      <Card.Body><SrsForwards {...{handleError}} /></Card.Body>
+    </Card>
+    <SrsStreams {...{handleError}} active />
   </>);
 }

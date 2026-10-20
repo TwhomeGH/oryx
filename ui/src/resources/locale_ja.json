@@ -768,7 +768,10 @@
       "fwHint": "各ターゲットの有効/無効はそのターゲットだけに影響します。グローバルスイッチは全転送を一時停止します。",
       "fwTest": "TEST",
       "fwWatch": "プレビュー",
-      "fwDetail": "詳細"
+      "fwDetail": "詳細",
+      "diagnostics": "診断",
+      "diagGpu": "GPU・エンコーダ",
+      "diagForwards": "転送ターゲット"
     },
     "openapi": {
       "title": "プラットフォーム API キー（OpenAPI）",
