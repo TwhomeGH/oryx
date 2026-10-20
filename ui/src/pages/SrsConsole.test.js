@@ -30,6 +30,10 @@ describe("SrsConsole", () => {
       ok: true,
     }}});
 
+    // The console also fetches the forwarding status via POST; the auto-mocked axios returns
+    // undefined unless configured, which would crash the new SrsForwards tab.
+    axios.post.mockResolvedValue({data: {code: 0, data: []}});
+
     const {getByText} = render(<SrsConsole />);
 
     // Tabs render (translation keys since i18n is mocked).
