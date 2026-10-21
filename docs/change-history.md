@@ -2,6 +2,39 @@
 
 > 本檔由 changelogkit 管理（見 [變更歷史說明](changelog.md)）。新增請用 `changelogkit add`（或 `changelogkit serve` 的網頁 GUI）。
 
+## 2026.10.21 18:53 v5.21.2 轉播診斷、GPU 面板與前端韌性
+
+- 新增控制台「診斷」分頁：GPU（型號/使用率/顯存/程序，10 秒更新）＋轉播目標＋SRS 串流。
+- 新增 GPU 查詢 API 與 scripts/tools/gpu-who.ps1（查顯存占用者）。
+- 轉推：遮蔽輸出 URL 路徑中的串流密鑰；program-not-ready 不再計為失敗；source-back 事件。
+- 前端：網路斷線改為提示卡／全域橫幅，不再整頁錯誤；記憶體顯示已用/總量、負載標明 1/5/15 分、連線數標為累計。
+- CI：安靜閘門 10 分鐘、concurrency、Go 測試失敗標註。
+
+**類型**: 發佈
+
+### 修改 - v5.21.2
+
+- 控制台：分開 SRS 程序已用記憶體與主機總量語意
+- 控制台：修正記憶體已用/總量計算（mem_ram_kbyte 是總量）
+- 控制台：記憶體顯示已用/總量，負載標明 1/5/15 分鐘
+- 控制台：連線數標籤改為「自啟動累計」，避免誤讀為目前連線
+- 前端：全域離線橫幅（瀏覽器斷線時顯示，恢復自動消失）
+- 前端：網路斷線只顯示提示卡，不再整頁錯誤
+- 診斷/設定 GPU：每 10 秒自動更新
+- 控制台：新增「診斷」分頁（GPU＋轉播＋SRS 串流集中一頁）
+- 診斷：GPU 程序清單與 gpu-who 查詢腳本
+- 診斷：新增 GPU 使用率（設定→磁碟頁的 GPU 面板）
+- 轉推：遮蔽輸出 URL 的路徑密鑰、修正 program-not-ready 包裝
+- CI：安靜閘門 30 分鐘調整為 10 分鐘
+- CI：main/release push 加入 30 分鐘安靜閘門
+- 轉推：來源尺寸先上限檢查再轉 int32（修正 CodeQL 警告）
+- UI 測試：SrsConsole 補 mock axios.post
+- CI：test.yml 與 pullrequest.yml 加上 concurrency（新 push 取消舊 run）
+- 修正單元測試並讓 CI 標註失敗測試
+- CI：移除 test.yml 的 check-pr-test（main/tag 必定逾時）
+
+---
+
 ## 2026.10.20 19:16 v5.21.1 轉推事件與等待修正
 
 - 失敗後恢復事件改名 source-back，避免與 offline-stop 同時出現時誤判。
