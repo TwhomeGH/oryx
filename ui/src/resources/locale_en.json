@@ -813,7 +813,10 @@
       "expire2": "login",
       "btHttps1": "Please use aaPanel or certbot to configure HTTPS",
       "redis1": "Redis is not ready now, please retry later",
-      "noNginx": "No nginx support for docker"
+      "noNginx": "No nginx support for docker",
+      "offline": "Server unreachable",
+      "offlineHint": "The management server is offline or the network dropped. Your data is safe; retry when it is back.",
+      "retry": "Retry"
     },
     "fp": {
       "label": "Choose File",

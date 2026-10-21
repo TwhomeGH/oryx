@@ -278,7 +278,10 @@
       "expire2": "重新登入",
       "btHttps1": "請使用寶塔或其他工具，設定網域和SSL證書",
       "redis1": "正在啟動Redis中，請等會兒再重新整理頁面試試",
-      "noNginx": "純Docker啟動時，不支援Nginx分發"
+      "noNginx": "純Docker啟動時，不支援Nginx分發",
+      "offline": "無法連線伺服器",
+      "offlineHint": "管理服務已離線或網路中斷。資料不受影響，恢復後請重試。",
+      "retry": "重試"
     },
     "fp": {
       "label": "選擇檔案",

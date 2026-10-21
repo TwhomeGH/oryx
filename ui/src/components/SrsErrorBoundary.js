@@ -20,6 +20,7 @@ export function SrsErrorBoundary({children}) {
 
 function ErrorFallback({error, resetErrorBoundary}) {
   const [show, setShow] = React.useState(true);
+  const {t} = useTranslation();
 
   const onResetError = React.useCallback(() => {
     setShow(false);
@@ -27,6 +28,21 @@ function ErrorFallback({error, resetErrorBoundary}) {
   }, [setShow, resetErrorBoundary]);
 
   if (!show) return <></>;
+
+  // A dropped network connection is transient: show a compact notice with retry instead of
+  // replacing the whole page with a fatal error screen.
+  if (error?.name === "AxiosError" && !error.response) {
+    return (
+      <Container fluid>
+        <Alert variant="warning" className="mt-3">
+          <Alert.Heading className="h6">{t("errs.offline")}</Alert.Heading>
+          <div className="small mb-2">{t("errs.offlineHint")}</div>
+          <Button variant="secondary" size="sm" onClick={onResetError}>{t("errs.retry")}</Button>
+        </Alert>
+      </Container>
+    );
+  }
+
   return (
     <Container fluid>
       <Alert variant="danger" onClose={() => setShow(false)} dismissible>

@@ -278,7 +278,10 @@
       "expire2": "重新登录",
       "btHttps1": "请使用宝塔或其他工具，配置域名和SSL证书",
       "redis1": "正在启动Redis中，请等会儿再刷新页面试试",
-      "noNginx": "纯Docker启动时，不支持Nginx分发"
+      "noNginx": "纯Docker启动时，不支持Nginx分发",
+      "offline": "无法连接服务器",
+      "offlineHint": "管理服务已离线或网络中断。数据不受影响，恢复后请重试。",
+      "retry": "重试"
     },
     "fp": {
       "label": "选择文件",
