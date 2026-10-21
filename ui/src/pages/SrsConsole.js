@@ -91,14 +91,15 @@ function SrsConsoleImpl() {
 }
 
 // ── Helpers ──
-// memDetail renders "17.0% (7.8 GB / 45.9 GB)" from the percentage and the used bytes.
+// memDetail renders "17.0% (1.4 GB / 7.8 GB)". SRS reports mem_ram_kbyte as the TOTAL memory,
+// and mem_ram_percent as the used ratio, so the used bytes must be derived from the total.
 function memDetail(pct, kbyte) {
   const p = finiteNumber(pct);
   const kb = finiteNumber(kbyte);
   if (p === null || kb === null) return fmtPercent(pct);
-  const used = kb * 1024;
-  const total = p > 0 ? used / (p / 100) : 0;
-  return `${p.toFixed(1)}% (${fmtBytes(used)} / ${total > 0 ? fmtBytes(total) : '?'})`;
+  const total = kb * 1024;
+  const used = total * (p / 100);
+  return `${p.toFixed(1)}% (${fmtBytes(used)} / ${fmtBytes(total)})`;
 }
 
 function finiteNumber(n) {
