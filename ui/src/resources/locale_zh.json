@@ -986,7 +986,10 @@
       "fwDetail": "详情",
       "diagnostics": "诊断",
       "diagGpu": "GPU 与编码器",
-      "diagForwards": "转播目标"
+      "diagForwards": "转播目标",
+      "load1m": "1分",
+      "load5m": "5分",
+      "load15m": "15分"
     }
   },
   "meta": {

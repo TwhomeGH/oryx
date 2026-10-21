@@ -774,7 +774,10 @@
       "fwDetail": "詳細",
       "diagnostics": "診断",
       "diagGpu": "GPU・エンコーダ",
-      "diagForwards": "転送ターゲット"
+      "diagForwards": "転送ターゲット",
+      "load1m": "1分",
+      "load5m": "5分",
+      "load15m": "15分"
     },
     "openapi": {
       "title": "プラットフォーム API キー（OpenAPI）",

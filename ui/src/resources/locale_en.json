@@ -986,7 +986,10 @@
       "fwDetail": "Details",
       "diagnostics": "Diagnostics",
       "diagGpu": "GPU & encoder",
-      "diagForwards": "Forward targets"
+      "diagForwards": "Forward targets",
+      "load1m": "1m",
+      "load5m": "5m",
+      "load15m": "15m"
     }
   },
   "meta": {

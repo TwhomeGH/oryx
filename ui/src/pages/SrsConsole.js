@@ -91,6 +91,16 @@ function SrsConsoleImpl() {
 }
 
 // ── Helpers ──
+// memDetail renders "17.0% (7.8 GB / 45.9 GB)" from the percentage and the used bytes.
+function memDetail(pct, kbyte) {
+  const p = finiteNumber(pct);
+  const kb = finiteNumber(kbyte);
+  if (p === null || kb === null) return fmtPercent(pct);
+  const used = kb * 1024;
+  const total = p > 0 ? used / (p / 100) : 0;
+  return `${p.toFixed(1)}% (${fmtBytes(used)} / ${total > 0 ? fmtBytes(total) : '?'})`;
+}
+
 function finiteNumber(n) {
   if (n === null || n === undefined || n === '') return null;
   const value = Number(n);
@@ -283,8 +293,7 @@ function SrsOverview({handleError}) {
             <tbody>
               {infoRow(t('console.uptime'), fmtUptime(data.self?.srs_uptime))}
               {infoRow(t('console.cpu'), fmtPercent(data.self?.cpu_percent))}
-              {infoRow(t('console.mem'), fmtPercent(data.self?.mem_percent))}
-              {infoRow(t('console.memKb'), fmtBytes(data.self?.mem_kbyte * 1024))}
+              {infoRow(t('console.mem'), memDetail(data.self?.mem_percent, data.self?.mem_kbyte))}
               {infoRow(t('console.conn'), data.system?.conn_srs)}
               {infoRow(t('console.in'), kbps ? fmtBitrate(kbps.inSrs) : '-')}
               {infoRow(t('console.out'), kbps ? fmtBitrate(kbps.outSrs) : '-')}
@@ -299,9 +308,12 @@ function SrsOverview({handleError}) {
             <tbody>
               {infoRow(t('console.uptime'), fmtUptime(data.system?.uptime))}
               {infoRow(t('console.cpu'), fmtPercent(data.system?.cpu_percent * (data.system?.cpus_online || 1)))}
-              {infoRow(t('console.mem'), fmtPercent(data.system?.mem_ram_percent))}
-              {infoRow(t('console.memKb'), fmtBytes(data.system?.mem_ram_kbyte * 1024))}
-              {infoRow(t('console.load'), `${data.system?.load_1m} / ${data.system?.load_5m} / ${data.system?.load_15m}`)}
+              {infoRow(t('console.mem'), memDetail(data.system?.mem_ram_percent, data.system?.mem_ram_kbyte))}
+              {infoRow(t('console.load'), [
+                `${t('console.load1m')} ${fmtFixed(data.system?.load_1m)}`,
+                `${t('console.load5m')} ${fmtFixed(data.system?.load_5m)}`,
+                `${t('console.load15m')} ${fmtFixed(data.system?.load_15m)}`,
+              ].join(' / '))}
               {infoRow(t('console.cpus'), `${data.system?.cpus} (${data.system?.cpus_online} ${t('console.online')})`)}
             </tbody>
           </Table>

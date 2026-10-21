@@ -986,7 +986,10 @@
       "fwDetail": "詳情",
       "diagnostics": "診斷",
       "diagGpu": "GPU 與編碼器",
-      "diagForwards": "轉播目標"
+      "diagForwards": "轉播目標",
+      "load1m": "1分",
+      "load5m": "5分",
+      "load15m": "15分"
     }
   },
   "meta": {
