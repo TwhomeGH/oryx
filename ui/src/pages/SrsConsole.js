@@ -91,15 +91,22 @@ function SrsConsoleImpl() {
 }
 
 // ── Helpers ──
-// memDetail renders "17.0% (1.4 GB / 7.8 GB)". SRS reports mem_ram_kbyte as the TOTAL memory,
-// and mem_ram_percent as the used ratio, so the used bytes must be derived from the total.
-function memDetail(pct, kbyte) {
+// SRS's self.mem_kbyte is the SRS process's USED memory, so show it directly.
+function srsMemDetail(pct, usedKbyte) {
   const p = finiteNumber(pct);
-  const kb = finiteNumber(kbyte);
+  const kb = finiteNumber(usedKbyte);
+  if (p === null || kb === null) return fmtPercent(pct);
+  return `${p.toFixed(2)}% (${fmtBytes(kb * 1024)})`;
+}
+
+// The OS reports mem_ram_kbyte as the TOTAL RAM and mem_ram_percent as the used ratio, so the
+// used bytes must be derived from the total.
+function osMemDetail(pct, totalKbyte) {
+  const p = finiteNumber(pct);
+  const kb = finiteNumber(totalKbyte);
   if (p === null || kb === null) return fmtPercent(pct);
   const total = kb * 1024;
-  const used = total * (p / 100);
-  return `${p.toFixed(1)}% (${fmtBytes(used)} / ${fmtBytes(total)})`;
+  return `${p.toFixed(1)}% (${fmtBytes(total * (p / 100))} / ${fmtBytes(total)})`;
 }
 
 function finiteNumber(n) {
@@ -294,7 +301,7 @@ function SrsOverview({handleError}) {
             <tbody>
               {infoRow(t('console.uptime'), fmtUptime(data.self?.srs_uptime))}
               {infoRow(t('console.cpu'), fmtPercent(data.self?.cpu_percent))}
-              {infoRow(t('console.mem'), memDetail(data.self?.mem_percent, data.self?.mem_kbyte))}
+              {infoRow(t('console.mem'), srsMemDetail(data.self?.mem_percent, data.self?.mem_kbyte))}
               {infoRow(t('console.conn'), data.system?.conn_srs)}
               {infoRow(t('console.in'), kbps ? fmtBitrate(kbps.inSrs) : '-')}
               {infoRow(t('console.out'), kbps ? fmtBitrate(kbps.outSrs) : '-')}
@@ -309,7 +316,7 @@ function SrsOverview({handleError}) {
             <tbody>
               {infoRow(t('console.uptime'), fmtUptime(data.system?.uptime))}
               {infoRow(t('console.cpu'), fmtPercent(data.system?.cpu_percent * (data.system?.cpus_online || 1)))}
-              {infoRow(t('console.mem'), memDetail(data.system?.mem_ram_percent, data.system?.mem_ram_kbyte))}
+              {infoRow(t('console.mem'), osMemDetail(data.system?.mem_ram_percent, data.system?.mem_ram_kbyte))}
               {infoRow(t('console.load'), [
                 `${t('console.load1m')} ${fmtFixed(data.system?.load_1m)}`,
                 `${t('console.load5m')} ${fmtFixed(data.system?.load_5m)}`,
