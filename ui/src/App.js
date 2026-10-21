@@ -33,6 +33,7 @@ import SrsConsole from "./pages/SrsConsole";
 import Contact from "./pages/Contact";
 import {ErrorBoundary, useErrorHandler} from 'react-error-boundary';
 import {SrsErrorBoundary} from "./components/SrsErrorBoundary";
+import {SrsOfflineBanner} from "./components/SrsOfflineBanner";
 import {resources} from "./localeLoader";
 import {SrsEnvContext} from "./components/SrsEnvContext";
 import Popouts from "./pages/Popouts";
@@ -43,6 +44,7 @@ function App() {
 
   return (
     <SrsEnvContext.Provider value={[env, setEnv]}>
+      <SrsOfflineBanner />
       <ErrorBoundary FallbackComponent={(RootError)}>
         <SrsErrorBoundary>
           <AppPreImpl/>
