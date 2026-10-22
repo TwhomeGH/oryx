@@ -8,7 +8,7 @@
 ## 1. 先講結論
 
 | 能力 | 支援狀態 |
-|---|---|
+| --- | --- |
 | 自訂服務器地址（BaseURL） | ✅ 原本就有——每個 AI 功能的設定都有「接入地址」欄位 |
 | 自訂聊天模型 | ✅ 原本就有——直播間助理/配音等各有模型設定 |
 | **自訂 ASR 語音辨識模型** | ✅ **本次新增**——原本寫死 `whisper-1` |
@@ -21,7 +21,7 @@
 ### ASR 模型可配置
 
 | 功能 | 配置位置 | 欄位 |
-|---|---|---|
+| --- | --- | --- |
 | AI 字幕（轉錄） | 場景 → AI 字幕 → 服務提供商 | `model`（預設 `whisper-1`）＋ `chatModel`（連線檢查用，預設 `gpt-3.5-turbo`） |
 | 直播間語音助理 | 直播間設定的 AI 助理 | `aiAsrModel`（預設 `whisper-1`） |
 | 視頻翻譯/配音 | 專案的 ASR 設定 | `aiAsrModel`（預設 `whisper-1`） |
@@ -52,7 +52,7 @@ ollama pull llama3.2          # 聊天模型
 在 Oryx 的 AI 功能設定中填入：
 
 | 欄位 | 值 |
-|---|---|
+| --- | --- |
 | 接入地址 (BaseURL) | `http://192.168.0.200:11434/v1` |
 | 密鑰 | Ollama 不驗證，隨意填（如 `ollama`） |
 | 聊天模型 | `llama3.2` |
@@ -61,7 +61,7 @@ ollama pull llama3.2          # 聊天模型
 其他常見端點：
 
 | 服務 | BaseURL |
-|---|---|
+| --- | --- |
 | LM Studio | `http://<host>:1234/v1` |
 | vLLM | `http://<host>:8000/v1` |
 | Groq | `https://api.groq.com/openai/v1` |
@@ -81,7 +81,7 @@ ollama pull llama3.2          # 聊天模型
 ## 5. 實作位置（後續維護參考）
 
 | 檔案 | 變更 |
-|---|---|
+| --- | --- |
 | `platform/transcript.go` | TranscriptConfig 加 `Model`/`ChatModel`；預檢容錯；worker 用配置模型 |
 | `platform/ocr.go` | 預檢容錯改用配置的 chat model |
 | `platform/dubbing.go` | 配音 ASR 使用專案設定的 `AIASRModel` |

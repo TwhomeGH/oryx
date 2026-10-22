@@ -31,7 +31,7 @@ HTTP Request
 ## 關鍵檔案
 
 | 檔案 | 職責 |
-|---|---|
+| --- | --- |
 | `platform/service.go:221-278` | 兩個 auth middleware 的實作 |
 | `platform/service.go:218-228` | `httpError` 型別（自訂 HTTP status code） |
 | `platform/service.go:555-630` | `/terraform/v1/mgmt/init` handler |
@@ -63,7 +63,7 @@ handler.Handle(ep, middlewareAuthTokenInBody(ctx, http.HandlerFunc(func(...) {
 **使用的端點**（全部在 `service.go` 中）：
 
 | 端點 | 行號 | 說明 |
-|---|---|---|
+| --- | --- | --- |
 | `/terraform/v1/mgmt/check` | 632 | 檢查系統狀態 |
 | `/terraform/v1/mgmt/login` | 797 | 登入 |
 | `/terraform/v1/mgmt/status` | 855 | 系統狀態查詢 |
@@ -129,7 +129,7 @@ ohttp.WriteError(ctx, w, r, &httpError{err: err, status: http.StatusUnauthorized
 ```
 
 | 情境 | Status Code | 說明 |
-|---|---|---|
+| --- | --- | --- |
 | Auth 失敗（token 不對/為空） | **401** Unauthorized | `middlewareAuthTokenInBody` / `InURL` |
 | API 內部錯誤 | **500** Internal Server Error | handler 自身的 `ohttp.WriteError` |
 | 請求格式錯誤 | **500** → 應改為 400 | handler 自身的 error（未實作 HTTPStatus） |
