@@ -8,7 +8,7 @@
 ## 1. 映像資訊
 
 | 項目 | 內容 |
-|---|---|
+| --- | --- |
 | 映像位置 | `ghcr.io/twhomegh/oryx` |
 | 版本標籤 | `:vX.Y.Z` 這類**正式版本**，只在打 `vX.Y.Z` tag 時產生，對應 `platform/version.go` 的 `const version`，**不可變** |
 | 浮動標籤 | `:latest` 指向**最近一次正式 release**（tag 觸發）；`:edge` 指向 main 最新開發建置 |
@@ -73,7 +73,7 @@ services:
 ### 埠對照表
 
 | 容器內埠 | 用途 | 協定 |
-|---|---|---|
+| --- | --- | --- |
 | 2022 | Web 管理介面（HTTP） | TCP |
 | 2443 | Web 管理介面 / HTTPS-FLV 等 | TCP |
 | 1935 | RTMP 推流、播放 | TCP |
@@ -97,7 +97,7 @@ services:
 ```
 
 | 環境變數 | 預設 | 說明 |
-|---|---|---|
+| --- | --- | --- |
 | `SRS_TLS_SKIP_VERIFY` | `false` | callback（webhook）目標 URL 為 `https://` 時，是否跳過 TLS 憑證驗證。若目標是 `http://` 則此設定無作用。僅在 callback target 使用自簽憑證的 HTTPS 服務時才需設為 `true`，一般用戶不需要設定 |
 
 ### 啟動與停止

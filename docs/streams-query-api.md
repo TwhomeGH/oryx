@@ -9,7 +9,7 @@
 改用 Redis 精確鍵查詢（HGet），只回傳那一路串流：
 
 | 呼叫方式 | 行為 | 底層操作 |
-|---|---|---|
+| --- | --- | --- |
 | 只帶 token | 回傳全部活躍串流（原有行為，不變） | `HGETALL` |
 | 帶齊 vhost + app + stream | 只回傳該路串流；不存在回空陣列 | `HGET` |
 
@@ -29,7 +29,7 @@
 ## 「token」是哪一組？（兩種都可以）
 
 | 來源 | 取得方式 | 特點 |
-|---|---|---|
+| --- | --- | --- |
 | **① 登入 session token** | 用管理密碼呼叫登入 API 換取（見下方範例） | 就是 WebUI 登入後瀏覽器自動使用的那組 JWT；**有過期時間** |
 | **② API 密鑰** | WebUI「系統設定 → OpenAPI」區塊顯示並可一鍵複製 | **永不過期**，推薦給腳本/監控長期使用 |
 
@@ -126,7 +126,7 @@ curl -s -X POST http://localhost:2022/terraform/v1/mgmt/streams/query \
 ## 相關端點對照
 
 | 端點 | 用途 |
-|---|---|
+| --- | --- |
 | `/terraform/v1/mgmt/streams/query` | 查詢活躍串流（本文） |
 | `/terraform/v1/mgmt/streams/fps` | 探測單路推流的實測 FPS、jitter 與波動標記（用 ffprobe 開真實 RTMP player，取樣固定 3 秒時間窗 `-read_intervals %+3`，非固定幀數，故探測延遲與幀率無關）；**2026-09 起三層節流**：Redis 快取（成功 8s / 失敗退避 10s）+ 同 stream singleflight + 全局限流序列化（同時只跑 1 支 ffprobe，limiter 忙碌時回傳 stale 值不排隊）。前端基於每路 stream 自己的滾動基準顯示，並推算預期幀間隔區間作參考；console 只在 Streams tab 啟用且頁面可見時輪詢（每路 ≥10s 一次） |
 | `/terraform/v1/mgmt/streams/kickoff` | 強制斷開某路串連（本就支援 vhost/app/stream 定位） |

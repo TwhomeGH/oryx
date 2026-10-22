@@ -6,7 +6,7 @@ Dashboard / 教學卡片的教程清單**不是寫死在前端**，而是伺服�
 ## 檔案在哪
 
 | 角色 | 路徑 |
-|---|---|
+| --- | --- |
 | 使用者可編輯（權威） | `/data/tutorials.json`（容器內）；在本機 compose 就是 `ORXY` 掛載目錄下的 `tutorials.json` |
 | 預設檔（跟著 image） | `/usr/local/oryx/platform/containers/conf/tutorials.json` |
 

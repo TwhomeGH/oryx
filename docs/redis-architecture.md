@@ -17,7 +17,7 @@
 ### 2.1 系統與認證
 
 | Key | 結構 | 用途 |
-|---|---|---|
+| --- | --- | --- |
 | `SRS_AUTH_SECRET` | Hash（field=`room-pub-{stream}` → publish secret） | 直播間推流鑒權密鑰 |
 | `SRS_PLATFORM_SECRET` | Hash（`token`/`update`） | 平台 API secret，啟動時自動生成，`scripts/tools/secret.sh` 讀它寫入 `.env` |
 | `SRS_SECRET_PUBLISH` | Hash | 推流 secret（stream key 尾綴） |
@@ -33,7 +33,7 @@
 ### 2.2 功能設定與任務（`*_CONFIG` / `*_TASK` 成對）
 
 | Key | 結構 | 用途 |
-|---|---|---|
+| --- | --- | --- |
 | `SRS_FORWARD_CONFIG` / `SRS_FORWARD_TASK` | Hash（field=platform → JSON） | 多平台轉推：配置 + 任務 |
 | `SRS_VLIVE_CONFIG` / `SRS_VLIVE_TASK` | Hash（field=platform → JSON） | 虛擬直播：配置 + 任務 |
 | `SRS_CAMERA_CONFIG` / `SRS_CAMERA_TASK` | Hash | IP 攝影機 |
@@ -48,7 +48,7 @@
 ### 2.3 錄製 / 雲儲存 / 點播
 
 | Key | 結構 | 用途 |
-|---|---|---|
+| --- | --- | --- |
 | `SRS_RECORD_PATTERNS` | Hash | 本地錄製規則 |
 | `SRS_RECORD_M3U8_WORKING` / `SRS_RECORD_M3U8_ARTIFACT` | Hash | 錄製中 m3u8 / 成品 artifact |
 | `SRS_DVR_PATTERNS` / `SRS_DVR_M3U8_WORKING` / `SRS_DVR_M3U8_ARTIFACT` | Hash | 雲端 DVR（COS） |
@@ -58,7 +58,7 @@
 ### 2.4 串流狀態與統計
 
 | Key | 結構 | 用途 |
-|---|---|---|
+| --- | --- | --- |
 | `SRS_STREAM_ACTIVE` / `SRS_STREAM_SRT_ACTIVE` / `SRS_STREAM_RTC_ACTIVE` | Hash（field=streamURL → JSON） | 目前活躍串流（依協議分開） |
 | `SRS_STAT_COUNTER` | Hash | 統計計數器（publish/play 次數） |
 | `SRS_CONTAINER_DISABLED` | String | 停用的 container（功能） |

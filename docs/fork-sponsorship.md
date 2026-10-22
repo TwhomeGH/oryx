@@ -18,7 +18,7 @@
 **這是本 fork 最想強調的一點：不要贊助錯地方。**
 
 | 你想要的 | 該去哪裡 |
-|---|---|
+| --- | --- |
 | 支持**本 fork**（TwhomeGH/oryx）的維護與開發 | **Twitch 頻道**：<https://www.twitch.tv/coffeelatte0709/about>（訂閱 / 打賞 / bits 皆可） |
 | 支持**原項目 SRS** 的開發 | 原項目 [OpenCollective](https://opencollective.com/srs-server) |
 
@@ -52,11 +52,11 @@
   可改為留空，或指到本 fork 的文檔 / 維護者個人頁。
 - **About → Description**：可補充 fork 定位字樣，與上游區分。可直接複製下列任一版本：
 
-  ```
+  ```log
   Oryx（原 SRS Stack）：开源视频解决方案，支持直播与 WebRTC，云端或自托管。本仓库是 ossrs/oryx 的社区独立维护分支。
   ```
 
-  ```
+  ```log
   Oryx（SRS Stack）是一体化、开箱即用、开源的视频解决方案，用于在云端或自托管下搭建在线视频服务（直播与 WebRTC）。本仓库是 ossrs/oryx 的社区独立维护分支，持续套用上游 PR 并独立演进。
   ```
 

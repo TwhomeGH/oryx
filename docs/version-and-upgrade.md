@@ -7,7 +7,7 @@
 ## 1. 兩套版本，各管各的
 
 | | Oryx 產品版本 | SRS 核心 |
-|---|---|---|
+| --- | --- | --- |
 | 定義位置 | `platform/version.go` → `const version = "v5.15.20"` | **根目錄 `Dockerfile` 第 4 行** → `FROM ${ARCH}ossrs/srs:5 AS srs` |
 | 變更方式 | 手動改（或用 `scripts/bump-version.ps1`） | 改基底映像標籤（或用工具 `-SrsCore` 參數） |
 | 消費點 | HTTP Header `Oryx/vX.Y.Z`、mgmt API 的 Version 欄位、UI 顯示、`./releases -v` | 容器內 `/usr/local/srs/objs/srs` 二進位本身 |
@@ -32,7 +32,7 @@ docker exec oryx /usr/local/srs/objs/srs -v
 上游官方映像目前提供三條版本線（2026-08 查詢）：
 
 | 標籤 | 對應版本 |
-|---|---|
+| --- | --- |
 | `ossrs/srs:5` | v5.0.213（上游原本預設） |
 | `ossrs/srs:6` | v6.0.191 |
 | `ossrs/srs:7` | v7.0.157（**本 fork 現狀預設**，2026-08 切換） |
@@ -156,7 +156,7 @@ Dockerfile 的基底映像標籤；但換完怎麼確認「Oryx 依賴的功能�
 ### 3-1. 發佈模型：main = 開發映像，tag = 正式 release
 
 | 觸發 | 產出映像 |
-|---|---|
+| --- | --- |
 | push `main` | **開發**：`:sha-<commit>`（不可變，可回滾）、`:edge`（移動指標） |
 | 打 `vX.Y.Z` tag | **正式**：`:vX.Y.Z`（不可變）、`:latest`（移動到本版） |
 
@@ -192,7 +192,7 @@ powershell -File scripts\bump-version.ps1 -SrsCore 7
 ### 3-3. 版本節奏建議
 
 | 場景 | 動作 |
-|---|---|
+| --- | --- |
 | 日常修復／cherry-pick | 只 push main（`:sha-*`／`:edge` 可回退），**不打版號** |
 | 累積一批修復想出正式點 | `-Release`（patch +1） |
 | 新增功能（如 forward 改造落地） | `-Release -Minor` |

@@ -8,10 +8,10 @@
 
 ```go
 func (v *statusRecorder) Write(b []byte) (int, error) {
-	if v.status == 0 {
-		v.status = http.StatusOK
-	}
-	return v.ResponseWriter.Write(b)
+if v.status == 0 {
+  v.status = http.StatusOK
+}
+return v.ResponseWriter.Write(b)
 }
 ```
 
@@ -22,7 +22,7 @@ func (v *statusRecorder) Write(b []byte) (int, error) {
 ```go
 status := rec.status
 if status == 0 {
-	status = http.StatusOK
+status = http.StatusOK
 }
 ```
 
@@ -128,7 +128,7 @@ URL 的 callback 參數
 **修復方式：**
 
 | 檔案 | 修復手法 |
-|---|---|
+| --- | --- |
 | `ai-talk.go` | `http.ServeFile` 前驗證 filename 不含 `..`、`/`、`\` |
 | `dvr-local-disk.go` | uuid 用 regex `^[0-9a-f-]+$` 驗證；dir 不含 `..`、`/`、`\`；m3u8 用 regex `^[0-9a-zA-Z._-]+$` 驗證 |
 | `transcript.go` | 所有 handler 的 uuid 加 regex `^[0-9a-f-]+$` 驗證 |
@@ -163,7 +163,7 @@ line = strings.ReplaceAll(line, " 8000 ", fmt.Sprintf(" %v ", port))
 ### 3. DOM XSS 與 Remote Property Injection
 
 | 檔案 | 問題 | 修復 |
-|---|---|---|
+| --- | --- | --- |
 | `srs.sdk.js` | `document.createElement("a").href = url` 後讀取屬性，被 CodeQL 標為 DOM text reinterpreted as HTML | 改用 `new URL()` 解析；**完全移除 createElement fallback**，解析失敗回傳空欄位（不影響呼叫端） |
 | `winlin.utility.js` | `obj[query[0]] = query[1]` 未驗證 key，可能污染 `__proto__`/`constructor` | **key 白名單**：只允許 `[a-zA-Z0-9._-]`，不符即跳過（比黑名單更徹底） |
 | `srs_player.html` | `buildShareUrl()` 把用戶輸入直接拼進 share href（DOM XSS） | query 值全部 `encodeURIComponent`（見 4.1） |
@@ -183,6 +183,7 @@ line = strings.ReplaceAll(line, " 8000 ", fmt.Sprintf(" %v ", port))
 **移除的依賴：** jQuery 1.12.2、Bootstrap 2.x CSS/JS、json2.js
 
 **升級的庫（CDN）：**
+
 - hls.js: 1.4.14 → 1.5.17
 - mpegts.js: 1.7.3（保持）
 - dash.js: 4.5.1 → 4.7.4
@@ -202,7 +203,7 @@ line = strings.ReplaceAll(line, " 8000 ", fmt.Sprintf(" %v ", port))
 **問題：** `platform/containers/www/console/` 是舊版 AngularJS 管理介面，依賴過時的第三方函式庫，CodeQL 回報 13 個 Library alerts：
 
 | 函式庫 | 問題 | Alerts 數 |
-|---|---|---|
+| --- | --- | --- |
 | `bootstrap.js` | DOM text reinterpreted as HTML | 9 |
 | `angular.js` | Incomplete string escaping | 1 |
 | `angular-route.js` | Incomplete string escaping | 2 |
@@ -238,7 +239,7 @@ line = strings.ReplaceAll(line, " 8000 ", fmt.Sprintf(" %v ", port))
 ### CodeQL 報了哪些地方？
 
 | 位置 | 檔案 | 寫入內容 | 遺失風險 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `nginxGenerateConfig` 4 處 | `utils.go` | Nginx / SRS 設定檔 | 低（小文字檔，但設定錯誤會影響服務） |
 | `reloadNginx` 1 處 | `utils.go` | Nginx reload 信號檔 | 低（但失敗 = Nginx 沒重新載入） |
 | vLive 檔案複製 | `virtual-live-stream.go` | 上傳的大檔案（io.Copy） | **高**（大檔案最易受 I/O 中斷影響） |
@@ -304,7 +305,7 @@ CodeQL 後續掃描又報了一批，逐一核對後分三類處理：
 ### 2. 本次修復
 
 | Alert | 位置 | 問題 | 修復 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | #248 | `pushdiag.html` 1795 | `innerHTML = flags.join()`，getStats 數值可能注入 | `badge()` 加入 HTML 跳脫（`&<>"'` → entity） |
 | #257 | `pushdiag.html` 1760 | `conn === 'connected' \|\| conn === 'connected'`（identical operands，筆誤） | 改為 `connected \|\| completed` |
 | #205 | `transcript.go` 1784 | `DriveAsrQueue` 寫 .srt 後 `defer f.Close()` 忽略錯誤 | 命名回傳值 `(r0 error)` + deferred Close 捕獲 |
@@ -314,7 +315,7 @@ CodeQL 後續掃描又報了一批，逐一核對後分三類處理：
 ### 3. CodeQL 誤報或已加固（保留）
 
 | Alert | 位置 | 處理 |
-|---|---|---|
+| --- | --- | --- |
 | #251 | `pushdiag.html` 527 | **已修**：SPS 的 `chroma_format_idc`（色彩格式）。原本先設預設 1 再在 High profile 分支覆蓋（CodeQL 誤判「initial value unused」）。改用三元運算子在宣告時決定（High profile 才讀 bitstream），並把結果回傳 + 在 videoInfo 面板顯示色彩格式（4:2:0/4:2:2/4:4:4） |
 | #252 | `pushdiag.html` 741 | **已修**：`avcInfo = 'AVC seq header (SPS)'` 是死賦值（row.detail 已設 'SPS/PPS'）。移除死賦值，並讓 SPS 行的 detail 顯示解析度/Profile/Level（如 `SPS/PPS 1280×720 High L3.1`） |
 | #27 | `service.go` 512-528 | **已加固**：`/terraform/v1/debug/goroutines` 原本只綁 `127.0.0.1:22022`（loopback），第六批又加了 `Authenticate` 驗證（需 `Authorization: Bearer <SRS_PLATFORM_SECRET>`），即使誤綁到非 loopback 也不洩漏 stack trace |

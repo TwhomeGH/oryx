@@ -16,7 +16,7 @@ docker buildx du          # 只看 build cache 明細
 判讀：
 
 | 類型 | 常見大小 | 說明 |
-|---|---|---|
+| --- | --- | --- |
 | Images | 10-40GB | 含測試映像、多版本映像 |
 | Build Cache | **最容易爆**，可到 20-30GB | 每次 `docker build` 的層快取 |
 | Containers | 小 | 容器寫入層通常不大 |

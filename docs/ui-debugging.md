@@ -10,7 +10,7 @@
 Oryx UI 是 Vite + React 專案（`ui/`），建置時由 Go 平台內嵌。本地開發有兩條路：
 
 | 方式 | 用於 | 特色 |
-|---|---|---|
+| --- | --- | --- |
 | **Vite dev server** | 日常改 UI、調排版、看效果 | HMR 即時更新，連真實後端 |
 | **Playwright 自動化** | 端到端測試、重複操作、截圖 | 可跑在 dev server 或產物上 |
 
@@ -31,12 +31,14 @@ powershell -ExecutionPolicy Bypass -File scripts\dev-server.ps1 -Page players   
 ```
 
 腳本會：
+
 1. 自動偵測平台端口（先試 `127.0.0.1:2022` 原生，再試 `882` Docker 映射）
 2. 檢查 node_modules，缺依賴自動 `npm install`
 3. 啟動 Vite（`PUBLIC_URL=/mgmt` + `REACT_APP_LOCALE=zh` + `SRS_PLATFORM=<偵測到>`）
 4. 自動開瀏覽器到指定頁面
 
 常用參數：
+
 - `-Platform http://127.0.0.1:882`：手動指定平台端口
 - `-Port 4000`：改 dev server 端口（預設 3000）
 - `-NoBrowser`：不自動開瀏覽器
@@ -61,7 +63,7 @@ vite.config.mjs 的 dev proxy 把 `/api` `/terraform` `/players` 等轉發到後
 
 **若平台跑在 Docker**（host `882→容器 2022`），`2022` 在 host 不可達，必須用 `SRS_PLATFORM` 指到映射端口，否則請求 404：
 
-```
+```log
 SRS_PLATFORM=http://127.0.0.1:882 npm start
 ```
 
@@ -85,6 +87,7 @@ SRS_PLATFORM=http://127.0.0.1:882 npm start
 ### 4.1 啟動環境
 
 先確保：
+
 1. 平台後端在跑（Docker 或原生）
 2. Vite dev server 在跑（見第 2 節）
 
@@ -92,7 +95,7 @@ SRS_PLATFORM=http://127.0.0.1:882 npm start
 
 本專案開發環境有 Playwright MCP 工具，可直接對 dev server 做瀏覽器操作：
 
-```
+```txt
 # 在 opencode / 支援 MCP 的環境中
 playwright_browser_navigate  http://localhost:3000/mgmt/zh/routers-scenario
 playwright_browser_snapshot  # 看目前頁面的可訪問性快照
@@ -102,6 +105,7 @@ playwright_browser_console_messages  # 看 console 錯誤
 ```
 
 **調試流程範例：**
+
 1. 開啟頁面 → 確認 **0 console errors**（`console_messages`）
 2. 操作要測的功能 → 每次操作後看 console 有沒有噴錯
 3. 用 `evaluate` 檢查關鍵 DOM 狀態（例如登入後 nav 是否有正確文字）
@@ -155,6 +159,7 @@ npx playwright test
 播放器頁（`platform/containers/www/players/*.html`）支援 **file:// preview**：
 
 直接雙擊開 `players/srs_player.html`（或任何一個），頁面偵測到 `file:` 協定自動進 preview mode：
+
 - 顯示橘色「Preview」橫幅
 - 載入公開測試影片（Big Buck Bunny HLS）
 - 跳過所有後端 API 呼叫，**0 console error**
@@ -164,6 +169,7 @@ npx playwright test
 ### 5.2 React 頁面：mock 或佔位
 
 React 頁面（`/mgmt/*`）需要後端 envs 才能初始化，純前端無法直接跑。若要只看元件長相：
+
 - 臨時在 `SrsEnvContext` 提供 mock env（改 `App.js` 的 `setEnv`）
 - 或直接 mock `useTranslation` / axios（見 `src/pages/SrsConsole.test.js` 的寫法）
 - 但不建議常駐 mock，正式開發還是連真實後端
@@ -191,7 +197,7 @@ npx vite preview --port 3000
 ## 7. 快速驗證命令
 
 | 命令 | 作用 | 適合 |
-|---|---|---|
+| --- | --- | --- |
 | `bash scripts/check-ui-syntax.sh` | 快速語法驗證（JSON + JSX parse） | 改檔後快速確認沒爆 |
 | `npm run lint` | ESLint（eslint9 平面配置） | commit 前 |
 | `npm test` | vitest 單元測試 | commit 前 |
@@ -207,7 +213,7 @@ npx vite preview --port 3000
 任何頁面載入後，第一件事確認 **0 console errors**。常見錯誤與原因：
 
 | Console 錯誤 | 原因 |
-|---|---|
+| --- | --- |
 | `AxiosError: Network Error` | dev server 沒跑，或 `SRS_PLATFORM` 指錯（後端連不上） |
 | `404` 在 `/terraform/...` | `SRS_PLATFORM` 沒設對（Docker 時 2022 不可達） |
 | `[vite] ... URI malformed` | dev server 起不來：index.html 佔位符問題 |
@@ -233,7 +239,7 @@ DevTools → Network 可看 `/api` `/terraform` 請求是否到正確後端、�
 播放器頁（`players/*.html` 與 `tools/player.html`）是純 HTML/JS，不走 Vite。調試方式：
 
 | 方式 | 說明 |
-|---|---|
+| --- | --- |
 | **file:// preview mode** | 直接開 html 檔，自動進 preview 模式，適合調排版 |
 | **dev server proxy** | 從 `http://localhost:3000/players/srs_player.html` 存取（vite proxy 轉發），可連後端 |
 | **直連後端** | 若平台在 `192.168.0.102:882`，直接開 `http://192.168.0.102:882/players/srs_player.html` |

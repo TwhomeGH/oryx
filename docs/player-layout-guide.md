@@ -7,7 +7,7 @@
 
 ## 1. 檔案總覽
 
-```
+```txt
 platform/containers/www/
 ├── players/
 │   ├── css/player.css          ← 所有 player 頁面的共享設計系統（唯一要改的 CSS）
@@ -38,7 +38,7 @@ platform/containers/www/
 
 每個 player 頁面都有 **Preview Mode**，直接用瀏覽器開啟 `file://` 即可：
 
-```
+```txt
 file:///F:/oryx/platform/containers/www/players/srs_player.html
 file:///F:/oryx/platform/containers/www/players/whip.html
 file:///F:/oryx/platform/containers/www/players/whep.html
@@ -48,12 +48,14 @@ file:///F:/oryx/platform/containers/www/tools/player.html
 ```
 
 **Preview Mode 行為：**
+
 - 偵測 `window.location.protocol === 'file:'` 自動啟動
 - 顯示橙色 "Preview" 橫幅
 - 載入公開 HLS 測試影片（Big Buck Bunny）
 - 跳過所有後端 API 呼叫，不會有 JS 報錯
 
 **測試流程：**
+
 1. 用瀏覽器開啟頁面
 2. 開啟 DevTools（F12）修改 CSS
 3. 滿意後將改動寫入 `player.css`
@@ -93,7 +95,7 @@ file:///F:/oryx/platform/containers/www/tools/player.html
 ### 3.2 區塊對照表
 
 | CSS 選擇器 | 控制的元件 | 常見修改 |
-|---|---|---|
+| --- | --- | --- |
 | `.navbar` / `.navbar-inner` | 頂部導覽列 | 高度、間距、背景模糊 |
 | `.navbar-nav a` | 導覽連結 | 字大小、顏色、hover 效果 |
 | `.container` | 頁面內容最大寬度 | `max-width`（影響整體佈局） |
@@ -182,7 +184,7 @@ file:///F:/oryx/platform/containers/www/tools/player.html
 ## 5. 各頁面結構差異
 
 | 頁面 | 特有元件 | 使用的 JS SDK |
-|---|---|---|
+| --- | --- | --- |
 | `srs_player.html` | 分享連結、多格式播放（FLV/HLS/DASH/MP4） | hls.js, mpegts.js, dash.js |
 | `rtc_player.html` | session info（SessionID、Simulator） | srs.sdk.js（SrsRtcPlayerAsync） |
 | `whip.html` | Video Only / Audio Only 核取方塊 | srs.sdk.js（SrsRtcWhipWhepAsync） |
@@ -200,7 +202,7 @@ file:///F:/oryx/platform/containers/www/tools/player.html
 ### 6.1 兩種模式
 
 | 模式 | 分析對象 | 診斷項目 |
-|---|---|---|
+| --- | --- | --- |
 | **FLV 分析** | HTTP-FLV 串流（`/<app>/<stream>.flv`） | 分層診斷（來源端 SRS API／HTTP-FLV／FLV 容器／AVC／時間戳／AAC／影音同步）、AVC sequence header 異常 banner、位元率、GOP 間隔、影音時間戳偏移、掉幀、封包檢查器、SPS/AAC 解析、原始位元組檢視 |
 | **WebRTC 分析** | WHEP URL（`/rtc/v1/whep/`） | ICE 型別（host/srflx/relay）、RTT、封包遺失、jitter、掉幀率、codec（`getStats()`） |
 
@@ -218,7 +220,7 @@ file:///F:/oryx/platform/containers/www/tools/player.html
 pushdiag 用到的一組診斷專用類別，位於 `player.css` 的 `/* Diagnostics */` 與 `/* Layered diagnostics */` 區塊：
 
 | 類別 | 用途 |
-|---|---|
+| --- | --- |
 | `.diag-full` | 全寬容器（覆蓋 sidebar flex 佈局） |
 | `.mode-tabs` / `.mode-tab` | 模式切換按鈕 |
 | `.diag-grid` / `.cols-3` / `.cols-2` / `.cols-3-2` | 響應式格線（`cols-3-2`＝3:2，用於「預覽＋分層診斷」；≤1000px 堆疊） |
@@ -237,15 +239,16 @@ pushdiag 用到的一組診斷專用類別，位於 `player.css` 的 `/* Diagnos
 
 ---
 
-
 ### 6.4 HTML JavaScript 腳本
 
 ### 原則
+
 分離結構與行為：HTML 專注於內容與結構，JavaScript 專注於互動與邏輯。
 
 避免內嵌大量程式碼：不要在 `<script>` 標籤內直接撰寫大段 JS，否則會造成維護困難、排版混亂。
 
 ### 統一管理
+
 像 CSS 樣式表一樣，將 JavaScript 程式碼獨立成外部檔案，集中管理。
 
 ### 建議做法
@@ -260,14 +263,13 @@ pushdiag 用到的一組診斷專用類別，位於 `player.css` 的 `/* Diagnos
 
 引入 JS 腳本
 
-### 建立專用目錄，例如：
+### 建立專用目錄，例如
 
 JS腳本存放目錄 `/www/players/js/`
 
 > 目前大多主要JS組件集中管理於此
 
 將不同模組或功能拆分成獨立檔案，避免單一檔案過於龐大。
-
 
 ### 快取與效能
 
@@ -280,6 +282,7 @@ JS腳本存放目錄 `/www/players/js/`
 **JavaScript** 程式碼集中在外部檔案，方便版本控制與多人協作。
 
 ### 範例
+
 ```html
 <!-- index.html -->
 <!DOCTYPE html>
@@ -305,8 +308,8 @@ function startPlay(r) {
 ```
 
 #### 📌 結論
-在 HTML 設計時，建議將 JavaScript 程式碼獨立成外部檔案，並用 `<script src="...">` 引入，避免直接在 HTML 中撰寫大量 JS。這樣能提升維護性、可讀性與效能。
 
+在 HTML 設計時，建議將 JavaScript 程式碼獨立成外部檔案，並用 `<script src="...">` 引入，避免直接在 HTML 中撰寫大量 JS。這樣能提升維護性、可讀性與效能。
 
 ## 7. 注意事項
 

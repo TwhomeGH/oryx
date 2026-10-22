@@ -19,7 +19,7 @@ Oryx 預設架構是「單容器全包」：Oryx 平台（Go）和 SRS 伺服器
 ## 環境變數
 
 | 變數 | 預設值 | 說明 |
-|---|---|---|
+| --- | --- | --- |
 | `SRS_HOST` | `127.0.0.1` | SRS 所在主機位址（IP 或域名），平台會用它存取 HTTP API (1985) 和 HLS 串流 (8080) |
 | `SRS_HTTP_STREAM_PORT` | `8080` | SRS HTTP 服務埠，用於下載 HLS TS 分段 |
 
@@ -71,7 +71,7 @@ services:
 ## 其他附帶修正（同 PR）
 
 | 修正 | 效果 |
-|---|---|
+| --- | --- |
 | on_hls 路徑安全檢查 | 防 directory traversal 攻擊（解決 CodeQL 掃描告警） |
 | SRS reload 失敗容錯 | reload 失敗只記警告日誌，不再中斷設定流程 |
 | Redis 位址也可配置（`REDIS_HOST`/`REDIS_PORT` 已有預設值） | 既有能力，一併整理 |

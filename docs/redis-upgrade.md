@@ -15,7 +15,7 @@ sha256:74566c6910d13ae61e7ce73ebd3127438a1fe805b309b097c323142719ec8a5b
 ```
 
 | Redis 5.0.14 → 7.2.16 驗證 | 結果 |
-|---|---|
+| --- | --- |
 | 原 redis.conf 啟動、讀取合成 Redis 5 RDB | 通過 |
 | vendored go-redis/v8：Hash/String、計數、TTL、DB 1、INFO | 通過 |
 | 寫入、SAVE、Redis 7.2 重啟 | 通過 |
@@ -63,7 +63,7 @@ Valkey 採 BSD，官方說明與 Redis OSS 7.2 及更早版本相容；可列為
 ## 1. 現況與 Redis 8 歷史候選
 
 | 項目 | 已確認結果 |
-|---|---|
+| --- | --- |
 | 本機 `oryx` 容器 | Redis **5.0.14**，glibc **2.31**；唯讀執行版本查詢，沒有存取業務資料 |
 | 正式映像來源 | 根目錄 `Dockerfile` 的 dist 繼承 `ossrs/oryx:focal-1` |
 | Redis 建置來源 | `focal/Dockerfile` 使用 `redis:5.0`，複製 redis-server/redis-cli，經 UPX 壓縮後放進 Ubuntu focal |
@@ -121,7 +121,7 @@ redis@sha256:2f7462b9e93e0a7ae2edf3a0a0babc8a4d29f8bfc50849b906b7caaef925edc1
 ```
 
 | 驗證 | 結果 |
-|---|---|
+| --- | --- |
 | Redis 5.0.14 產生合成快照 | 通過 |
 | Redis 8.2.8 使用既有 redis.conf 啟動並讀取 Redis 5 RDB | 通過 |
 | vendored go-redis/v8 常用指令、JSON 原文、TTL、DB 1、INFO sections | 通過 |
@@ -140,7 +140,7 @@ redis@sha256:2f7462b9e93e0a7ae2edf3a0a0babc8a4d29f8bfc50849b906b7caaef925edc1
 下一個實作階段須選擇並驗證以下其中一種封裝：
 
 | 方式 | 需要的工作 |
-|---|---|
+| --- | --- |
 | 保留單容器，在相容環境編譯 Redis 8 核心 | 固定來源版本與 checksum、確認編譯器與依賴、保留授權及來源資訊、在實際 focal runtime 測試 redis-server/redis-cli、更新主映像引用；不要再套用舊 UPX 流程 |
 | 更新整個 runtime 基底 | 同步檢查 Redis、SRS、FFmpeg、lego 與啟動腳本的相容性，範圍較大 |
 | Redis 改獨立官方容器 | 設計持久化 volume、健康檢查、網路、認證、備份及啟動順序；平台也須支援停用內建 Redis 啟動，不能只改 REDIS_HOST |

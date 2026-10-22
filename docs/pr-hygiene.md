@@ -10,7 +10,7 @@
 ## 1. PR 為什麼會亂？先對號入座
 
 | 症狀 | 成因 |
-|---|---|
+| --- | --- |
 | 60 筆 commit，其中 20 筆叫 "fix"、"test2" | 把 commit 當「本機存檔」用 |
 | 一個 PR 同時改了三件事 | 主題沒切，順手修 |
 | 跟上游 main 差了 200 個 commit | 開分支後從沒同步過 |
@@ -21,7 +21,7 @@
 
 ## 2. 急救流程總覽
 
-```
+```txt
 備份 → 盤點 → 重整歷史 → 同步基底 → 安全強推
  ①      ②        ③           ④         ⑤
 ```
@@ -39,7 +39,7 @@ powershell -ExecutionPolicy Bypass -File scripts/clean-commits.ps1
 選單功能與手工等價指令：
 
 | 選單 | 功能 | 等價手工指令 |
-|---|---|---|
+| --- | --- | --- |
 | 1 | 現況總覽 | `git log --oneline` / `git status` |
 | 2 | 自動建備份分支 | `git branch backup-<名>-<時間>` |
 | 3 | 互動重整最近 N 筆 | `git rebase -i HEAD~N` |
@@ -58,7 +58,7 @@ powershell -ExecutionPolicy Bypass -File scripts/clean-commits.ps1
 打開的待辦清單裡，把開頭動詞改掉即可：
 
 | 動詞 | 效果 |
-|---|---|
+| --- | --- |
 | `pick` | 原樣保留 |
 | `reword` | 改動不變，改訊息 |
 | `squash` | 併入上一筆，兩條訊息合併讓你編輯 |

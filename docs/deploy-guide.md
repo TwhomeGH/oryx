@@ -19,7 +19,7 @@ docker run --restart always -d --name oryx \
 ### 主要埠
 
 | 容器內埠 | 用途 | 協定 |
-|---|---|---|
+| --- | --- | --- |
 | 2022 | Web 管理介面（HTTP） | TCP |
 | 2443 | Web 管理介面 / HTTPS-FLV 等 | TCP |
 | 1935 | RTMP 推流、播放 | TCP |
@@ -32,7 +32,7 @@ docker run --restart always -d --name oryx \
 ### `/data` 數據目錄
 
 | 子目錄 | 用途 |
-|---|---|
+| --- | --- |
 | `.well-known` | Let's Encrypt ACME 驗證 |
 | `config` | `.env`（密碼）、srs/redis/nginx/prometheus 設定、SSL 檔 |
 | `dvr` | DVR 錄製檔 |
@@ -49,7 +49,7 @@ docker run --restart always -d --name oryx \
 ## 詳細文件
 
 | 文件 | 內容 |
-|---|---|
+| --- | --- |
 | [Docker 使用說明](docker-usage.md) | **本 fork 自有 GHCR 映像**、docker/compose 部署、埠對照、環境變數、版本更新與發布 |
 | [本地打包 Docker 映像](local-build.md) | 本機直接建置映像並套用到 compose |
 | [映像回退指南](rollback.md) | 新版出問題時用 sha 標籤/舊版號回退 |
@@ -62,6 +62,6 @@ docker run --restart always -d --name oryx \
 常用：
 
 | 變數 | 預設 | 說明 |
-|---|---|---|
+| --- | --- | --- |
 | `MGMT_PASSWORD` | 自動生成 | 管理員密碼（也存於 `/data/config/.env`） |
 | `REACT_APP_LOCALE` | `zh` | UI 預設語言：`zh` / `en` / `ja` 等。2026-09 起只 build 單一 bundle，預設語言在 runtime 由 envs 接口注入，任何值都不會讓 UI 壞 |

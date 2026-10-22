@@ -27,7 +27,7 @@
 ## 2. 代碼地圖（全部集中在 `platform/forward.go`）
 
 | 元件 | 行號 | 職責 |
-|---|---|---|
+| --- | --- | --- |
 | `ForwardWorker` | :30 | 全域單例，持有 tasks map（key=platform） |
 | `Handle()` | forward.go | 註冊兩個 HTTP API（見下），update 時同步套用後端自訂目標上限 |
 | `Start()` | forward.go | 為 Redis 裡每份配置起一個 `ForwardTask` goroutine；監聽新配置 |
@@ -52,7 +52,7 @@ Label    string
 ### HTTP API
 
 | 端點 | 方法語義 | 說明 |
-|---|---|---|
+| --- | --- | --- |
 | `/terraform/v1/ffmpeg/forward/secret` | action=`update` / `delete` / 查詢 | update：寫入並合併配置到 Redis `SRS_FORWARD_CONFIG`（hash，key=platform），新增自訂平台時套用 `SRS_FORWARD_LIMIT` 後端上限，若任務存活則觸發 `Restart()`；delete：僅允許 `forwarding-*` 自訂配置，HDel 配置＋`RemoveTask()` 停止並移除任務；不帶 action 時回傳全部配置 |
 | `/terraform/v1/ffmpeg/forward/streams` | 查詢 | 列出所有配置＋各任務運行狀態（pid/stream/frame log/ready 時間），並回傳健康狀態與重試資訊 |
 
@@ -61,7 +61,7 @@ Label    string
 `/forward/streams` 新增狀態欄位：
 
 | 欄位 | 說明 |
-|---|---|
+| --- | --- |
 | `status` | `idle` / `waiting_input` / `running` / `retrying` / `degraded` |
 | `restartCount` | 該任務自啟動以來累計失敗重啟次數 |
 | `consecutiveFailures` | 連續失敗次數，成功恢復或重新套用配置後歸零 |
@@ -72,7 +72,7 @@ Label    string
 
 ## 3. 資料流
 
-```
+```go
 UI(ScenarioForward.js)
    │ POST /terraform/v1/ffmpeg/forward/secret {action:update, platform, server, secret...}
    ▼
@@ -96,7 +96,7 @@ doForward(input):
 ### 關鍵 Redis keys
 
 | Key | 類型 | 內容 |
-|---|---|---|
+| --- | --- | --- |
 | `SRS_FORWARD_CONFIG` | hash | platform → ForwardConfigure JSON |
 | `SRS_STREAM_ACTIVE` | hash | 由 SRS http hooks 維護的活躍串流清單 |
 | `SRS_FORWARD_TASK` | hash | 各 task 序列化 JSON（pid/input/output/frame/restart/error 等） |
@@ -150,7 +150,7 @@ ffmpeg
 ## 5. 對照組：Transcode 線（結構高度相似）
 
 | | Forward | Transcode |
-|---|---|---|
+| --- | --- | --- |
 | 後端檔案 | `forward.go` | `trancode.go`（注意檔名拼寫） |
 | 核心函數 | `doForward()` :583 | `doTranscode()` :425 |
 | FFmpeg 編碼 | `-c copy` 純複製 | `-vcodec libx264 -profile:v -preset:v -b:v -r 25 -g 50 -bf 0 -acodec aac...`（WebRTC 友善參數） |
@@ -165,7 +165,7 @@ ffmpeg
 ## 6. 全專案 ffmpeg 呼叫點速查
 
 | 檔案 | 位置 | 用途 | 轉碼 |
-|---|---|---|---|
+| --- | --- | --- |---|
 | `forward.go` | :634 | 轉推 | ✗ copy |
 | `trancode.go` | :485 | 轉碼 | ✓ libx264/aac |
 | `virtual-live-stream.go` | :1204 | 虛擬直播 | ✓ |
@@ -185,7 +185,7 @@ ffmpeg
 `FFmpegHeartbeat`（utils.go:1732 起）現有能力：
 
 | 能力 | 實現 |
-|---|---|
+| --- | --- |
 | 存活偵測 | 解析 ffmpeg 每秒 cycle log 的 `time=`/`speed=`；`time=` 不變計數、10 秒無更新直接 kill 重啟 |
 | 速度異常 | 連續過快（如 >1.5x，追幀）／過慢（0.5x）分別計數，可由輸入 URL query 覆蓋閾值 |
 | 正常退出識別 | 「Exiting normally」判定，避免誤判為故障 |
@@ -200,7 +200,7 @@ ffmpeg
 分別推到外部 ingest，但當目標端故障、來源斷流或 API 被直接濫用時，不再把負載快速放大。
 
 | 改進 | 現況 |
-|---|---|
+| --- | --- |
 | 指數退避重啟 | 已落地。失敗重試由固定 3.5s 改為 `3.5s → 7s → 14s → 28s → 56s → 60s cap` |
 | 失敗降級狀態 | 已落地。連續 5 次失敗後標記 `degraded`，API 持續曝露錯誤與下一次重試時間 |
 | 目標預檢 | 已落地。起 FFmpeg 前先做 RTMP URL 結構檢查與 output host:port TCP 探測 |
@@ -221,7 +221,7 @@ Linux-only 的 `syscall.Kill`，Windows 本機直接 `go test` 會被既有代�
 因此對外平台仍以 FFmpeg 線為主。已完成基礎穩定性保護，後續可再做：
 
 | # | 改進 | 現況 → 目標 |
-|---|---|---|
+| --- | --- | --- |
 | B6 | 抖動 jitter | 在退避時間上加入小幅隨機抖動，避免多平台同時重試 |
 | B7 | 半開探測狀態 | `degraded` 期間區分正式重啟與半開探測，UI 可顯示更清楚 |
 | B8 | 來源選擇策略 | 空 Stream 名時不只選最新，可支援固定 app/stream、優先級或手動鎖定 |

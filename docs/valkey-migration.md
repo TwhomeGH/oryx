@@ -5,7 +5,7 @@
 原有 `REDIS_HOST/PORT/PASSWORD/DATABASE`、密碼、key 名稱及資料庫選擇沿用。若設定連到外部 Redis，更新 Oryx 映像不會替你升級外部伺服器，平台仍連接原本指定的服務。
 
 | 使用者關心的問題 | 更新後的行為 |
-|---|---|
+| --- | --- |
 | 換映像就會使用 Valkey 嗎？ | 內建資料服務會；外部 Redis 不會被替換 |
 | 原資料需要手動轉檔嗎？ | 預設 Redis 5 RDB 不需要，Valkey 啟動時直接載入 |
 | 設定與密碼要重填嗎？ | 不需要，保留原 `/data` 掛載與環境變數即可 |
@@ -62,7 +62,7 @@
 2026-09-10 本機驗證結果：
 
 | 檢查 | 結果 |
-|---|---|
+| --- | --- |
 | 根目錄 Dockerfile 完整建置 | 通過 |
 | Redis 5.0.14 RDB 載入、Hash/JSON、String、計數、HSCAN、TTL 到期時間、DB 1、redis.Nil、INFO | 通過 |
 | Valkey 寫入後 SAVE／重啟 | 通過 |

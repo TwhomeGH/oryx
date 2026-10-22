@@ -46,7 +46,7 @@ changelogkit export _site        # 匯出唯讀靜態站
 ## 設定重點（`.changelog.toml`）
 
 | 欄位 | 值 |
-|---|---|
+| --- | --- |
 | `title` | 網頁標題 |
 | `history` | `docs/change-history.md` |
 | `exclude` | `platform/vendor/**`、`ui/node_modules/**`、`ui/build/**`、`releases/**`（開發索引排除建置產物） |

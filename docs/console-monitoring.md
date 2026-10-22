@@ -19,7 +19,7 @@
 `rdb.Info()`（默认 sections）解析为 typed snapshot：
 
 | 栏位群 | 内容 |
-|---|---|
+| --- | --- |
 | server | `redis_version` / `role` / `uptime_sec` |
 | clients | `connected_clients` / `blocked_clients` / `rejected_connections` |
 | memory | `used_memory` / `used_memory_rss` / `used_memory_peak` / `maxmemory` / `maxmemory_policy` / `mem_fragmentation_ratio` |
@@ -28,6 +28,7 @@
 | keyspace | db0 的 `keys` / `expires` |
 
 注意：
+
 - INFO 的 section 名（`# Server` 等）parse 时统一转**小写**。
 - **所有计数器都是绝对值**，客户端用相邻两次 poll 的差值算 rate（`calcRedisRates`），不会重复计算。
 - `keyspace` 只取 `db0`（平台只用一个 db）。
@@ -36,11 +37,12 @@
 
 `consoleMetricsStore`：60 秒滑动窗，每 route 存采样（时间 + 微秒 + 是否 5xx），总采样上限 10 万笔，超限丢弃最旧 route。回传聚合结果（按 max_ms 降序）：
 
-```
+```log
 window_sec, routes: [{method, route, count, rate_per_sec, avg_ms, max_ms, p95_ms, error_count, slow_count}]
 ```
 
 记录规则（`normalizeConsoleRoute`）：
+
 - 跳过：`OPTIONS`、metrics endpoint 自身的轮询。
 - `/players/*`、`/tools/*` 各归一族（静态档，避免每档一条）。
 - `.flv` / `.m3u8` / `.ts` / `.aac` / `.mp3` 是**长连接或媒体大流量**，其「handler 时长」等价于整段推流时长，会污染 slow 列表，故整类**不记录**。

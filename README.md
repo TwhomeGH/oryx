@@ -39,7 +39,7 @@ docker run --restart always -d --name oryx \
 ## 文档
 
 | 文档 | 内容 |
-|---|---|
+| --- | --- |
 | [部署指南](docs/deploy-guide.md) | 快速开始、端口对照、`/data` 目录、环境变量，及部署相关文档入口 |
 | [Docker 使用说明](docs/docker-usage.md) | 本 fork 自有 GHCR 镜像、compose 部署、版本更新与发布 |
 | [功能列表](docs/features.md) | 已实现与规划中的功能 |
