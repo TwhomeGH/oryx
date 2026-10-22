@@ -25,7 +25,7 @@
 ## 0. 名詞解釋
 
 | 名詞 | 意思 |
-|---|---|
+| --- | --- |
 | upstream | 上游原始倉庫（`ossrs/oryx`） |
 | origin | 你自己的 fork（`TwhomeGH/oryx`） |
 | PR ref | GitHub 為每個開啟中的 PR 自動產生的引用：`refs/pull/<編號>/head`，指向該 PR 分支的最新 commit |
@@ -87,7 +87,7 @@ git log --oneline FETCH_HEAD~2..FETCH_HEAD
 
 輸出範例（PR #248 有 2 個 commit）：
 
-```
+```log
 066ace6 upgrade actions from v3 to v4
 583e2c4 replace action runner from ubuntu-20.04 -> ubuntu-22.04
 ```
@@ -180,7 +180,7 @@ git push origin main                    # 6. 推送
 ## 8. 其他替代做法
 
 | 做法 | 指令 | 適用情境 |
-|---|---|---|
+| --- | --- | --- |
 | 套用 patch 檔 | `curl -L <PR網址>.diff \| git apply` | 不想要原署名、想自己重寫 commit 時；缺點是不保留作者資訊 |
 | 直接手動改 | 照 `.diff` 內容自己編輯檔案 | PR 很小（改一兩行）、cherry-pick 衝突難解時最省事 |
 | merge PR 分支 | `git merge FETCH_HEAD` | 想保留 PR 完整歷史；但會把該分支所有祖先 commit 關聯進來，獨立 fork 不建議 |
@@ -242,7 +242,7 @@ git show <SHA>
 ## 10. 常見錯誤對照表
 
 | 錯誤訊息 / 現象 | 原因 | 正確做法 |
-|---|---|---|
+| --- | --- | --- |
 | `fatal: invalid refspec 'https://...'` | 把 PR 網址直接貼給 fetch | fetch 要用 refspec 格式：`git fetch upstream pull/<編號>/head` |
 | `git log FETCH_HEAD~N..FETCH_HEAD` 沒輸出 | 語法或範圍問題 | 改用 `git log --oneline FETCH_HEAD -N` 直接列尖端 |
 | diff 出現一大堆莫名檔案 | 拿分支尾端互相比較 | 用 `git show <SHA>` 看 commit 本身 |

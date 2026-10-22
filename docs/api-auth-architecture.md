@@ -6,7 +6,7 @@
 
 ## 概覽
 
-```
+```go
 HTTP Request
   │
   ▼
@@ -108,7 +108,7 @@ func (e *httpError) Status() int   { return e.status }
 
 `ohttp.WriteError()` → `ohttp.Error()` 的判斷鏈（`go-oryx-lib/http/http.go:92-126`）：
 
-```
+```go
 error
   ├── SystemComplexError  → 走 FilterCplxSystemError（帶 code + message）
   ├── SystemError (int)   → 走 FilterSystemError（帶 code）
@@ -139,7 +139,7 @@ ohttp.WriteError(ctx, w, r, &httpError{err: err, status: http.StatusUnauthorized
 
 ### 首次初始化
 
-```
+```go
 1. 平台啟動
    └─ main.go:340-365 — 從 Redis 讀 SRS_PLATFORM_SECRET
       ├─ 有值 → 使用既有 secret
@@ -158,7 +158,7 @@ ohttp.WriteError(ctx, w, r, &httpError{err: err, status: http.StatusUnauthorized
 
 ### 正常運作（已初始化）
 
-```
+```go
 1. 客戶端帶 Authorization: Bearer <SRS_PLATFORM_SECRET>
 2. middlewareAuthTokenInBody 讀 body 中的 token，或用 header 的 Bearer
 3. Authenticate() 比對 apiSecret
