@@ -1,8 +1,15 @@
 {
-    "gopls": {
-        "env": {
-            "GOOS": "linux",
-            "GOARCH": "amd64"
-        }
-    }
+  // Note: go.logging.level is deprecated; use the "Developer: Set Log Level..." command.
+  "go.toolsManagement.autoUpdate": false,
+  "go.showWelcome": false,
+
+  // Tell the Go extension about the vendored modules in this repo.
+  "go.useLanguageServer": true,
+
+  // The platform is built and run on Linux (Docker). Analyze with GOOS=linux so Linux-only
+  // syscalls (e.g. syscall.Kill) are not reported as undefined on a Windows host.
+  "go.toolsEnvVars": { "GOOS": "linux", "GOARCH": "amd64" },
+  "gopls": {
+    "build.directoryFilters": ["-platform/vendor", "-test/vendor", "-releases/vendor"]
+  }
 }
