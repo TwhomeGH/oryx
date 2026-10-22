@@ -738,7 +738,19 @@
       "gpuNone": "No GPU exposed to the container (CPU encoding only).",
       "gpuUtil": "GPU utilization",
       "gpuMem": "GPU memory",
-      "gpuProcs": "GPU processes (container)"
+      "gpuProcs": "GPU processes (container)",
+      "outputBitrate": "Output bitrate (Mbps)",
+      "outputBitrateHint": "Caps the transcoded output (normalize/composite). Higher is sharper but uses more bandwidth; default 6.",
+      "endText": "End text (manual end)",
+      "endTextHint": "Shown when you manually end the live. The clock keeps ticking.",
+      "endGraceSeconds": "End grace (seconds)",
+      "endGraceSecondsHint": "You can cancel the end within this many seconds; afterwards the target stops.",
+      "outputCQ": "Quality (CQ, 1-51)",
+      "outputCQHint": "Lower is sharper but larger. 21 is a good default; 18 is near-lossless, 28 is smaller/lower quality.",
+      "outputPresetNvenc": "NVENC preset (p1-p7)",
+      "outputPresetNvencHint": "Used when a GPU encoder is available. p1 fastest, p7 best.",
+      "outputPresetX264": "x264 preset",
+      "outputPresetX264Hint": "Used when no GPU: ultrafast to veryslow."
     },
     "coms": {
       "srs4": "SRS(Stable)",
@@ -989,7 +1001,10 @@
       "diagForwards": "Forward targets",
       "load1m": "1m",
       "load5m": "5m",
-      "load15m": "15m"
+      "load15m": "15m",
+      "fwEnd": "End live",
+      "fwCancelEnd": "Cancel end",
+      "fwEnded": "Ending"
     }
   },
   "meta": {

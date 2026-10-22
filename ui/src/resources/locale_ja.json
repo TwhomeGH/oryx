@@ -364,7 +364,19 @@
       "gpuNone": "コンテナに GPU がありません（CPU エンコードのみ）。",
       "gpuUtil": "GPU 使用率",
       "gpuMem": "GPU メモリ",
-      "gpuProcs": "GPU プロセス（コンテナ）"
+      "gpuProcs": "GPU プロセス（コンテナ）",
+      "outputBitrate": "出力ビットレート（Mbps）",
+      "outputBitrateHint": "トランスコード出力の上限（正規化/合成）。高いほど高画質だが帯域を消費します。既定 6。",
+      "endText": "終了テキスト（手動終了）",
+      "endTextHint": "手動で配信を終了したときに表示。時計は動き続けます。",
+      "endGraceSeconds": "終了猶予（秒）",
+      "endGraceSecondsHint": "この秒数内なら終了を取り消せます。経過後はターゲットを停止します。",
+      "outputCQ": "画質（CQ、1-51）",
+      "outputCQHint": "小さいほど高画質・大容量。既定 21。18 はほぼ可逆、28 は小さめ。",
+      "outputPresetNvenc": "NVENC プリセット（p1-p7）",
+      "outputPresetNvencHint": "GPU がある場合に使用。p1 最速、p7 最高画質。",
+      "outputPresetX264": "x264 プリセット",
+      "outputPresetX264Hint": "GPU がない場合に使用：ultrafast〜veryslow。"
     },
     "cb": {
       "title": "シーン紹介",
@@ -777,7 +789,10 @@
       "diagForwards": "転送ターゲット",
       "load1m": "1分",
       "load5m": "5分",
-      "load15m": "15分"
+      "load15m": "15分",
+      "fwEnd": "配信終了",
+      "fwCancelEnd": "終了を取消",
+      "fwEnded": "終了中"
     },
     "openapi": {
       "title": "プラットフォーム API キー（OpenAPI）",

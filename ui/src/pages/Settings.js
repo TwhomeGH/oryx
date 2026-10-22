@@ -1261,6 +1261,52 @@ function SettingForwardSlate() {
         value={conf.keyframeSeconds || 2} onChange={e => setConf({...conf, keyframeSeconds: Number(e.target.value) || 2})} />
       <Form.Text className="text-muted">{t('settings.keyframeSecondsHint')}</Form.Text>
     </Form.Group>
+    <Form.Group className="mb-3">
+      <Form.Label>{t('settings.outputBitrate')}</Form.Label>
+      <Form.Control as="input" type="number" min="1" max="50"
+        value={conf.outputBitrateMbps || 6}
+        onChange={e => setConf({...conf, outputBitrateMbps: Number(e.target.value) || 6})} />
+      <Form.Text className="text-muted">{t('settings.outputBitrateHint')}</Form.Text>
+    </Form.Group>
+    <Form.Group className="mb-3">
+      <Form.Label>{t('settings.outputCQ')}</Form.Label>
+      <Form.Control as="input" type="number" min="1" max="51"
+        value={conf.outputCQ || 21}
+        onChange={e => setConf({...conf, outputCQ: Number(e.target.value) || 21})} />
+      <Form.Text className="text-muted">{t('settings.outputCQHint')}</Form.Text>
+    </Form.Group>
+    <Form.Group className="mb-3">
+      <Form.Label>{t('settings.outputPresetNvenc')}</Form.Label>
+      <Form.Select
+        value={(conf.outputPresets || {}).nvenc || 'p4'}
+        onChange={e => setConf({...conf, outputPresets: {...(conf.outputPresets || {}), nvenc: e.target.value}})}>
+        {['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'].map(v => <option key={v} value={v}>{v}</option>)}
+      </Form.Select>
+      <Form.Text className="text-muted">{t('settings.outputPresetNvencHint')}</Form.Text>
+    </Form.Group>
+    <Form.Group className="mb-3">
+      <Form.Label>{t('settings.outputPresetX264')}</Form.Label>
+      <Form.Select
+        value={(conf.outputPresets || {}).x264 || 'veryfast'}
+        onChange={e => setConf({...conf, outputPresets: {...(conf.outputPresets || {}), x264: e.target.value}})}>
+        {['ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium', 'slow', 'slower', 'veryslow'].map(v => <option key={v} value={v}>{v}</option>)}
+      </Form.Select>
+      <Form.Text className="text-muted">{t('settings.outputPresetX264Hint')}</Form.Text>
+    </Form.Group>
+    <Form.Group className="mb-3">
+      <Form.Label>{t('settings.endText')}</Form.Label>
+      <Form.Control as="input" type="text" maxLength="200"
+        value={conf.endText || ''}
+        onChange={e => setConf({...conf, endText: e.target.value})} />
+      <Form.Text className="text-muted">{t('settings.endTextHint')}</Form.Text>
+    </Form.Group>
+    <Form.Group className="mb-3">
+      <Form.Label>{t('settings.endGraceSeconds')}</Form.Label>
+      <Form.Control as="input" type="number" min="1" max="600"
+        value={conf.endGraceSeconds || 60}
+        onChange={e => setConf({...conf, endGraceSeconds: Number(e.target.value) || 60})} />
+      <Form.Text className="text-muted">{t('settings.endGraceSecondsHint')}</Form.Text>
+    </Form.Group>
     <Button variant="primary" disabled={saving} onClick={save}>{t('settings.slateSave')}</Button>
     {saved && <span className="ms-2 text-success">{t('settings.slateSaved')}</span>}
   </>);

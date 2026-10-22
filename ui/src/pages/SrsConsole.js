@@ -1021,6 +1021,10 @@ function SrsForwards({handleError}) {
     axios.post('/terraform/v1/ffmpeg/forward/secret', {action: 'toggle', platform: e.platform, enabled: !e.enabled}, {headers: Token.loadBearerHeader()})
       .then(refresh).catch(handleError);
   };
+  const endTarget = (e) => {
+    axios.post('/terraform/v1/ffmpeg/forward/secret', {action: e.ended ? 'cancel-end' : 'end', platform: e.platform}, {headers: Token.loadBearerHeader()})
+      .then(refresh).catch(handleError);
+  };
 
   return (<>
     <div className="d-flex align-items-center mb-3">
@@ -1042,12 +1046,16 @@ function SrsForwards({handleError}) {
               <td>
                 <Badge bg={e.status === 'running' ? 'success' : 'secondary'}>{e.status || '-'}</Badge>
                 {e.fallback && <Badge bg="dark" className="ms-1">{t('forward.fallback')}</Badge>}
+                {e.ended && <Badge bg="warning" text="dark" className="ms-1">{t('console.fwEnded')}</Badge>}
               </td>
               <td><Badge bg={e.enabled ? 'success' : 'secondary'} pill>{e.enabled ? t('console.fwOn') : t('console.fwOff')}</Badge></td>
               <td>{e.metrics && e.metrics.avgFps ? e.metrics.avgFps.toFixed(1) : '-'}</td>
               <td className="text-end">
                 {e.ownStream && <a className="btn btn-sm btn-outline-secondary me-1" href={`/players/srs_player.html?stream=${e.ownStream}.flv`} target="_blank" rel="noreferrer">{t('console.fwWatch')}</a>}
                 <Button size="sm" variant="outline-primary" className="me-1" onClick={() => setExpanded(expanded === e.platform ? '' : e.platform)}>{t('console.fwDetail')}</Button>
+                <Button size="sm" variant={e.ended ? 'outline-secondary' : 'outline-warning'} className="me-1" onClick={() => endTarget(e)}>
+                  {e.ended ? t('console.fwCancelEnd') : t('console.fwEnd')}
+                </Button>
                 <Button size="sm" variant={e.enabled ? 'outline-danger' : 'outline-success'} onClick={() => toggleTarget(e)}>
                   {e.enabled ? t('console.fwStop') : t('console.fwStart')}
                 </Button>

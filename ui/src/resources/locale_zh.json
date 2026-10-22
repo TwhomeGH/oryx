@@ -203,7 +203,19 @@
       "gpuNone": "容器内没有可用 GPU（仅 CPU 编码）。",
       "gpuUtil": "GPU 使用率",
       "gpuMem": "GPU 内存",
-      "gpuProcs": "容器内 GPU 程序"
+      "gpuProcs": "容器内 GPU 程序",
+      "outputBitrate": "输出码率（Mbps）",
+      "outputBitrateHint": "限制转码输出（补强/备援）码率上限。越高越清晰但更耗带宽，默认 6。",
+      "endText": "结束文字（手动结束）",
+      "endTextHint": "手动结束直播时显示，时钟会继续走动。",
+      "endGraceSeconds": "结束保留秒数",
+      "endGraceSecondsHint": "在此秒数内可取消结束；之后该目标会停止。",
+      "outputCQ": "画质（CQ，1–51）",
+      "outputCQHint": "越低越清晰但更大。21 为默认；18 接近无损，28 更小但较糊。",
+      "outputPresetNvenc": "NVENC 预设（p1–p7）",
+      "outputPresetNvencHint": "有 GPU 時使用。p1 最快，p7 最好。",
+      "outputPresetX264": "x264 预设",
+      "outputPresetX264Hint": "無 GPU 時使用：ultrafast 到 veryslow。"
     },
     "coms": {
       "srs4": "SRS(稳定版)",
@@ -989,7 +1001,10 @@
       "diagForwards": "转播目标",
       "load1m": "1分",
       "load5m": "5分",
-      "load15m": "15分"
+      "load15m": "15分",
+      "fwEnd": "结束直播",
+      "fwCancelEnd": "取消结束",
+      "fwEnded": "结束中"
     }
   },
   "meta": {
