@@ -1078,6 +1078,16 @@ function SrsForwards({handleError}) {
 function SrsDiagnostics({handleError}) {
   const {t} = useTranslation();
   const [gpu, setGpu] = React.useState();
+  const [events, setEvents] = React.useState([]);
+  React.useEffect(() => {
+    const refreshEvents = () => {
+      axios.post('/terraform/v1/mgmt/streams/query', {}, {headers: Token.loadBearerHeader()})
+        .then(res => setEvents((res.data.data && res.data.data.events) || [])).catch(() => {});
+    };
+    refreshEvents();
+    const timer = setInterval(refreshEvents, 10000);
+    return () => clearInterval(timer);
+  }, []);
   React.useEffect(() => {
     const refresh = () => {
       axios.post('/terraform/v1/mgmt/gpu/query', {}, {headers: Token.loadBearerHeader()})
@@ -1114,6 +1124,27 @@ function SrsDiagnostics({handleError}) {
             </tbody>
           </Table>}
         </>}
+      </Card.Body>
+    </Card>
+    <Card className="mb-3">
+      <Card.Header>{t('console.diagEvents')}</Card.Header>
+      <Card.Body style={{maxHeight: 240, overflowY: 'auto'}}>
+        {events.length === 0 && <div className="text-muted small">{t('console.diagNoEvents')}</div>}
+        <Table size="sm" borderless className="mb-0">
+          <tbody>
+            {events.slice(0, 50).map((e, i) => (
+              <tr key={`${e.time}-${e.stream}-${i}`}>
+                <td className="small text-muted" style={{whiteSpace: 'nowrap'}}>
+                  {(() => { const d = new Date(e.time); return isNaN(d) ? e.time : d.toLocaleString(); })()}
+                </td>
+                <td className="small">
+                  <Badge bg={e.event === 'on_publish' ? 'success' : 'secondary'}>{e.event}</Badge>
+                </td>
+                <td className="small text-truncate" style={{maxWidth: 320}}>{e.stream}</td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
       </Card.Body>
     </Card>
     <Card className="mb-3">

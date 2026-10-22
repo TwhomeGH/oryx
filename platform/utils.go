@@ -314,6 +314,8 @@ const (
 	// For ASR badword (badcase) filtering.
 	SRS_ASR_BADWORD = "SRS_ASR_BADWORD"
 	// For SRS stream status.
+	// A bounded list of publish/unpublish events for UI diagnostics.
+	SRS_STREAM_EVENTS     = "SRS_STREAM_EVENTS"
 	SRS_STREAM_ACTIVE     = "SRS_STREAM_ACTIVE"
 	SRS_STREAM_SRT_ACTIVE = "SRS_STREAM_SRT_ACTIVE"
 	SRS_STREAM_RTC_ACTIVE = "SRS_STREAM_RTC_ACTIVE"

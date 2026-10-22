@@ -1976,10 +1976,23 @@ func handleMgmtStreamsQuery(ctx context.Context, handler *http.ServeMux) {
 				}
 			}
 
+			// Recent publish/unpublish events, so the UI can show when a source dropped
+			// without reading container logs.
+			var events []map[string]string
+			if raw, err := rdb.LRange(ctx, SRS_STREAM_EVENTS, 0, 199).Result(); err == nil {
+				for _, item := range raw {
+					var ev map[string]string
+					if json.Unmarshal([]byte(item), &ev) == nil {
+						events = append(events, ev)
+					}
+				}
+			}
+
 			ohttp.WriteData(ctx, w, r, &struct {
-				Streams []*SrsStream `json:"streams"`
+				Streams []*SrsStream        `json:"streams"`
+				Events  []map[string]string `json:"events"`
 			}{
-				streamObjects,
+				streamObjects, events,
 			})
 			logger.Tf(ctx, "query streams ok, streams=%v", len(streamObjects))
 			return nil

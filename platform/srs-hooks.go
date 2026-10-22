@@ -193,6 +193,16 @@ func handleHooksService(ctx context.Context, handler *http.ServeMux) error {
 				}
 			}
 
+			// Keep a bounded stream lifecycle log so the UI can show when a source
+			// published/unpublished without digging into container logs.
+			if ev, err := json.Marshal(map[string]string{
+				"time": time.Now().Format(time.RFC3339), "event": string(action), "stream": streamURL,
+			}); err == nil {
+				if err := rdb.LPush(ctx, SRS_STREAM_EVENTS, string(ev)).Err(); err == nil {
+					rdb.LTrim(ctx, SRS_STREAM_EVENTS, 0, 499)
+				}
+			}
+
 			// For some events, hook after all other hooks are done.
 			if !preAllHook {
 				if err := callbackWorker.OnStreamMessage(ctx, action, &streamObj); err != nil {
