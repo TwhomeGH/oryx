@@ -24,11 +24,26 @@ type forwardSlateConfig struct {
 	OfflineStopMinutes int    `json:"offlineStopMinutes"`
 	// KeyframeSeconds is the target GOP duration used by normalize/composite transcoding.
 	KeyframeSeconds int `json:"keyframeSeconds"`
+	// OutputBitrateMbps caps the transcoded output bitrate (normalize/composite), in Mbps.
+	OutputBitrateMbps int `json:"outputBitrateMbps"`
+	// OutputCQ is the quality target (0-51, lower is better); used as -cq (NVENC) / -crf (x264).
+	OutputCQ int `json:"outputCQ"`
+	// OutputPresets maps an encoder kind (nvenc, x264, amf, qsv) to its preset, so switching
+	// encoders never applies one encoder's vocabulary to another.
+	OutputPresets map[string]string `json:"outputPresets"`
+	// EndText is shown when the operator manually ends the live (not a source outage).
+	EndText string `json:"endText"`
+	// EndGraceSeconds is how long the end screen can still be cancelled before the target stops.
+	EndGraceSeconds int `json:"endGraceSeconds"`
 }
 
 // forwardSlateDefaultText is the default message; the slate is shown on a (usually temporary)
 // source interruption that auto-recovers, so it asks viewers to wait rather than announcing an end.
 const forwardSlateDefaultText = "直播來源中斷，正在嘗試恢復，請稍候…"
+
+// forwardSlateDefaultEndText is shown after a deliberate "end live", so viewers see a proper
+// end rather than the outage message while the 60s grace runs.
+const forwardSlateDefaultEndText = "直播已結束，謝謝收看"
 
 func defaultForwardSlateConfig() forwardSlateConfig {
 	return forwardSlateConfig{
@@ -37,12 +52,20 @@ func defaultForwardSlateConfig() forwardSlateConfig {
 		OfflineStopEnabled: true,
 		OfflineStopMinutes: 5,
 		KeyframeSeconds:    2,
+		OutputBitrateMbps:  6,
+		OutputCQ:           21,
+		OutputPresets:      map[string]string{"nvenc": "p4", "x264": "veryfast"},
+		EndText:            forwardSlateDefaultEndText,
+		EndGraceSeconds:    60,
 	}
 }
 
 // forwardSlateConfigLoad reads the slate config from Redis, returning defaults when unset.
 func forwardSlateConfigLoad(ctx context.Context) forwardSlateConfig {
 	conf := defaultForwardSlateConfig()
+	if rdb == nil {
+		return conf
+	}
 	if b, err := rdb.Get(ctx, SRS_FORWARD_SLATE).Result(); err != nil && err != redis.Nil {
 		logger.Wf(ctx, "ignore forward slate get err %+v", err)
 	} else if err == nil && b != "" {
@@ -55,6 +78,27 @@ func forwardSlateConfigLoad(ctx context.Context) forwardSlateConfig {
 	}
 	if conf.KeyframeSeconds <= 0 || conf.KeyframeSeconds > 10 {
 		conf.KeyframeSeconds = 2
+	}
+	if conf.OutputBitrateMbps <= 0 || conf.OutputBitrateMbps > 50 {
+		conf.OutputBitrateMbps = 6
+	}
+	if conf.OutputCQ <= 0 || conf.OutputCQ > 51 {
+		conf.OutputCQ = 21
+	}
+	if conf.OutputPresets == nil {
+		conf.OutputPresets = map[string]string{}
+	}
+	if conf.OutputPresets["nvenc"] == "" {
+		conf.OutputPresets["nvenc"] = "p4"
+	}
+	if conf.OutputPresets["x264"] == "" {
+		conf.OutputPresets["x264"] = "veryfast"
+	}
+	if conf.EndText == "" {
+		conf.EndText = forwardSlateDefaultEndText
+	}
+	if conf.EndGraceSeconds <= 0 || conf.EndGraceSeconds > 600 {
+		conf.EndGraceSeconds = 60
 	}
 	return conf
 }
@@ -72,6 +116,37 @@ func forwardSlateConfigSave(ctx context.Context, conf forwardSlateConfig) error 
 	}
 	if conf.KeyframeSeconds > 10 {
 		return errors.Errorf("invalid keyframeSeconds=%v", conf.KeyframeSeconds)
+	}
+	if conf.OutputBitrateMbps <= 0 {
+		conf.OutputBitrateMbps = 6
+	}
+	if conf.OutputBitrateMbps > 50 {
+		return errors.Errorf("invalid outputBitrateMbps=%v", conf.OutputBitrateMbps)
+	}
+	if conf.OutputCQ <= 0 {
+		conf.OutputCQ = 21
+	}
+	if conf.OutputCQ > 51 {
+		return errors.Errorf("invalid outputCQ=%v", conf.OutputCQ)
+	}
+	for k, v := range conf.OutputPresets {
+		switch k {
+		case "nvenc", "x264", "amf", "qsv":
+		default:
+			return errors.Errorf("invalid encoder kind=%v", k)
+		}
+		if v == "" || len(v) > 16 {
+			return errors.Errorf("invalid preset for %v=%v", k, v)
+		}
+	}
+	if conf.EndGraceSeconds <= 0 {
+		conf.EndGraceSeconds = 60
+	}
+	if conf.EndGraceSeconds > 600 {
+		return errors.Errorf("invalid endGraceSeconds=%v", conf.EndGraceSeconds)
+	}
+	if len([]rune(conf.EndText)) > 200 {
+		return errors.Errorf("end text too long (max 200 chars)")
 	}
 	if len([]rune(conf.Text)) > 200 {
 		return errors.Errorf("slate text too long (max 200 chars)")

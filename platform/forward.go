@@ -121,7 +121,7 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 				return errors.Wrapf(err, "parse body")
 			}
 
-			allowedActions := []string{"update", "delete", "toggle"}
+			allowedActions := []string{"update", "delete", "toggle", "end", "cancel-end"}
 			allowedPlatforms := []string{"wx", "bilibili", "kuaishou"}
 			if action != "" {
 				if !slicesContains(allowedActions, action) {
@@ -215,6 +215,40 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 				}
 				ohttp.WriteData(ctx, w, r, nil)
 				logger.Tf(ctx, "forward toggle ok, platform=%v enabled=%v", userConf.Platform, userConf.Enabled)
+				return nil
+			case "end", "cancel-end":
+				// Manually end (or cancel ending) one target. Ending shows the end text for
+				// endGraceSeconds, then stops this target; cancelling resumes normal forwarding.
+				if userConf.Platform == "" {
+					return errors.Errorf("invalid platform=%v", userConf.Platform)
+				}
+				var endConf ForwardConfigure
+				if config, err := rdb.HGet(ctx, SRS_FORWARD_CONFIG, userConf.Platform).Result(); err != nil && err != redis.Nil {
+					return errors.Wrapf(err, "hget %v %v", SRS_FORWARD_CONFIG, userConf.Platform)
+				} else if config == "" {
+					return errors.Errorf("no such platform=%v", userConf.Platform)
+				} else if err = json.Unmarshal([]byte(config), &endConf); err != nil {
+					return errors.Wrapf(err, "unmarshal %v", config)
+				}
+				if action == "end" {
+					endConf.Ended = true
+					endConf.EndedAt = time.Now().Unix()
+				} else {
+					endConf.Ended = false
+					endConf.EndedAt = 0
+				}
+				if newB, err := json.Marshal(&endConf); err != nil {
+					return errors.Wrapf(err, "marshal %v", endConf.String())
+				} else if err = rdb.HSet(ctx, SRS_FORWARD_CONFIG, userConf.Platform, string(newB)).Err(); err != nil && err != redis.Nil {
+					return errors.Wrapf(err, "hset %v %v %v", SRS_FORWARD_CONFIG, userConf.Platform, string(newB))
+				}
+				if task := v.GetTask(userConf.Platform); task != nil {
+					if err := task.Restart(ctx); err != nil {
+						return errors.Wrapf(err, "restart task %v", userConf.Platform)
+					}
+				}
+				ohttp.WriteData(ctx, w, r, nil)
+				logger.Tf(ctx, "forward %v ok, platform=%v", action, userConf.Platform)
 				return nil
 			case "delete":
 				// Only custom forwarding configs are removable, built-in platforms are protected.
@@ -588,6 +622,11 @@ type ForwardConfigure struct {
 	// The failover mode when the source is offline: empty or "hold" holds the last frame
 	// (default), "slate" switches the program to a fallback slate image.
 	Failover string `json:"failover"`
+	// Whether the operator has manually ended this live; the program shows the end text and the
+	// target stops after the grace period unless cancelled.
+	Ended bool `json:"ended"`
+	// When the manual end started (unix seconds); the target stops after endGraceSeconds.
+	EndedAt int64 `json:"endedAt"`
 	// Whether to transcode (normalize) the output into a regular CFR stream, to mitigate a
 	// source with dropped frames, variable frame rate or timestamp jitter. Costs CPU per target.
 	Normalize bool `json:"normalize"`
@@ -671,6 +710,10 @@ type ForwardTask struct {
 }
 
 type ForwardTaskStatus struct {
+	// Manual end state and the configured grace, so the UI can show a countdown.
+	Ended               bool  `json:"ended"`
+	EndedAt             int64 `json:"endedAt"`
+	EndGraceSecs        int   `json:"endGraceSeconds"`
 	PID                 int32
 	State               string
 	Input               string
@@ -852,6 +895,11 @@ func (v *ForwardTask) queryStatus() ForwardTaskStatus {
 		status.Encoder = "copy"
 	}
 	status.FFmpegArgs = v.ffmpegArgs
+	if v.config != nil {
+		status.Ended = v.config.Ended
+		status.EndedAt = v.config.EndedAt
+		status.EndGraceSecs = forwardSlateConfigLoad(context.Background()).EndGraceSeconds
+	}
 	status.Metrics = v.queryMetrics(ps)
 	status.Logs = append([]string(nil), v.logs...)
 	status.Events = append([]ForwardEvent(nil), v.events...)
@@ -861,6 +909,15 @@ func (v *ForwardTask) queryStatus() ForwardTaskStatus {
 	}
 
 	return status
+}
+
+// stoppedNoOutput returns the time since the last output, but 0 once the task is no longer
+// running, so a stopped target does not keep an ever-growing "no output" timer.
+func (v *ForwardTask) stoppedNoOutput() float64 {
+	if v.State != forwardStateRunning {
+		return 0
+	}
+	return time.Since(v.metrics.at).Seconds()
 }
 
 // queryMetrics builds the local output-progress metrics. It must be called with v.lock held.
@@ -877,7 +934,7 @@ func (v *ForwardTask) queryMetrics(ps *ProgramStatus) *ForwardMetrics {
 		SizeBytes:       v.metrics.sizeBytes,
 		MediaTime:       v.metrics.mediaTime,
 		MediaSecond:     v.metrics.mediaSec,
-		NoOutputSeconds: time.Since(v.metrics.at).Seconds(),
+		NoOutputSeconds: v.stoppedNoOutput(),
 	}
 	if v.metrics.mediaSec > 0 && v.metrics.frame > 0 {
 		m.AvgFPS = float64(v.metrics.frame) / v.metrics.mediaSec
@@ -962,7 +1019,7 @@ func (v *ForwardTask) markRunning(pid int32, inputURL, inputStreamURL, outputURL
 	v.NextRetryAt = nil
 	// Reset the output metrics of the previous run.
 	v.metrics, v.metricsFirstSec, v.metricsFirstAt = forwardProgress{}, 0, time.Time{}
-	v.addEventLocked("start", outputURL)
+	v.addEventLocked("start", redactForwardURL(outputURL))
 }
 
 // setFFmpegArgs records the fanout command line for troubleshooting, with any ?secret= value
@@ -1166,6 +1223,27 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 			return nil
 		}
 
+		// A manual end shows the configured end text for a grace period, then stops this target
+		// (the operator need not wait for the offline-stop policy).
+		if v.config.Ended && v.config.EndedAt > 0 {
+			grace := int64(forwardSlateConfigLoad(ctx).EndGraceSeconds)
+			if time.Now().Unix() >= v.config.EndedAt+grace {
+				logger.Tf(ctx, "forward platform=%v manual end grace expired, stop", v.Platform)
+				v.addEvent("end-stop", "manual end grace expired")
+				v.config.Ended = false
+				v.config.EndedAt = 0
+				v.config.Enabled = false
+				if b, err := json.Marshal(v.config); err == nil {
+					if err := rdb.HSet(ctx, SRS_FORWARD_CONFIG, v.Platform, string(b)).Err(); err != nil && err != redis.Nil {
+						logger.Wf(ctx, "ignore forward end hset err %+v", err)
+					}
+				}
+				v.releaseProgram()
+				v.markWaitingInput()
+				return nil
+			}
+		}
+
 		// Optional policy: stop the forward when the source has been offline long enough, so a
 		// permanently-ended live does not keep the slate (and the forward) alive forever.
 		if off, mins := forwardSlateOfflineStop(ctx); off {
@@ -1251,9 +1329,22 @@ func (v *ForwardTask) programSource() (string, string) {
 // (normalize, the program slate). NVENC presence is not enough (the GPU may be unusable), so we
 // probe it with a tiny encode and fall back on any failure.
 var forwardEncoderOnce sync.Once
-var forwardEncoderArgs []string
+var forwardEncoderKind string
 
-func forwardVideoEncodeArgs() []string {
+// forwardVideoEncodeArgs returns the video-encoder args, choosing NVENC (GPU) when usable, and
+// applies the operator-configured output bitrate (Mbps) as a cap.
+func forwardVideoEncodeArgs(mbps, cq int, presets map[string]string) []string {
+	if mbps <= 0 {
+		mbps = 6
+	}
+	if cq <= 0 || cq > 51 {
+		cq = 21
+	}
+	if presets == nil {
+		presets = map[string]string{}
+	}
+	br := fmt.Sprintf("%dM", mbps)
+	buf := fmt.Sprintf("%dM", mbps*2)
 	forwardEncoderOnce.Do(func() {
 		// Use a size above the hardware encoders' minimum: NVENC rejects small frames (e.g. 64x64
 		// with "Frame Dimension less than the minimum supported value"), which would make a
@@ -1262,24 +1353,32 @@ func forwardVideoEncodeArgs() []string {
 			"-f", "lavfi", "-i", "color=c=black:s=256x256:r=1", "-frames:v", "1",
 			"-c:v", "h264_nvenc", "-f", "null", "-")
 		if err := probe.Run(); err == nil {
-			forwardEncoderArgs = []string{"-c:v", "h264_nvenc", "-preset", "p4", "-tune", "ll", "-profile:v", "high", "-pix_fmt", "yuv420p"}
+			forwardEncoderKind = "h264_nvenc"
 			logger.Tf(context.Background(), "forward: using NVENC (GPU) H.264 encoder")
 		} else {
-			forwardEncoderArgs = []string{"-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency", "-profile:v", "high", "-pix_fmt", "yuv420p"}
+			forwardEncoderKind = "libx264"
 			logger.Tf(context.Background(), "forward: NVENC unavailable, using libx264")
 		}
 	})
-	return forwardEncoderArgs
+	if forwardEncoderKind == "h264_nvenc" {
+		p := presets["nvenc"]
+		if p == "" {
+			p = "p4"
+		}
+		return []string{"-c:v", "h264_nvenc", "-preset", p, "-tune", "hq", "-profile:v", "high", "-pix_fmt", "yuv420p", "-rc", "vbr", "-cq", strconv.Itoa(cq), "-b:v", br, "-maxrate", br, "-bufsize", buf}
+	}
+	p := presets["x264"]
+	if p == "" {
+		p = "veryfast"
+	}
+	return []string{"-c:v", "libx264", "-preset", p, "-tune", "zerolatency", "-profile:v", "high", "-pix_fmt", "yuv420p", "-crf", strconv.Itoa(cq), "-maxrate", br, "-bufsize", buf}
 }
 
 // forwardVideoEncoderName reports the resolved video encoder for status, e.g. "h264_nvenc"
 // (hardware) or "libx264" (software).
 func forwardVideoEncoderName() string {
-	args := forwardVideoEncodeArgs()
-	if len(args) >= 2 && args[0] == "-c:v" {
-		return args[1]
-	}
-	return ""
+	forwardVideoEncodeArgs(6, 21, nil)
+	return forwardEncoderKind
 }
 
 // forwardKeyframeIntervalSeconds is the target GOP duration; platforms generally require a
@@ -1326,7 +1425,7 @@ func forwardFanoutArgs(normalize bool, gop int, programInputURL, outputURL strin
 			"-i", programInputURL,
 			"-fps_mode", "cfr",
 		)
-		args = append(args, forwardVideoEncodeArgs()...)
+		args = append(args, forwardVideoEncodeArgs(forwardSlateConfigLoad(context.Background()).OutputBitrateMbps, forwardSlateConfigLoad(context.Background()).OutputCQ, forwardSlateConfigLoad(context.Background()).OutputPresets)...)
 		if gop <= 0 {
 			gop = 50
 		}

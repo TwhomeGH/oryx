@@ -6,6 +6,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -28,9 +29,8 @@ const (
 	forwardProgramPrefix = "__forward_"
 
 	// The program publisher mode.
-	programModeIdle  = "idle"
-	programModeLive  = "live"
-	programModeSlate = "slate"
+	programModeIdle = "idle"
+	programModeLive = "live"
 	// The composite publisher renders the fallback slate itself (base + source overlay with
 	// eof_action=pass), so a source outage never changes the publisher: no republish, and thus
 	// no multi-second downstream gap (see runComposite).
@@ -39,9 +39,6 @@ const (
 	// The failover mode: hold the last frame (default) or switch to a fallback slate.
 	forwardFailoverHold  = "hold"
 	forwardFailoverSlate = "slate"
-
-	// The debounce before switching the program publisher to the fallback slate.
-	forwardSlateDownDelay = 2 * time.Second
 
 	// The delay to wait after stopping a program publisher, to let SRS un-publish the stream
 	// before the next publisher takes over.
@@ -64,7 +61,7 @@ const (
 
 // isForwardProgramStream reports whether the stream is an internal program bus stream, which
 // should never be exposed to the platform or stored in Redis.
-func isForwardProgramStream(app, stream string) bool {
+func isForwardProgramStream(_, stream string) bool {
 	return strings.HasPrefix(stream, forwardProgramPrefix)
 }
 
@@ -261,15 +258,6 @@ func (v *ProgramBus) stop() {
 	if v.cancel != nil {
 		v.cancel()
 	}
-}
-
-func (v *ProgramBus) currentMode() string {
-	v.lock.Lock()
-	defer v.lock.Unlock()
-	if v.mode == "" {
-		return programModeIdle
-	}
-	return v.mode
 }
 
 func (v *ProgramBus) setFailover(failover string) {
@@ -507,9 +495,7 @@ func (v *ProgramBus) stopPublisher() {
 
 	if cancel != nil {
 		cancel()
-		select {
-		case <-time.After(programHandoffDelay):
-		}
+		time.Sleep(programHandoffDelay)
 	}
 }
 
@@ -583,7 +569,7 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		slateConf := forwardSlateConfigLoad(ctx)
 		filter := fmt.Sprintf(
 			"[0:v]%v,%v[bg];[bg][2:v]overlay=eof_action=pass:x=0:y=0[v];[1:a][2:a]amix=inputs=2:duration=longest:dropout_transition=0[a]",
-			forwardSlateTextDrawtext(slateConf.Text), forwardSlateDrawtext(),
+			forwardSlateTextDrawtext(forwardSlateActiveText(slateConf, forwardEndedAny(ctx))), forwardSlateDrawtext(),
 		)
 		args = append(args,
 			"-re",
@@ -594,7 +580,7 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 			"-map", "[v]", "-map", "[a]",
 		)
 		gop := forwardGOPFrames(rate, slateConf.KeyframeSeconds)
-		args = append(args, forwardVideoEncodeArgs()...)
+		args = append(args, forwardVideoEncodeArgs(slateConf.OutputBitrateMbps, slateConf.OutputCQ, slateConf.OutputPresets)...)
 		args = append(args, "-g", fmt.Sprintf("%d", gop), "-keyint_min", fmt.Sprintf("%d", gop),
 			"-sc_threshold", "0", "-c:a", "aac", "-f", "flv", output)
 	default:
@@ -630,6 +616,9 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 		for scanner.Scan() {
 			v.onRelayLog(scanner.Text())
+		}
+		if err := scanner.Err(); err != nil {
+			logger.Wf(context.Background(), "forward relay stderr scan err %+v", err)
 		}
 	}()
 
@@ -796,4 +785,32 @@ func forwardSlateFont() string {
 		}
 	}
 	return ""
+}
+
+// forwardSlateActiveText picks the message for the composite overlay: the end text once the
+// operator has ended the live, otherwise the source-outage text.
+func forwardSlateActiveText(conf forwardSlateConfig, ended bool) string {
+	if ended && conf.EndText != "" {
+		return conf.EndText
+	}
+	return conf.Text
+}
+
+// forwardEndedAny reports whether any target is in the manual "ended" state, so the shared
+// program shows the end text. Per-target text would require a separate program per target.
+func forwardEndedAny(ctx context.Context) bool {
+	if rdb == nil {
+		return false
+	}
+	items, err := rdb.HGetAll(ctx, SRS_FORWARD_CONFIG).Result()
+	if err != nil {
+		return false
+	}
+	for _, raw := range items {
+		var c ForwardConfigure
+		if json.Unmarshal([]byte(raw), &c) == nil && c.Ended {
+			return true
+		}
+	}
+	return false
 }
