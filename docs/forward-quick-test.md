@@ -100,7 +100,8 @@ pwsh scripts/tools/forward-latency.ps1 -Source live/livestream -Samples 10 -Inte
 ```
 
 輸出範例：
-```
+
+```powershell
  1. program=  123.456s  target=  121.200s  forward latency=  2.26s
  ...
 forward latency: avg=2.30s  min=2.20s  max=2.40s  (samples=5)
@@ -108,9 +109,11 @@ note: this excludes the platform's own latency; add that for the viewer-side del
 ```
 
 注意：
+
 - 這**不含平台端**延遲（Twitch/YouTube 自己的 5–15s）；觀眾端總延遲 ≈ 轉推延遲 + 平台延遲。
 - 量測會建立一個臨時的 `forwarding-latency-*` 本機目標，結束自動刪除。
 - 需要容器在跑（預設名稱 `oryx`）；API/RTMP 連接埠會自動偵測。
+
 ## 對照「不轉碼」與「補強轉碼」（-Compare）
 
 ```powershell
@@ -120,7 +123,7 @@ pwsh scripts/tools/forward-quick-test.ps1 -Compare
 同時建立兩個本機目標（都以 `TEST` 標記）：
 
 | 目標 | 說明 |
-|---|---|
+| --- | --- |
 | `TEST quick (copy)` | 零轉碼（`-c copy`），輸出等於來源 |
 | `TEST quick (normalize)` | 開啟補強轉碼（CFR＋修正時間戳） |
 
@@ -136,3 +139,7 @@ pwsh scripts/tools/forward-quick-test.ps1 -Compare
 - **灰色**：其他（等待中）
 
 （`TEST` 目標在控制台列表會帶黃色 `TEST` 徽章，與正式目標區分。）
+
+## 延伸：畫質對比
+
+比較 copy 與 normalize（或不同碼率）的畫質，請見 [forward-quality-compare.md](forward-quality-compare.md)。

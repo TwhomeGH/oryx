@@ -210,6 +210,16 @@ try {
     }
 
     Step "完成。轉推輸出（HTTP-FLV）：$playURL"
+    if ($Compare) {
+        $flvA = "$Endpoint/live/$($script:TgtID).flv"
+        $flvB = "$Endpoint/live/$($script:CompareTgtID).flv"
+        Write-Host ""
+        Write-Host "   畫質對比用這兩個網址（複製即可）：" -ForegroundColor Cyan
+        Write-Host "     copy      (A): $flvA" -ForegroundColor Green
+        Write-Host "     normalize (B): $flvB" -ForegroundColor Green
+        Write-Host "   指令：" -ForegroundColor Cyan
+        Write-Host "     pwsh scripts/tools/forward-quality-compare.ps1 -A `"$flvA`" -B `"$flvB`" -Seconds 20" -ForegroundColor Gray
+    }
     if (-not $Play -and -not $NoPlay) {
         Write-Host "   看畫面：預設會自動開 ffplay 預覽；若沒開（找不到 ffplay），可把上面的 HTTP-FLV 網址貼到播放器。" -ForegroundColor Yellow
     }
@@ -219,5 +229,13 @@ try {
         Write-Host "   測試設定已清理（目標已刪除）；若想在 UI 看診斷，請加 -Keep 重跑一次。" -ForegroundColor DarkGray
     }
 } finally {
-    if (-not $Keep) { Step "清理"; Cleanup } else { Stop-Source; Stop-Play }
+    if (-not $Keep) {
+        Step "清理"; Cleanup
+    } else {
+        # -Keep keeps the source AND the target so you can inspect/compare them afterwards;
+        # only the ffplay preview is stopped.
+        Stop-Play
+        Step "已保留來源與目標（-Keep）：來源持續推流，可繼續用播放器或畫質對比工具觀察。"
+        Write-Host "   停止來源：$Rtmp/live/$($script:SrcID) 或關閉此終端機前自行結束 ffmpeg。" -ForegroundColor Yellow
+    }
 }

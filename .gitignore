@@ -147,3 +147,6 @@ docs/player-layout-wide.png
 
 # local-deploy 的本機設定（首次 -ComposeDir 時產生）
 scripts/tools/local-deploy.ini
+
+# Local test artifacts (quality comparison screenshots)
+.tmp/
