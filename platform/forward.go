@@ -1419,23 +1419,9 @@ func forwardFanoutArgs(normalize bool, gop int, programInputURL, outputURL strin
 		"-reconnect_delay_max", fmt.Sprintf("%v", forwardReconnectDelayMax),
 	}
 
-	if normalize {
-		args = append(args,
-			"-fflags", "+genpts",
-			"-i", programInputURL,
-			"-fps_mode", "cfr",
-		)
-		args = append(args, forwardVideoEncodeArgs(forwardSlateConfigLoad(context.Background()).OutputBitrateMbps, forwardSlateConfigLoad(context.Background()).OutputCQ, forwardSlateConfigLoad(context.Background()).OutputPresets)...)
-		if gop <= 0 {
-			gop = 50
-		}
-		args = append(args,
-			"-g", fmt.Sprintf("%d", gop), "-keyint_min", fmt.Sprintf("%d", gop), "-sc_threshold", "0",
-			"-c:a", "aac", "-b:a", "128k", "-ar", "44100",
-		)
-	} else {
-		args = append(args, "-i", programInputURL, "-c", "copy")
-	}
+	// The program is already normalized once when the global option is on, so every target
+	// simply remuxes it; this keeps a single encode shared by all platforms.
+	args = append(args, "-i", programInputURL, "-c", "copy")
 
 	// If RTMP use flv, if SRT use mpegts, otherwise do not set.
 	if strings.HasPrefix(outputURL, "rtmp://") || strings.HasPrefix(outputURL, "rtmps://") {

@@ -373,15 +373,6 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
                     <option value='slate'>{t('forward.failoverSlate')}</option>
                   </Form.Select>
                 </Form.Group>
-                <Form.Group className="mb-3">
-                  <Form.Check type='checkbox' label={t('forward.normalize')} checked={!!conf.normalize}
-                    onChange={(e) => updateConfigObject({ ...conf, normalize: e.target.checked })} />
-                  <Form.Text className="text-muted">{t('forward.normalizeHint')}</Form.Text>
-                  <details className="mt-1">
-                    <summary className="small text-muted">{t('forward.normalizeArgs')}</summary>
-                    <pre className="small mb-0" style={{whiteSpace: 'pre-wrap', overflowWrap: 'anywhere'}}>{`-reconnect … -i <program>.flv -fflags +genpts -fps_mode cfr -c:v h264_nvenc（或 libx264） -preset p4 -tune hq -profile:v high -pix_fmt yuv420p -rc vbr -cq 21 -b:v <码率>M -maxrate <码率>M -bufsize <2×码率>M -g <关键帧秒数×fps> -keyint_min <同左> -sc_threshold 0 -c:a aac -b:a 128k -ar 44100 → <target>`}</pre>
-                  </details>
-                </Form.Group>
                 {conf?.allowCustom && (
                   <Row>
                     <Col xs='auto'>

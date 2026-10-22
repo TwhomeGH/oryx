@@ -26,6 +26,9 @@ type forwardSlateConfig struct {
 	KeyframeSeconds int `json:"keyframeSeconds"`
 	// OutputBitrateMbps caps the transcoded output bitrate (normalize/composite), in Mbps.
 	OutputBitrateMbps int `json:"outputBitrateMbps"`
+	// Normalize transcodes the shared program once (CFR + timestamps) so every target gets the
+	// same stream with a single encode; targets then always -c copy.
+	Normalize bool `json:"normalize"`
 	// OutputCQ is the quality target (0-51, lower is better); used as -cq (NVENC) / -crf (x264).
 	OutputCQ int `json:"outputCQ"`
 	// OutputPresets maps an encoder kind (nvenc, x264, amf, qsv) to its preset, so switching
@@ -53,6 +56,7 @@ func defaultForwardSlateConfig() forwardSlateConfig {
 		OfflineStopMinutes: 5,
 		KeyframeSeconds:    2,
 		OutputBitrateMbps:  6,
+		Normalize:          true,
 		OutputCQ:           21,
 		OutputPresets:      map[string]string{"nvenc": "p4", "x264": "veryfast"},
 		EndText:            forwardSlateDefaultEndText,

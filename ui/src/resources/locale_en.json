@@ -750,7 +750,9 @@
       "outputPresetNvenc": "NVENC preset (p1-p7)",
       "outputPresetNvencHint": "Used when a GPU encoder is available. p1 fastest, p7 best.",
       "outputPresetX264": "x264 preset",
-      "outputPresetX264Hint": "Used when no GPU: ultrafast to veryslow."
+      "outputPresetX264Hint": "Used when no GPU: ultrafast to veryslow.",
+      "globalNormalize": "Normalize the shared program (all targets)",
+      "globalNormalizeHint": "Transcodes once at the program: CFR + timestamp fix, then every target uses -c copy. Costs one encode total, not per target."
     },
     "coms": {
       "srs4": "SRS(Stable)",
@@ -1004,7 +1006,9 @@
       "load15m": "15m",
       "fwEnd": "End live",
       "fwCancelEnd": "Cancel end",
-      "fwEnded": "Ending"
+      "fwEnded": "Ending",
+      "diagEvents": "Stream lifecycle (publish/unpublish)",
+      "diagNoEvents": "No events yet."
     }
   },
   "meta": {

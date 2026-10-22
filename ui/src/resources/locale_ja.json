@@ -376,7 +376,9 @@
       "outputPresetNvenc": "NVENC プリセット（p1-p7）",
       "outputPresetNvencHint": "GPU がある場合に使用。p1 最速、p7 最高画質。",
       "outputPresetX264": "x264 プリセット",
-      "outputPresetX264Hint": "GPU がない場合に使用：ultrafast〜veryslow。"
+      "outputPresetX264Hint": "GPU がない場合に使用：ultrafast〜veryslow。",
+      "globalNormalize": "共有プログラムを正規化（全ターゲット）",
+      "globalNormalizeHint": "プログラムで一度だけ変換（CFR＋タイムスタンプ補正）し、各ターゲットは -c copy。合計1回のエンコード。"
     },
     "cb": {
       "title": "シーン紹介",
@@ -792,7 +794,9 @@
       "load15m": "15分",
       "fwEnd": "配信終了",
       "fwCancelEnd": "終了を取消",
-      "fwEnded": "終了中"
+      "fwEnded": "終了中",
+      "diagEvents": "ストリームのライフサイクル（publish/unpublish）",
+      "diagNoEvents": "イベントはまだありません。"
     },
     "openapi": {
       "title": "プラットフォーム API キー（OpenAPI）",

@@ -215,7 +215,9 @@
       "outputPresetNvenc": "NVENC 預設（p1–p7）",
       "outputPresetNvencHint": "有 GPU 時使用。p1 最快，p7 最好。",
       "outputPresetX264": "x264 預設",
-      "outputPresetX264Hint": "無 GPU 時使用：ultrafast 到 veryslow。"
+      "outputPresetX264Hint": "無 GPU 時使用：ultrafast 到 veryslow。",
+      "globalNormalize": "對共享節目源做補強轉碼（所有目標）",
+      "globalNormalizeHint": "在節目源只轉碼一次（CFR＋時戳修正），各目標 -c copy；總共只編碼一次，不隨目標數增加。"
     },
     "coms": {
       "srs4": "SRS(穩定版)",
@@ -1004,7 +1006,9 @@
       "load15m": "15分",
       "fwEnd": "結束直播",
       "fwCancelEnd": "取消結束",
-      "fwEnded": "結束中"
+      "fwEnded": "結束中",
+      "diagEvents": "串流生命週期（釋出/取消）",
+      "diagNoEvents": "尚無事件。"
     }
   },
   "meta": {

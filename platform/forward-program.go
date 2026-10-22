@@ -56,7 +56,9 @@ const (
 	// The no-update timeout for the forward fanout. It reads a program that holds the last
 	// frame during a source outage, so it produces no frames for a while and must not be
 	// killed (which would drop the downstream) as aggressively as a normal task.
-	forwardFanoutNoUpdateTime = 2 * time.Minute
+	// Zero disables the no-update kill: the fanout must survive a program that is temporarily
+	// unavailable or holding the last frame, otherwise the downstream is dropped for no reason.
+	forwardFanoutNoUpdateTime = 0
 )
 
 // isForwardProgramStream reports whether the stream is an internal program bus stream, which
@@ -555,10 +557,22 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 			"-reconnect_delay_max", fmt.Sprintf("%v", forwardReconnectDelayMax),
 			"-i", srcURL,
 		)
-		// Zero-transcode relay; the program carries the source codec unchanged. (Experiment C2
-		// showed that encoding the relay the same way as the slate does NOT let the fanout ride
-		// through the handoff, so the republish itself, not the codec change, is the root cause.)
-		args = append(args, "-c", "copy", "-f", "flv", output)
+		// With the global normalize option on, the program is transcoded ONCE here so every
+		// downstream target can -c copy the identical stream. Otherwise it is a zero-transcode
+		// relay. (Experiment C2 showed the republish, not the codec change, is the handoff root
+		// cause.)
+		conf := forwardSlateConfigLoad(ctx)
+		if conf.Normalize {
+			_, _, rate := v.sourceSize()
+			gop := forwardGOPFrames(rate, conf.KeyframeSeconds)
+			args = append(args, "-fflags", "+genpts", "-fps_mode", "cfr")
+			args = append(args, forwardVideoEncodeArgs(conf.OutputBitrateMbps, conf.OutputCQ, conf.OutputPresets)...)
+			args = append(args, "-g", fmt.Sprintf("%d", gop), "-keyint_min", fmt.Sprintf("%d", gop),
+				"-sc_threshold", "0", "-c:a", "aac", "-b:a", "128k", "-ar", "44100")
+		} else {
+			args = append(args, "-c", "copy")
+		}
+		args = append(args, "-f", "flv", output)
 	case programModeComposite:
 		// A single persistent publisher that renders the slate itself: a dark base with a
 		// ticking clock, the source overlaid end-on-EOF, and the audio mixed with silence (so

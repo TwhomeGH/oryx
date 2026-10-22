@@ -1269,6 +1269,11 @@ function SettingForwardSlate() {
       <Form.Text className="text-muted">{t('settings.outputBitrateHint')}</Form.Text>
     </Form.Group>
     <Form.Group className="mb-3">
+      <Form.Check type="checkbox" label={t('settings.globalNormalize')} checked={!!conf.normalize}
+        onChange={e => setConf({...conf, normalize: e.target.checked})} />
+      <Form.Text className="text-muted">{t('settings.globalNormalizeHint')}</Form.Text>
+    </Form.Group>
+    <Form.Group className="mb-3">
       <Form.Label>{t('settings.outputCQ')}</Form.Label>
       <Form.Control as="input" type="number" min="1" max="51"
         value={conf.outputCQ || 21}
