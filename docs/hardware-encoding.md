@@ -9,7 +9,7 @@
 ## 1. 你的環境能不能用？
 
 | 部署形態 | N 卡 (NVENC) | A 卡 (AMF/VAAPI) | Intel 核顯 (QSV/VAAPI) |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 原生 Linux + Docker | ✅（runtime 自動掛載函式庫） | ✅（需透通 /dev/dri + 補裝函式庫） | ✅ |
 | Windows Docker Desktop (WSL2) | ✅（`gpus: all` + `NVIDIA_DRIVER_CAPABILITIES=all`，見 2.1） | ❌ 僅特定獨立顯卡 + ROCm 用途，內顯無解（見 5.3） | ❌ WSL2 不暴露 /dev/dri |
 
@@ -75,14 +75,14 @@ services:
 
 打開 `http://<主機>:882/routers/components`，看「FFmpeg 編碼能力」卡片：
 
-```
+```log
 版本:   ffmpeg 7.x (BtbN GPL)
 裝置:   [NVIDIA:/dev/nvidia0] [DRM/VAAPI:/dev/dri/renderD128]
 編碼器: libx264✓ libx265✓ h264_nvenc✓ h264_qsv✓ h264_vaapi✓ ...
 ```
 
 | 你看到的組合 | 意思 | 行動 |
-|---|---|---|
+| --- | --- | --- |
 | 裝置徽章在＋編碼器綠燈 | 一切就緒 | 直接用 |
 | 裝置徽章在＋編碼器紅燈 | 容器看到硬體但初始化失敗 | 看紅徽章下方原始報錯 |
 | 沒有裝置徽章＋編碼器紅燈 | compose 沒透通成功 | 回到第 2 節檢查縮排與重建 |
@@ -106,7 +106,7 @@ docker exec oryx ffmpeg -hide_banner -encoders 2>/dev/null | grep -E "nvenc|qsv|
 ## 5. 常見問題
 
 | 症狀 | 原因與解法 |
-|---|---|
+| --- | --- |
 | nvenc 紅燈，報 `Cannot load libnvidia-encode.so` | 映像缺少 encode 函式庫；重建映像即可（Dockerfile 已內建） |
 | nvenc 紅燈，報 `Operation not permitted` | WSL2 驅動問題；確認 Windows 已裝最新 NVIDIA Game Ready 驅動，重啟 Docker Desktop |
 | vaapi 紅燈，報 `/dev/dri/renderD128` 相關 | compose 沒掛 devices，或你在 WSL2（無解，改用 NVENC） |
@@ -118,7 +118,7 @@ docker exec oryx ffmpeg -hide_banner -encoders 2>/dev/null | grep -E "nvenc|qsv|
 
 **症狀：** 組件頁「FFmpeg 編碼能力」全部硬體編碼器紅燈，探測輸出類似：
 
-```
+```log
 h264_amf:   Invalid argument
 h264_nvenc: Invalid argument
 h264_qsv:   device creation failed: -542398533
@@ -144,7 +144,7 @@ docker exec oryx ls /dev/dri /dev/nvidia*
 **判讀：**
 
 | 2 的結果 | 3 的結果 | 4 的結果 | 結論 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 看得到 | 看得到 | 看得到 | ✅ 一切正常，問題在別處 |
 | 看得到 | **看不到** | 看不到 | WSL2 沒把 `/dev/nvidia*` 掛進系統（最常見） |
 | 看得到 | 看得到 | **看不到** | Docker Desktop 沒透通，重啟 Docker Desktop |
@@ -171,7 +171,7 @@ docker compose up -d
 
 **症狀：** 容器內 `nvidia-smi` 看得到 GPU，但 h264_nvenc/hevc_nvenc 探測失敗，報：
 
-```
+```log
 [h264_nvenc] Driver does not support the required nvenc API version. Required: 13.1 Found: 13.0
 [h264_nvenc] The minimum required Nvidia driver for nvenc is 610.00 or newer
 ```
@@ -191,7 +191,7 @@ docker exec oryx ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc=duratio
 **解法（擇一）：**
 
 | 方案 | 做法 | 適用 |
-|---|---|---|
+| --- | --- | --- |
 | **A. 移除 bake 函式庫（已內建）** | 新映像已移除 bake 570，runtime 自動掛載與驅動同版本 | 所有環境 |
 | **B. WSL2 設 NVIDIA_DRIVER_CAPABILITIES** | compose 加 `environment: NVIDIA_DRIVER_CAPABILITIES=all` | Windows + Docker Desktop |
 | **C. 原生 Linux 裝 Container Toolkit** | 裝 nvidia-container-toolkit，`gpus: all` 即可 | 原生 Linux 主機 |
@@ -202,7 +202,7 @@ docker exec oryx ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc=duratio
 
 **症狀：** 組件頁 `h264_amf` 紅燈，探測報：
 
-```
+```log
 [AMF] DLL libamfrt64.so.1 failed to open
 [h264_amf] Failed to create hardware device context (AMF): Unknown error occurred
 ```
@@ -210,18 +210,20 @@ docker exec oryx ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc=duratio
 **原因：** 與 NVENC（runtime 自動掛載函式庫）不同，AMF 有兩個硬性條件，WSL2 環境都不滿足：
 
 | 條件 | WSL2 狀態 |
-|---|---|
+| --- | --- |
 | **函式庫 `libamfrt64.so.1`** | 映像未安裝（Dockerfile 只處理了 VAAPI/QSV/NVENC 的函式庫，從未裝過 AMF runtime） |
 | **AMD GPU 透通** | WSL2 的 GPU 透通機制（/dev/dxg + nvidia runtime）**只支援 NVIDIA**；AMD 的透通僅限特定獨立顯卡 |
 
 **AMD 官方有提供 WSL2 驅動，但有嚴格限制：**
 
 [AMD Software for WSL 2](https://www.amd.com/en/resources/support-articles/release-notes/RN-RAD-WIN-24-10-21-01-WSL-2.html) 僅支援：
+
 - **用途**：ROCm（PyTorch AI 開發），**不是 AMF 硬體編碼**
 - **GPU**：RX 7900 XTX/XT/GRE、PRO W7900/W7800（皆為**獨立顯卡**）
 - 筆電內顯（如 Radeon Vega 8，DEV_1638）**不在支援清單**
 
 **結論：**
+
 - 你的 AMD **內顯**（Vega 8）在 WSL2 下 AMF 不可用，不是單純補裝函式庫能解
 - 即使有支援清單內的 AMD 獨立顯卡，也需 AMD 的 container runtime 透通（本 fork 未實測）
 - **這不是 env 變數能解的** — 設任何 `NVIDIA_DRIVER_CAPABILITIES` 都沒用，根本沒有 AMD 裝置可透通
@@ -233,7 +235,7 @@ docker exec oryx ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc=duratio
 同一台機器開 5 路 1080p AI 字幕疊加：
 
 | 模式 | CPU 佔用 |
-|---|---|
+| --- | --- |
 | libx264 medium（預設） | ~400%（吃滿 4 核） |
 | NVENC / QSV / VAAPI | ~10-20% |
 

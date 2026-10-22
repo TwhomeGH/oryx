@@ -7,7 +7,7 @@
 
 ## 1. 目錄結構
 
-```
+```txt
 ui/
 ├── index.html              # Vite 進入模板（含 %PUBLIC_URL% 等佔位符，勿手改值）
 ├── vite.config.mjs         # 建置設定（佔位符替換、JSX loader、dev proxy、vitest）
@@ -49,7 +49,7 @@ function ContactImpl({onInit}) {
 ## 3. 新增一個頁面的 Checklist
 
 | # | 檔案 | 動作 |
-|---|---|---|
+| --- | --- | --- |
 | 1 | `src/pages/MyPage.js` | 照第 2 節骨架建立 |
 | 2 | `src/App.js` | `<Route path="routers-mypage" element={<MyPage/>}/>` |
 | 3 | `src/pages/Navigator.js` | navs 陣列加 `{eventKey:'N', to:'/routers-mypage', text: t('nav.mypage')}` |
@@ -97,13 +97,13 @@ Components.js 是最佳範例：
 
 ### 場景頁的多配置更新
 
-場景頁把多組配置放在 `configs` 陣列，改動透過 `updateConfigObject({...conf, key: v})` 
+場景頁把多組配置放在 `configs` 陣列，改動透過 `updateConfigObject({...conf, key: v})`
 以 platform 為 key 回寫陣列，「儲存」時一次 POST。
 
 ## 6. 場景頁的分區切換
 
 ScenarioTranscript.js 等頁用 `configItem` state 控制 Card.Body 分區顯示：
-provider / asr / overlay / webvtt。新增分區＝加一個 `{configItem === 'xxx' && <Card.Body>}` 
+provider / asr / overlay / webvtt。新增分區＝加一個 `{configItem === 'xxx' && <Card.Body>}`
 ＋導覽連結。
 
 ## 7. 多語系（拆分成多檔，自動掃描）
@@ -131,23 +131,27 @@ provider / asr / overlay / webvtt。新增分區＝加一個 `{configItem === 'x
 > 維護者母語是中文，對其他語言可能不熟。若你發現翻譯錯誤、用詞不當，或想新增語言支持，遵循以下流程。
 
 **翻譯品質原則：**
+
 - **每種語言都對照 `locale_zh.json` 當基準** — zh 是最準的（維護者母語），改 key 先改 zh，再同步其他語言
 - **一致性優先**：技術名詞（如「推流」「轉碼」「碼率」）全站統一，不要同義詞混用
 - **不要逐字直譯**：意譯優先，符合該語言的習慣用語（例如日文「推流」常用「配信」）
 - **URL / 技術格式不要改**：`/terraform/...`、`https://...`、`gpt-4o`、`rtmp://` 等保持原樣，只翻譯顯示文字
 
 **發現翻譯錯誤時的處理：**
+
 1. 打開對應 `resources/locale_<lang>.json`，找到錯誤 key
 2. 對照 `locale_zh.json` 同名 key 確認原意
 3. 直接修正該 key 的翻譯（不需要動 zh）
 4. 若有疑問（原文本身含糊），開一個 issue 或直接問維護者
 
 **新增語言支持（三步）：**
+
 1. 複製 `locale_zh.json` 成 `locale_<code>.json`
 2. 改 `meta.code`（如 `ja`）與 `meta.name`（如 `日本語`）
 3. 逐 key 翻譯 `translation` 區塊；翻譯不全的 key 會顯示 key 名（fallback），可先翻常用區塊再補
 
 **已知翻譯現況（2026-08）：**
+
 - `en`：與 zh 同時維護，結構同步
 - `ja`：698 key 全量翻譯（2026-08 加入）。若發現用詞不自然，歡迎指正修正
 - **注意**：`zh` 是維護者母語、最可信的基準。`ja` 由 AI 初譯 + 人工審查，仍可能有中文語感的殘留（例如誤把「内網/公網」直接搬進日文，正確是「プライベートIP/パブリックIP」）。發現這類問題時直接修該 key 即可，不需動 zh。
@@ -159,12 +163,12 @@ provider / asr / overlay / webvtt。新增分區＝加一個 `{configItem === 'x
 每個場景的後端都是同一套路：
 
 | 端點 | 用途 | 前端呼叫時機 |
-|---|---|---|
+| --- | --- | --- |
 | `/terraform/v1/xxx/query` | 讀目前配置 | 進頁面載入 |
 | `/terraform/v1/xxx/apply` | 存配置並重啟 worker | 按「套用」 |
 | `/terraform/v1/xxx/check` | 測試外部服務連通性 | 按「測試連接」 |
 
-前端統一帶 `headers: Token.loadBearerHeader()`。後端 handler 範本見 service.go 
+前端統一帶 `headers: Token.loadBearerHeader()`。後端 handler 範本見 service.go
 `handleMgmtStatus`（middlewareAuthTokenInBody + ParseBody + WriteData）。
 
 ## 9. 能力探測卡片模式（硬體/功能自檢）
@@ -172,11 +176,11 @@ provider / asr / overlay / webvtt。新增分區＝加一個 `{configItem === 'x
 「組件頁」的卡片 = 後端探測端點 + 前端徽章渲染。現有兩例：
 
 | 卡片 | 後端 | 探測方式 |
-|---|---|---|
+| --- | --- | --- |
 | SRS 核心能力 | srs-capability.go | 逐項 `srs -t -c` 解析測試 |
 | FFmpeg 編碼能力 | ffmpeg-capability.go | `-encoders` 掃描＋硬編碼實編 0.05 秒驗證，快取 10 分鐘 |
 
-新增探測卡：複製 Components.js 的 FFmpeg 卡結構＋後端照 ffmpeg-capability.go 
+新增探測卡：複製 Components.js 的 FFmpeg 卡結構＋後端照 ffmpeg-capability.go
 樣板（probe 函式回傳 `{name, ok, detail}` 陣列）。**重探測的按鈕要有**，
 且避免自動輪詢（每次探測都會 spawn 進程）。
 
@@ -194,7 +198,7 @@ provider / asr / overlay / webvtt。新增分區＝加一個 `{configItem === 'x
 ## 10. Vite 特殊事項
 
 | 主題 | 說明 |
-|---|---|
+| --- | --- |
 | `.md` 當字串引入 | `import x from './a.md?raw'`（無 ?raw 會 build 失敗） |
 | 環境變數 | 只認 `REACT_APP_*` 前綴（envPrefix 已設）；原始碼僅 `process.env.REACT_APP_LOCALE` 被 define 替換 |
 | index.html 佔位符 | `%PUBLIC_URL%`/`%REACT_APP_LOCALE%` 由 vite.config.mjs 的 oryx-html-env 在解析前替換，**勿在 html 裡直接寫死** |
@@ -212,7 +216,7 @@ npm run test                        # vitest
 歷史炸點備忘：
 
 | 症狀 | 原因 |
-|---|---|
+| --- | --- |
 | 整站空白，Console 報 `require is not defined` | 原始碼用了 CJS require（Vite 不轉換），改 ESM import |
 | build 報 `Duplicate key 'xxx'` | 物件字面量重複 key，ESLint no-dupe-keys |
 | build 報 `URI malformed` | index.html 出現裸 `%VAR%` 佔位符未被替換 |
@@ -233,7 +237,7 @@ npm run test                        # vitest
 **資料來源：** 直接呼叫 SRS HTTP API，經平台 `/api/` proxy（帶 Bearer token）：
 
 | Tab | API | 備註 |
-|---|---|---|
+| --- | --- | --- |
 | Overview | `/api/v1/summaries` | 回傳包在 `data` 內 |
 | Vhosts | `/api/v1/vhosts/` | 列表在頂層（無 `data` 包裝） |
 | Streams | `/api/v1/streams/` | 先抓 vhosts join owner 名稱 |
@@ -262,7 +266,7 @@ tooltip 顯示探測更新時間、實測 FPS、實測平均幀間隔、基準 F
 
 前端要連到真實平台後端才有資料。兩種方式：
 
-**方式一：一鍵腳本（推薦）**
+### 方式一：一鍵腳本（推薦）
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\dev-server.ps1                # 預設開場景頁
@@ -279,7 +283,7 @@ powershell -ExecutionPolicy Bypass -File scripts\dev-server.ps1 -Page players  #
 - 其他參數：`-Platform http://127.0.0.1:882` 指定平台、`-Port 4000` 改端口、`-NoBrowser` 不開瀏覽器
 - 新增頁面時記得在 `scripts\dev-server.ps1` 的 `$pageMap` 對照表加一行
 
-**方式二：手動**
+### 方式二：手動
 
 ```powershell
 cd ui

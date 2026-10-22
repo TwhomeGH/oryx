@@ -85,7 +85,7 @@ cd F:\oryx\test
 ## 偵錯旗標
 
 | 旗標 | 用途 |
-|---|---|
+| --- | --- |
 | `-srs-log=true` | 開啟平台詳細日誌 |
 | `-srs-ffmpeg-stderr` | 印出 ffmpeg 的完整 stderr（看 Stream #0:0/0:1 映射） |
 | `-srs-dvr-stderr` | 印出 DVR ffmpeg 的 stderr |
@@ -112,7 +112,7 @@ docker logs oryx 2>&1 | Select-String "Camera: Start|Output #|Stream #0:" | Sele
 
 ### 測試執行流程
 
-```
+```txt
 oryx.test.exe 啟動
   → prepareTest(): 解析 flag、定位 ffmpeg/ffprobe
   → waitForServiceReady(): 等平台 API 就緒
@@ -139,7 +139,7 @@ Windows 上 `ffmpeg`/`ffprobe` 需在 PATH 中（WinGet 安裝後自動滿足）
 ### 平台 vs 測試的 ffmpeg 使用
 
 | 角色 | ffmpeg 來源 | 說明 |
-|---|---|---|
+| --- | --- | --- |
 | 平台 camera 重新推流 | Docker 容器內的 BtbN ffmpeg | `camera-live-stream.go` 用 `exec.CommandContext(ctx, "ffmpeg", ...)` |
 | 測試 DVR ffprobe | 主機的 ffmpeg/ffprobe | 測試檔在主機跑，用主機的 ffmpeg 做 DVR 擷取 |
 | CI | Ubuntu host ffmpeg + Docker BtbN ffmpeg | 同上，host 和 container 各用各的 |
