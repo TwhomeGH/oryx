@@ -289,10 +289,13 @@ func (v *ProgramBus) setPID(pid int32) {
 func (v *ProgramBus) setSourceActive(active bool) {
 	v.lock.Lock()
 	defer v.lock.Unlock()
+	wasActive := v.sourceActive
 	v.sourceActive = active
 	if active {
 		v.inactiveSince = time.Time{}
-	} else if v.inactiveSince.IsZero() {
+	} else if wasActive && v.inactiveSince.IsZero() {
+		// Start the offline clock only after the source was actually active. Starting it on the
+		// initial (never-published) state would make the offline-stop policy fire immediately.
 		v.inactiveSince = time.Now()
 	}
 }

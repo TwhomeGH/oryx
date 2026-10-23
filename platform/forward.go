@@ -551,7 +551,14 @@ func (v *ForwardWorker) Start(ctx context.Context) error {
 				Platform: config.Platform,
 				config:   &config,
 			}); loaded {
-				// Ignore if exists.
+				task = tv.(*ForwardTask)
+				// Keep the in-memory config in sync with Redis. Previously an existing task was
+				// skipped, so a config changed outside the update API (or before the task started)
+				// stayed stale forever and the task never picked up enabled=true.
+				copied := config
+				task.lock.Lock()
+				task.config = &copied
+				task.lock.Unlock()
 				continue
 			} else {
 				task = tv.(*ForwardTask)
@@ -1287,6 +1294,9 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 
 	for ctx.Err() == nil {
 		if err := pfn(ctx); err != nil {
+			if ctx.Err() != nil {
+				return nil
+			}
 			// The program is not published yet (the source was just selected): wait briefly and
 			// retry without counting a failure/restart, so the diagnostics stay clean.
 			if stderrors.Is(err, errProgramNotReady) {
@@ -1734,6 +1744,11 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 		v.Platform, sourceURL, v.PID, err,
 	)
 
+	// A cancelled context means we stopped it deliberately (restart/offline-stop/pause), or the
+	// program input simply ended and FFmpeg exited; neither is a failure to count or back off.
+	if ctx.Err() != nil {
+		return nil
+	}
 	return err
 }
 
