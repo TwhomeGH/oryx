@@ -18,15 +18,19 @@ param(
     [string]$Source = "",
     [string]$Rtmp = "",
     [switch]$Outage,
-    [switch]$Play = $true,
+    [switch]$Play,
     [switch]$NoPlay,
     [switch]$Normalize,
     [switch]$Slate,
     [switch]$Keep,
+# Opt-in: temporarily disable real (non-TEST) forward targets for the duration of the test and
+# restore them afterwards. Off by default so a test never touches production settings.
+[switch]$TakeOverRealTargets,
     [switch]$Compare
 )
 
-if ($NoPlay) { $Play = $false }
+# Preview is on by default; -NoPlay disables it (a switch cannot default to $true per PSScriptAnalyzer).
+$preview = -not $NoPlay
 
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 $ErrorActionPreference = "Stop"
@@ -124,9 +128,9 @@ function Cleanup() {
 # --- Preflight ---
 Step "檢查前置條件"
 if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) { Die "找不到 ffmpeg，請先安裝（winget install Gyan.FFmpeg）。" }
-if ($Play -and -not (Get-Command ffplay -ErrorAction SilentlyContinue)) {
+if ($preview -and -not (Get-Command ffplay -ErrorAction SilentlyContinue)) {
     Write-Host "   [注意] 找不到 ffplay，預覽已停用（不影響測試；可用 -NoPlay 明確關閉）。" -ForegroundColor DarkYellow
-    $Play = $false
+    $preview = $false
 }
 if (-not (Test-Path $Source)) { Die "找不到來源檔：$Source" }
 $running = (docker ps --filter "name=^/$Container$" --format "{{.Names}}")
@@ -139,13 +143,13 @@ if (-not $script:Token) { Die "讀不到 SRS_PLATFORM_SECRET。平台是否已�
 
 # Auto-detect the host ports from the container mapping, because the published ports vary (e.g.
 # the default image maps 2022/1935, but a custom deploy may map them elsewhere).
-function Detect-Port($containerPort, $scheme, $fallbackPort) {
+function Get-Port($containerPort, $scheme, $fallbackPort) {
     $m = docker port $Container $containerPort 2>$null | Select-Object -First 1
     if ($m) { return "$scheme`://localhost:$((($m) -split ':')[-1])" }
     return "$scheme`://localhost:$fallbackPort"
 }
-if (-not $Endpoint) { $Endpoint = Detect-Port 2022 "http" 2022 }
-if (-not $Rtmp) { $Rtmp = Detect-Port 1935 "rtmp" 1935 }
+if (-not $Endpoint) { $Endpoint = Get-Port 2022 "http" 2022 }
+if (-not $Rtmp) { $Rtmp = Get-Port 1935 "rtmp" 1935 }
 
 # Use a dedicated custom target ("forwarding-" prefix so it can be deleted) instead of a
 # built-in platform like bilibili, to never overwrite the user's real forward config.
@@ -155,6 +159,30 @@ $suffix = if ($Keep) { "keep" } else { "$PID" }
 $script:Platform = "forwarding-quick-$suffix"
 $script:SrcID = "quick-src-$suffix"
 $script:TgtID = "quick-tgt-$suffix"
+
+# Safety guard: a test stream must never reach a real platform. If any non-test target is enabled
+# (Twitch/YouTube/...), the program would be forwarded to it as soon as the source publishes.
+$allTargets = Api "GET" "/terraform/v1/ffmpeg/forward/streams" $null
+# Identify test targets by the "TEST " label convention (used by quick-test, latency and
+# quality-compare), not by platform prefix, so other tools' targets are not mistaken for real ones.
+$foreignEnabled = @($allTargets | Where-Object { $_.enabled -and $_.label -notlike "TEST *" })
+if ($foreignEnabled.Count -gt 0) {
+    $list = ($foreignEnabled | ForEach-Object { "  - $($_.platform)  label=$($_.label)" }) -join "`n"
+    if (-not $TakeOverRealTargets) {
+        Die ("測試已中止：以下正式轉播目標仍為啟用狀態，測試流量會被推到真實平台。`n$list`n`n" +
+            "請先停用它們，或加上 -TakeOverRealTargets 讓測試暫時停用並在結束後復原。")
+    }
+    Write-Host "==> 注意：以下正式轉播目標將被【暫時停用】，測試結束後自動復原：" -ForegroundColor Yellow
+    Write-Host $list -ForegroundColor Yellow
+    $answer = Read-Host "   確認暫時停用？(y/N)"
+    if ($answer -notmatch '^(y|Y)') { Die "已取消。" }
+    $script:RestoreTargets = @()
+    foreach ($t in $foreignEnabled) {
+        Api "POST" "/terraform/v1/ffmpeg/forward/secret" @{ action = "toggle"; platform = $t.platform; enabled = $false } | Out-Null
+        $script:RestoreTargets += $t.platform
+        Write-Host "   已暫時停用 $($t.platform)" -ForegroundColor DarkYellow
+    }
+}
 
 Write-Host "   endpoint=$Endpoint  rtmp=$Rtmp  source=$Source"
 Write-Host "   pubSecret=($($script:Pub.Length) bytes)  apiSecret=($($script:Token.Length) bytes)"
@@ -181,7 +209,7 @@ try {
     }
 
     $playURL = "$Endpoint/live/$($script:TgtID).flv"
-    if ($Play) {
+    if ($preview) {
         Step "先等目標有畫面，再開 ffplay 預覽：$playURL"
         if (-not (Wait-Target 30)) { Write-Host "   [警告] 目標 30 秒內未就緒，仍嘗試播放" -ForegroundColor DarkYellow }
         $script:PlayErr = Join-Path $env:TEMP "forward-quick-test-play.log"
@@ -207,7 +235,7 @@ try {
         for ($i = 0; $i -lt 3; $i++) { Start-Sleep -Seconds 3; Show-Status }
     }
 
-    if ($Play -and $script:PlayProc -and $script:PlayProc.HasExited) {
+    if ($preview -and $script:PlayProc -and $script:PlayProc.HasExited) {
         Write-Host "   [注意] ffplay 已結束（可能沒抓到流），日誌：$($script:PlayErr)" -ForegroundColor DarkYellow
         if (Test-Path $script:PlayErr) { Get-Content $script:PlayErr -Tail 6 | ForEach-Object { Write-Host "     $_" -ForegroundColor DarkGray } }
     }
@@ -223,7 +251,7 @@ try {
         Write-Host "   指令：" -ForegroundColor Cyan
         Write-Host "     pwsh scripts/tools/forward-quality-compare.ps1 -A `"$flvA`" -B `"$flvB`" -Seconds 20" -ForegroundColor Gray
     }
-    if (-not $Play -and -not $NoPlay) {
+    if (-not $preview) {
         Write-Host "   看畫面：預設會自動開 ffplay 預覽；若沒開（找不到 ffplay），可把上面的 HTTP-FLV 網址貼到播放器。" -ForegroundColor Yellow
     }
     if ($Keep) {
@@ -232,7 +260,16 @@ try {
         Write-Host "   測試設定已清理（目標已刪除）；若想在 UI 看診斷，請加 -Keep 重跑一次。" -ForegroundColor DarkGray
     }
 } finally {
-    if (-not $Keep) {
+    # Restore any real targets the test temporarily disabled.
+if ($script:RestoreTargets -and $script:RestoreTargets.Count -gt 0) {
+    foreach ($p in $script:RestoreTargets) {
+        Api "POST" "/terraform/v1/ffmpeg/forward/secret" @{ action = "toggle"; platform = $p; enabled = $true } | Out-Null
+        Write-Host "   已復原 $p" -ForegroundColor DarkYellow
+    }
+    $script:RestoreTargets = @()
+}
+
+if (-not $Keep) {
         Step "清理"; Cleanup
     } else {
         # -Keep keeps the source AND the target so you can inspect/compare them afterwards;

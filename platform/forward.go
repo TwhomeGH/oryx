@@ -264,6 +264,12 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 				if err := rdb.HDel(ctx, SRS_FORWARD_CONFIG, userConf.Platform).Err(); err != nil && err != redis.Nil {
 					return errors.Wrapf(err, "hdel %v %v", SRS_FORWARD_CONFIG, userConf.Platform)
 				}
+				// Also drop the persisted task record: leaving it behind made Start() resurrect the
+				// deleted target (with its old input/output) on the next restart, which polluted
+				// later test runs.
+				if err := rdb.HDel(ctx, SRS_FORWARD_TASK, userConf.Platform).Err(); err != nil && err != redis.Nil {
+					logger.Wf(ctx, "ignore forward task hdel err %+v", err)
+				}
 				v.RemoveTask(userConf.Platform)
 				// Also disconnect the SRS publisher so no stale stream/client is left behind.
 				kickForwardStreams(ctx, "live", userConf.Secret)
