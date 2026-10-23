@@ -1272,6 +1272,10 @@ function SettingForwardSlate() {
       <Form.Check type="checkbox" label={t('settings.globalNormalize')} checked={!!conf.normalize}
         onChange={e => setConf({...conf, normalize: e.target.checked})} />
       <Form.Text className="text-muted">{t('settings.globalNormalizeHint')}</Form.Text>
+      <div className="mt-2 small text-muted">{t('settings.normalizeArgsPreview')}</div>
+      <pre className="small bg-body-tertiary p-2 rounded mb-0" style={{whiteSpace: 'pre-wrap'}}>
+{`-fflags +genpts -fps_mode cfr -c:v h264_nvenc|libx264 -preset ${(conf.outputPresets || {}).nvenc || 'p4'} -tune hq -profile:v high -rc vbr -cq ${conf.outputCQ || 21} -b:v ${conf.outputBitrateMbps || 6}M -maxrate ${conf.outputBitrateMbps || 6}M -bufsize ${(conf.outputBitrateMbps || 6) * 2}M -g <keyframeSeconds × 來源 fps> -keyint_min <同 g> -sc_threshold 0 -c:a aac -b:a 128k -ar 44100`}
+      </pre>
     </Form.Group>
     <Form.Group className="mb-3">
       <Form.Label>{t('settings.outputCQ')}</Form.Label>

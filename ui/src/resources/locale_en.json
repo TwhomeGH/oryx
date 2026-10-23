@@ -752,7 +752,8 @@
       "outputPresetX264": "x264 preset",
       "outputPresetX264Hint": "Used when no GPU: ultrafast to veryslow.",
       "globalNormalize": "Normalize the shared program (all targets)",
-      "globalNormalizeHint": "Transcodes once at the program: CFR + timestamp fix, then every target uses -c copy. Costs one encode total, not per target."
+      "globalNormalizeHint": "Transcodes once at the program: CFR + timestamp fix, then every target uses -c copy. Costs one encode total, not per target.",
+      "normalizeArgsPreview": "FFmpeg parameters (preview)"
     },
     "coms": {
       "srs4": "SRS(Stable)",

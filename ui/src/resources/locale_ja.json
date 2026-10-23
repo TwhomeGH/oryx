@@ -378,7 +378,8 @@
       "outputPresetX264": "x264 プリセット",
       "outputPresetX264Hint": "GPU がない場合に使用：ultrafast〜veryslow。",
       "globalNormalize": "共有プログラムを正規化（全ターゲット）",
-      "globalNormalizeHint": "プログラムで一度だけ変換（CFR＋タイムスタンプ補正）し、各ターゲットは -c copy。合計1回のエンコード。"
+      "globalNormalizeHint": "プログラムで一度だけ変換（CFR＋タイムスタンプ補正）し、各ターゲットは -c copy。合計1回のエンコード。",
+      "normalizeArgsPreview": "FFmpeg パラメータ（プレビュー）"
     },
     "cb": {
       "title": "シーン紹介",

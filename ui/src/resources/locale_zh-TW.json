@@ -217,7 +217,8 @@
       "outputPresetX264": "x264 預設",
       "outputPresetX264Hint": "無 GPU 時使用：ultrafast 到 veryslow。",
       "globalNormalize": "對共享節目源做補強轉碼（所有目標）",
-      "globalNormalizeHint": "在節目源只轉碼一次（CFR＋時戳修正），各目標 -c copy；總共只編碼一次，不隨目標數增加。"
+      "globalNormalizeHint": "在節目源只轉碼一次（CFR＋時戳修正），各目標 -c copy；總共只編碼一次，不隨目標數增加。",
+      "normalizeArgsPreview": "將使用的 FFmpeg 引數（預覽）"
     },
     "coms": {
       "srs4": "SRS(穩定版)",

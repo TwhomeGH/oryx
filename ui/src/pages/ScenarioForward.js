@@ -372,6 +372,11 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
                     <option value=''>{t('forward.failoverHold')}</option>
                     <option value='slate'>{t('forward.failoverSlate')}</option>
                   </Form.Select>
+                  <pre className="small text-muted mt-1 mb-0" style={{whiteSpace: 'pre-wrap'}}>
+{`slate: [base=color+drawtext 時鐘][source]overlay=eof_action=pass + [silence][src]amix
+       h264_nvenc|libx264 -preset ... -g <keyframeSeconds × 來源 fps> -c:a aac
+hold : -c copy（不轉碼，斷源時凍結最後一格）`}
+                  </pre>
                 </Form.Group>
                 {conf?.allowCustom && (
                   <Row>
