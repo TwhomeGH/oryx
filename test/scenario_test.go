@@ -1554,7 +1554,7 @@ func TestScenario_WithStream_PublishRtmpForwardPlatform(t *testing.T) {
 	// test is isolated (and always starts from a clean state).
 	forwardStreamID := fmt.Sprintf("forward-stream-%v-%v", os.Getpid(), rand.Int())
 	testPlatform := fmt.Sprintf("forwarding-ftest-%v-%v", os.Getpid(), rand.Int())
-	bilibili := &ForwardConfig{
+	testTarget := &ForwardConfig{
 		Enabled:  false,
 		Custom:   true,
 		Label:    "TEST forward platform",
@@ -1602,11 +1602,11 @@ func TestScenario_WithStream_PublishRtmpForwardPlatform(t *testing.T) {
 	case <-time.After(3 * time.Second):
 	}
 
-	bilibili.Secret = fmt.Sprintf("%v?secret=%v", forwardStreamID, pubSecret)
-	bilibili.Server = "rtmp://localhost/live/"
-	bilibili.Enabled = true
-	bilibili.Action = "update"
-	if err := NewApi().WithAuth(ctx, "/terraform/v1/ffmpeg/forward/secret", bilibili, nil); err != nil {
+	testTarget.Secret = fmt.Sprintf("%v?secret=%v", forwardStreamID, pubSecret)
+	testTarget.Server = "rtmp://localhost/live/"
+	testTarget.Enabled = true
+	testTarget.Action = "update"
+	if err := NewApi().WithAuth(ctx, "/terraform/v1/ffmpeg/forward/secret", testTarget, nil); err != nil {
 		r0 = errors.Wrapf(err, "request forward apply failed")
 		return
 	}

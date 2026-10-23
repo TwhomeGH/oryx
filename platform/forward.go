@@ -570,8 +570,10 @@ func (v *ForwardWorker) Start(ctx context.Context) error {
 				return errors.Wrapf(err, "init %v", task.String())
 			}
 
-			// Store in memory object.
-			v.tasks.Store(platform, task)
+			// Store under the SAME key used by LoadOrStore/GetTask (config.Platform), not the
+			// Redis hash field: when they differ this created two keys pointing at one task and
+			// let a different target's config overwrite this one.
+			v.tasks.Store(config.Platform, task)
 
 			wg.Add(1)
 			go func() {
@@ -1293,7 +1295,8 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 	}
 
 	for ctx.Err() == nil {
-		if err := pfn(ctx); err != nil {
+		errPfn := pfn(ctx)
+		if err := errPfn; err != nil {
 			if ctx.Err() != nil {
 				return nil
 			}
