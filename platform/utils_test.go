@@ -2,7 +2,28 @@ package main
 
 import (
 	"testing"
+	"time"
 )
+
+func TestFFmpegNoUpdateExpiry(t *testing.T) {
+	updated := time.Unix(100, 0)
+	for _, sample := range []struct {
+		name           string
+		limit, elapsed time.Duration
+		expired        bool
+	}{
+		{"disabled-forward", 0, time.Hour, false},
+		{"recent-progress", 10 * time.Second, time.Second, false},
+		{"boundary", 10 * time.Second, 10 * time.Second, false},
+		{"stalled-normal-task", 10 * time.Second, 11 * time.Second, true},
+	} {
+		t.Run(sample.name, func(t *testing.T) {
+			if got := ffmpegNoUpdateExpired(updated, updated.Add(sample.elapsed), sample.limit); got != sample.expired {
+				t.Fatalf("expired=%v, want %v", got, sample.expired)
+			}
+		})
+	}
+}
 
 func TestUtils_RebuildStreamURL(t *testing.T) {
 	urlSamples := []struct {
