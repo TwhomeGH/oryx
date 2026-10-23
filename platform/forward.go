@@ -1244,8 +1244,6 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 				}
 				v.releaseProgram()
 				v.markWaitingInput()
-				// Disconnect the SRS publisher so no stale stream/client is left after ending.
-				kickForwardStreams(ctx, "live", v.config.Secret)
 				return nil
 			}
 		}
@@ -1739,8 +1737,9 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 	return err
 }
 
-// kickForwardStreams disconnects SRS clients publishing app/stream, so deleting or ending a
-// target does not leave a stale SRS_STREAM_ACTIVE entry or lingering clients.
+// kickForwardStreams disconnects SRS clients publishing app/stream, so deleting a target
+// does not leave a stale SRS_STREAM_ACTIVE entry or lingering clients. (A graceful end lets
+// FFmpeg exit normally and SRS fire on_unpublish, so end does not call this.)
 func kickForwardStreams(ctx context.Context, app, stream string) {
 	host := os.Getenv("SRS_HOST")
 	if host == "" {
