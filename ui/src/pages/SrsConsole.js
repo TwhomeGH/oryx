@@ -11,7 +11,7 @@ import Container from "react-bootstrap/Container";
 import React from "react";
 import {Token} from "../utils";
 import axios from "axios";
-import {Row, Col, Card, Table, Tab, Tabs, Button, Badge, Alert} from "react-bootstrap";
+import {Row, Col, Card, Table, Tab, Tabs, Button, Badge, Alert, Accordion} from "react-bootstrap";
 import moment from "moment";
 import {useTranslation} from "react-i18next";
 import {useErrorHandler} from "react-error-boundary";
@@ -1107,91 +1107,91 @@ function SrsDiagnostics({handleError}) {
   const gpuVariant = (u) => (u >= 90 ? 'danger' : u >= 70 ? 'warning' : 'success');
 
   return (<>
-    <Card className="mb-3">
-      <Card.Header>{t('console.diagGpu')}</Card.Header>
-      <Card.Body>
-        {!gpu && <div className="text-muted small">{t('settings.gpuLoading')}</div>}
-        {gpu && !gpu.available && <div className="text-muted small">{t('settings.gpuNone')}</div>}
-        {gpu && gpu.available && <>
-          <div className="mb-2">
-            <b>{gpu.name}</b>
-            <Badge bg={gpuVariant(gpu.utilPct)} className="ms-2">{gpu.utilPct}%</Badge>
-            <span className="ms-2 small text-muted">{gpu.memUsedMB} / {gpu.memTotalMB} MB</span>
-          </div>
-          {gpu.processes && gpu.processes.length > 0 && <Table size="sm" borderless className="mb-0">
-            <tbody>
-              {gpu.processes.map((p) => (
-                <tr key={`${p.pid}-${p.name}`}>
-                  <td className="text-muted small">{p.pid}</td>
-                  <td className="small text-truncate" style={{maxWidth: 320}}>{p.name}</td>
-                  <td className="small text-end">{p.usedMB} MB</td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>}
-        </>}
-      </Card.Body>
-    </Card>
-    <Card className="mb-3">
-      <Card.Header className="d-flex justify-content-between align-items-center">
-        <span>{t('console.diagRedis')}</span>
-        <Button size="sm" variant="outline-secondary" onClick={refreshRedis}>{t('console.diagRefresh')}</Button>
-      </Card.Header>
-      <Card.Body>
-        {!redis && <div className="text-muted small">{t('console.diagRedisLoading')}</div>}
-        {redis && (
-          <>
-            <div className="small mb-2">
-              {t('console.diagRedisKeys')}: {redis.keys} · {t('console.diagRedisMem')}: {(redis.info || {}).used_memory_human} · {t('console.diagRedisClients')}: {(redis.info || {}).connected_clients} · {t('console.diagRedisHits')}: {(redis.info || {}).keyspace_hits} / {(redis.info || {}).keyspace_misses} · {t('console.diagRedisSlow')}: {redis.slowlogCount}
+    <Accordion defaultActiveKey="gpu">
+      <Accordion.Item eventKey="gpu">
+        <Accordion.Header>{t('console.diagGpu')}</Accordion.Header>
+        <Accordion.Body>
+          {!gpu && <div className="text-muted small">{t('settings.gpuLoading')}</div>}
+          {gpu && !gpu.available && <div className="text-muted small">{t('settings.gpuNone')}</div>}
+          {gpu && gpu.available && <>
+            <div className="mb-2">
+              <b>{gpu.name}</b>
+              <Badge bg={gpuVariant(gpu.utilPct)} className="ms-2">{gpu.utilPct}%</Badge>
+              <span className="ms-2 small text-muted">{gpu.memUsedMB} / {gpu.memTotalMB} MB</span>
             </div>
-            <Table size="sm" borderless className="mb-0">
-              <thead><tr><th className="small">{t('console.diagRedisCommand')}</th><th className="small">{t('console.diagRedisCalls')}</th><th className="small">{t('console.diagRedisUsec')}</th></tr></thead>
+            {gpu.processes && gpu.processes.length > 0 && <Table size="sm" borderless className="mb-0">
               <tbody>
-                {(redis.commands || []).slice(0, 10).map((cmd, i) => (
-                  <tr key={`${cmd.name}-${i}`}>
-                    <td className="small">{cmd.name}</td>
-                    <td className="small">{cmd.calls}</td>
-                    <td className="small">{cmd.usec}</td>
+                {gpu.processes.map((proc) => (
+                  <tr key={`${proc.pid}-${proc.name}`}>
+                    <td className="text-muted small">{proc.pid}</td>
+                    <td className="small text-truncate" style={{maxWidth: 320}}>{proc.name}</td>
+                    <td className="small text-end">{proc.usedMB} MB</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>}
+          </>}
+        </Accordion.Body>
+      </Accordion.Item>
+      <Accordion.Item eventKey="redis">
+        <Accordion.Header>{t('console.diagRedis')}</Accordion.Header>
+        <Accordion.Body>
+          <div className="text-end mb-2"><Button size="sm" variant="outline-secondary" onClick={refreshRedis}>{t('console.diagRefresh')}</Button></div>
+          {!redis && <div className="text-muted small">{t('console.diagRedisLoading')}</div>}
+          {redis && (
+            <>
+              <div className="small mb-2">
+                {t('console.diagRedisKeys')}: {redis.keys} · {t('console.diagRedisMem')}: {(redis.info || {}).used_memory_human} · {t('console.diagRedisClients')}: {(redis.info || {}).connected_clients} · {t('console.diagRedisHits')}: {(redis.info || {}).keyspace_hits} / {(redis.info || {}).keyspace_misses} · {t('console.diagRedisSlow')}: {redis.slowlogCount}
+              </div>
+              <Table size="sm" borderless className="mb-0">
+                <thead><tr><th className="small">{t('console.diagRedisCommand')}</th><th className="small">{t('console.diagRedisCalls')}</th><th className="small">{t('console.diagRedisUsec')}</th></tr></thead>
+                <tbody>
+                  {(redis.commands || []).slice(0, 10).map((cmd, i) => (
+                    <tr key={`${cmd.name}-${i}`}>
+                      <td className="small">{cmd.name}</td>
+                      <td className="small">{cmd.calls}</td>
+                      <td className="small">{cmd.usec}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </>
+          )}
+        </Accordion.Body>
+      </Accordion.Item>
+      <Accordion.Item eventKey="events">
+        <Accordion.Header>{t('console.diagEvents')}</Accordion.Header>
+        <Accordion.Body>
+          <div className="text-end mb-2"><Button size="sm" variant="outline-secondary"
+            onClick={() => axios.post('/terraform/v1/mgmt/streams/events/clear', {}, {headers: Token.loadBearerHeader()})
+              .then(() => setEvents([])).catch(() => {})}>
+            {t('console.diagClear')}
+          </Button></div>
+          {events.length === 0 && <div className="text-muted small">{t('console.diagNoEvents')}</div>}
+          {events.length > 0 && <div className="text-muted small mb-1">{t('console.diagEventsNote')}</div>}
+          <div style={{maxHeight: 240, overflowY: 'auto'}}>
+            <Table size="sm" borderless className="mb-0">
+              <tbody>
+                {events.slice(0, 50).map((e, i) => (
+                  <tr key={`${e.time}-${e.stream}-${i}`}>
+                    <td className="small text-muted" style={{whiteSpace: 'nowrap'}}>
+                      {(() => { const d = new Date(e.time); return isNaN(d) ? e.time : d.toLocaleString(); })()}
+                    </td>
+                    <td className="small">
+                      <Badge bg={e.event === 'on_publish' ? 'success' : 'secondary'}>{e.event}</Badge>
+                    </td>
+                    <td className="small text-truncate" style={{maxWidth: 320}}>{e.stream}</td>
                   </tr>
                 ))}
               </tbody>
             </Table>
-          </>
-        )}
-      </Card.Body>
-    </Card>    <Card className="mb-3">
-      <Card.Header className="d-flex justify-content-between align-items-center">
-        <span>{t('console.diagEvents')}</span>
-        <Button size="sm" variant="outline-secondary"
-          onClick={() => axios.post('/terraform/v1/mgmt/streams/events/clear', {}, {headers: Token.loadBearerHeader()})
-            .then(() => setEvents([])).catch(() => {})}>
-          {t('console.diagClear')}
-        </Button>
-      </Card.Header>
-      <Card.Body style={{maxHeight: 240, overflowY: 'auto'}}>
-        {events.length === 0 && <div className="text-muted small">{t('console.diagNoEvents')}</div>}
-        {events.length > 0 && <div className="text-muted small mb-1">{t('console.diagEventsNote')}</div>}
-        <Table size="sm" borderless className="mb-0">
-          <tbody>
-            {events.slice(0, 50).map((e, i) => (
-              <tr key={`${e.time}-${e.stream}-${i}`}>
-                <td className="small text-muted" style={{whiteSpace: 'nowrap'}}>
-                  {(() => { const d = new Date(e.time); return isNaN(d) ? e.time : d.toLocaleString(); })()}
-                </td>
-                <td className="small">
-                  <Badge bg={e.event === 'on_publish' ? 'success' : 'secondary'}>{e.event}</Badge>
-                </td>
-                <td className="small text-truncate" style={{maxWidth: 320}}>{e.stream}</td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      </Card.Body>
-    </Card>
-    <Card className="mb-3">
-      <Card.Header>{t('console.diagForwards')}</Card.Header>
-      <Card.Body><SrsForwards {...{handleError}} /></Card.Body>
-    </Card>
-    <SrsStreams {...{handleError}} active />
+          </div>
+        </Accordion.Body>
+      </Accordion.Item>
+      <Accordion.Item eventKey="forwards">
+        <Accordion.Header>{t('console.diagForwards')}</Accordion.Header>
+        <Accordion.Body><SrsForwards {...{handleError}} /></Accordion.Body>
+      </Accordion.Item>
+    </Accordion>
   </>);
 }
