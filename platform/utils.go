@@ -2014,6 +2014,12 @@ func (v *FFmpegHeartbeat) emitExtraLog(line string) {
 	}
 }
 
+// ffmpegNoUpdateExpired reports whether a positive inactivity limit has elapsed.
+// Zero disables the watchdog for forwards that intentionally hold the last frame.
+func ffmpegNoUpdateExpired(updated, now time.Time, limit time.Duration) bool {
+	return limit > 0 && updated.Add(limit).Before(now)
+}
+
 // Polling the FFmpeg stderr and detect the error.
 func (v *FFmpegHeartbeat) Polling(ctx context.Context, stderr io.Reader) {
 	pollingReadyCtx, cancelPollingReady := context.WithCancel(ctx)
@@ -2047,7 +2053,7 @@ func (v *FFmpegHeartbeat) Polling(ctx context.Context, stderr io.Reader) {
 			case <-time.After(3 * time.Second):
 			}
 
-			if v.update.Add(v.MaxNoUpdateTime).Before(time.Now()) {
+			if ffmpegNoUpdateExpired(v.update, time.Now(), v.MaxNoUpdateTime) {
 				logger.Wf(ctx, "FFmpeg: not update for %v, restart it", time.Since(v.update))
 				v.cancelFFmpeg()
 				return
