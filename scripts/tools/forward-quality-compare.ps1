@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env pwsh
+#!/usr/bin/env pwsh
 #
 # 轉推畫質對比 (forward-quality-compare)
 #
@@ -55,6 +55,18 @@ if ($Source) {
         } | ConvertTo-Json -Compress
         Invoke-RestMethod -Method Post -Uri "$api/terraform/v1/ffmpeg/forward/secret" -Headers $hdr -ContentType "application/json" -Body $body | Out-Null
     }
+    # Safety guard: creating targets from a live source would also forward it to any other enabled
+    # real target. Abort unless the operator explicitly opts in.
+    $all = (Invoke-RestMethod -Method Post -Uri "$api/terraform/v1/ffmpeg/forward/streams" -Headers $hdr -ContentType "application/json" -Body '{"action":"query"}').data
+    $foreign = @($all | Where-Object { $_.enabled -and $_.label -notlike "TEST *" })
+    if ($foreign.Count -gt 0) {
+        $list = ($foreign | ForEach-Object { "  - $($_.platform)  label=$($_.label)" }) -join "`n"
+        Write-Host "測試已中止：以下正式轉播目標仍為啟用狀態，測試流量會被推到真實平台。" -ForegroundColor Red
+        Write-Host $list -ForegroundColor Yellow
+        Write-Host "請先停用它們再重跑。" -ForegroundColor Red
+        exit 1
+    }
+
     Section "建立對比目標（來源：$Source）"
     NewTarget $pA "TEST qc copy" $false
     NewTarget $pB "TEST qc normalize" $true

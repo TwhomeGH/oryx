@@ -24,10 +24,29 @@ pwsh scripts/tools/forward-quality-compare.ps1 `
 
 | 參數 | 說明 | 預設 |
 | --- | --- | --- |
-| `-A` | 參考流（通常是不轉碼的 copy） | 必填 |
-| `-B` | 待比較流（通常是 normalize 或不同碼率） | 必填 |
-| `-Seconds` | 取樣秒數 | `15` |
-| `-Out` | 截圖輸出目錄 | `<repo>\.tmp\forward-quality-compare` |
+| `-A` | 參考流（通常是不轉碼的 copy） | 必填（除 `-Source` 外） |
+| `-B` | 待比較流（通常是 normalize 或不同碼率） | 必填（除 `-Source` 外） |
+| `-Source` | 由工具用這個正式來源（`app/stream`）自動建立 copy/normalize 兩個 `TEST qc` 目標，比對完自動刪除 | 空 |
+| `-Seconds` | 取樣秒數（每邊錄製這麼長的影片再做逐幀比對） | `15` |
+| `-Out` | 輸出目錄（`A.png`/`B.png` 拼貼圖與 `A.mp4`/`B.mp4`） | `<repo>\.tmp\forward-quality-compare` |
+
+## 由正式來源自動建立對比目標（`-Source`）
+
+```powershell
+# 用正在直播的 live/livestream 產生 copy 與 normalize 兩個 TEST 目標，比對後自動刪除
+pwsh scripts/tools/forward-quality-compare.ps1 -Source live/livestream -Seconds 20
+```
+
+這樣不需要先跑 `forward-quick-test.ps1 -Compare`，直接用你的正式來源做 A/B 對照。
+
+> **安全檢查**：若目前有任何**非 `TEST`** 的轉播目標處於啟用狀態，工具會中止並列出它們，
+> 避免測試內容被推到真實平台。請先停用這些目標再重跑。
+
+## 輸出
+
+- `A.png` / `B.png`：各 30 幀（6×5）拼貼圖，肉眼可直接比較
+- `A.mp4` / `B.mp4`：錄下的原始片段（除錯用）
+- 終端機輸出：對齊後的 PSNR / SSIM（含 Y/U/V 各平面）
 
 ## 輸出
 
