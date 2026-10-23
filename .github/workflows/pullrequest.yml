@@ -99,7 +99,7 @@ jobs:
           # here and cache the Go build cache explicitly below instead.
           cache: false
       - name: Cache Go build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/go-build
           key: ${{ runner.os }}-go-build-${{ hashFiles('platform/go.sum', 'test/go.sum', 'releases/go.sum', 'platform/vendor/modules.txt', 'test/vendor/modules.txt') }}
