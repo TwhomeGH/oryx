@@ -8,9 +8,11 @@ import (
 	"encoding/json"
 	stderrors "errors"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"sort"
 	"strconv"
@@ -260,6 +262,8 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 					return errors.Wrapf(err, "hdel %v %v", SRS_FORWARD_CONFIG, userConf.Platform)
 				}
 				v.RemoveTask(userConf.Platform)
+				// Also disconnect the SRS publisher so no stale stream/client is left behind.
+				kickForwardStreams(ctx, "live", userConf.Secret)
 
 				ohttp.WriteData(ctx, w, r, nil)
 				logger.Tf(ctx, "forward delete config ok, platform=%v", userConf.Platform)
@@ -1240,6 +1244,8 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 				}
 				v.releaseProgram()
 				v.markWaitingInput()
+				// Disconnect the SRS publisher so no stale stream/client is left after ending.
+				kickForwardStreams(ctx, "live", v.config.Secret)
 				return nil
 			}
 		}
@@ -1731,4 +1737,52 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 	)
 
 	return err
+}
+
+// kickForwardStreams disconnects SRS clients publishing app/stream, so deleting or ending a
+// target does not leave a stale SRS_STREAM_ACTIVE entry or lingering clients.
+func kickForwardStreams(ctx context.Context, app, stream string) {
+	host := os.Getenv("SRS_HOST")
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	base := fmt.Sprintf("http://%v:1985/api/v1/clients/", host)
+
+	client := &http.Client{Timeout: 3 * time.Second}
+	res, err := client.Get(base)
+	if err != nil {
+		logger.Wf(ctx, "forward kick list err %+v", err)
+		return
+	}
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		logger.Wf(ctx, "forward kick read err %+v", err)
+		return
+	}
+
+	var parsed struct {
+		Clients []struct {
+			ID     string `json:"id"`
+			Stream string `json:"stream"`
+			App    string `json:"app"`
+		} `json:"clients"`
+	}
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		logger.Wf(ctx, "forward kick unmarshal err %+v", err)
+		return
+	}
+	for _, cl := range parsed.Clients {
+		if cl.App != app || cl.Stream != stream {
+			continue
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, base+cl.ID, nil)
+		if err != nil {
+			continue
+		}
+		if r, err := client.Do(req); err == nil {
+			r.Body.Close()
+			logger.Tf(ctx, "forward kick client=%v app=%v stream=%v", cl.ID, app, stream)
+		}
+	}
 }
