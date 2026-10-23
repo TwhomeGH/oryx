@@ -79,12 +79,15 @@ func (v *ForwardWorker) GetTask(platform string) *ForwardTask {
 }
 
 // RemoveTask stops the running FFmpeg process of the task if exists, then removes it
-// from the worker, so that it is never reported by streams API again. Note that the
-// Run loop goroutine keeps running till worker closed, but stays idle because its
-// config is disabled.
+// from the worker. Both the task loop and its FFmpeg attempt are cancelled so a
+// removed target cannot leave an idle loop running with stale configuration.
 func (v *ForwardWorker) RemoveTask(platform string) {
 	if task := v.GetTask(platform); task != nil {
 		task.lock.Lock()
+		task.removed = true
+		if task.loopCancel != nil {
+			task.loopCancel()
+		}
 		task.config.Enabled = false
 		if task.cancel != nil {
 			task.cancel()
@@ -392,12 +395,16 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 					}
 
 					elem := map[string]interface{}{
-						"platform":  config.Platform,
-						"enabled":   config.Enabled,
-						"custom":    config.Customed,
-						"label":     config.Label,
-						"status":    status.State,
-						"normalize": config.Normalize,
+						"platform":       config.Platform,
+						"enabled":        config.Enabled,
+						"custom":         config.Customed,
+						"label":          config.Label,
+						"status":         status.State,
+						"loopRunning":    status.LoopRunning,
+						"loopPhase":      status.LoopPhase,
+						"loopUpdated":    status.LoopUpdated,
+						"loopExitReason": status.LoopExitReason,
+						"normalize":      config.Normalize,
 					}
 					if status.Input != "" {
 						elem["stream"] = status.Input
@@ -559,30 +566,15 @@ func (v *ForwardWorker) Start(ctx context.Context) error {
 				task.lock.Lock()
 				task.config = &copied
 				task.lock.Unlock()
-				continue
 			} else {
 				task = tv.(*ForwardTask)
 				logger.Tf(ctx, "Forward create platform=%v task is %v", platform, task.String())
 			}
 
-			// Initialize object.
-			if err := task.Initialize(ctx, v); err != nil {
-				return errors.Wrapf(err, "init %v", task.String())
+			// Map membership is not proof that initialization or the loop succeeded.
+			if err := v.startTask(ctx, task, task.Initialize, task.Run); err != nil {
+				logger.Wf(ctx, "forward init failed uuid=%v platform=%v err=%v", task.UUID, task.Platform, err)
 			}
-
-			// Store under the SAME key used by LoadOrStore/GetTask (config.Platform), not the
-			// Redis hash field: when they differ this created two keys pointing at one task and
-			// let a different target's config overwrite this one.
-			v.tasks.Store(config.Platform, task)
-
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				if err := task.Run(ctx); err != nil {
-					logger.Wf(ctx, "run task %v err %+v", task.String(), err)
-				}
-			}()
 		}
 
 		return nil
@@ -613,6 +605,50 @@ func (v *ForwardWorker) Start(ctx context.Context) error {
 		}
 	}()
 
+	return nil
+}
+
+// startTask claims one loop slot before initialization. Failed initialization and
+// exited loops release the slot, allowing the next configuration poll to retry.
+// Callers must keep the worker loader alive until all starts have been scheduled.
+func (v *ForwardWorker) startTask(ctx context.Context, task *ForwardTask,
+	initialize func(context.Context, *ForwardWorker) error, run func(context.Context) error,
+) error {
+	task.lock.Lock()
+	if task.loopRunning || task.removed || ctx.Err() != nil {
+		task.lock.Unlock()
+		return nil
+	}
+	loopCtx, stop := context.WithCancel(ctx)
+	task.loopRunning, task.loopCancel = true, stop
+	task.loopPhase = "initializing"
+	task.loopUpdated = time.Now()
+	task.addEventLocked("loop-start", "initializing")
+	task.lock.Unlock()
+
+	if err := initialize(loopCtx, v); err != nil {
+		stop()
+		task.finishLoop("initialize-failed")
+		return err
+	}
+	v.wg.Add(1)
+	go func() {
+		defer v.wg.Done()
+		defer stop()
+		task.setLoopPhase("starting")
+		err := run(loopCtx)
+		reason := "returned"
+		if ctx.Err() != nil {
+			reason = "worker-context: " + ctx.Err().Error()
+		} else if loopCtx.Err() != nil {
+			reason = "task-context: " + loopCtx.Err().Error()
+		} else if err != nil {
+			reason = "run-error"
+		}
+		task.releaseProgram()
+		task.finishLoop(reason)
+		logger.Tf(ctx, "forward loop exit uuid=%v platform=%v reason=%v", task.UUID, task.Platform, reason)
+	}()
 	return nil
 }
 
@@ -708,6 +744,13 @@ type ForwardTask struct {
 
 	// The context for current task.
 	cancel context.CancelFunc
+	// The task loop outlives individual FFmpeg attempts, but not deletion or shutdown.
+	loopCancel     context.CancelFunc
+	loopRunning    bool
+	removed        bool
+	loopPhase      string
+	loopUpdated    time.Time
+	loopExitReason string
 
 	// The bound source stream and its internal program bus. When bound, the task forwards the
 	// internal program stream instead of the source directly, see docs/forward-program-bus.md.
@@ -723,6 +766,10 @@ type ForwardTask struct {
 }
 
 type ForwardTaskStatus struct {
+	LoopRunning    bool
+	LoopPhase      string
+	LoopUpdated    string
+	LoopExitReason string
 	// Manual end state and the configured grace, so the UI can show a countdown.
 	Ended               bool  `json:"ended"`
 	EndedAt             int64 `json:"endedAt"`
@@ -763,9 +810,38 @@ type ForwardEvent struct {
 const forwardDiagRingSize = 50
 
 func (v *ForwardTask) String() string {
-	return fmt.Sprintf("uuid=%v, platform=%v, input=%v, output=%v, pid=%v, frame=%vB, config is %v",
-		v.UUID, v.Platform, v.Input, v.Output, v.PID, len(v.frame), v.config.String(),
-	)
+	// Identity is immutable; avoid racing runtime fields or logging stream secrets.
+	return fmt.Sprintf("uuid=%v, platform=%v", v.UUID, v.Platform)
+}
+
+// configSnapshot returns a value copy, isolated from concurrent config refreshes.
+func (v *ForwardTask) configSnapshot() ForwardConfigure {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	if v.config == nil {
+		return ForwardConfigure{}
+	}
+	return *v.config
+}
+
+// setLoopPhase records where a live loop is working without logging every poll.
+func (v *ForwardTask) setLoopPhase(phase string) {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	v.loopPhase, v.loopUpdated = phase, time.Now()
+}
+
+// finishLoop releases the scheduling slot and retains the exit reason.
+func (v *ForwardTask) finishLoop(reason string) {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	v.loopRunning, v.loopCancel = false, nil
+	v.loopPhase, v.loopUpdated, v.loopExitReason = "stopped", time.Now(), reason
+	v.State = forwardStateDegraded
+	if v.removed || (v.config != nil && !v.config.Enabled) {
+		v.State = forwardStateIdle
+	}
+	v.addEventLocked("loop-exit", reason)
 }
 
 func (v *ForwardTask) saveTask(ctx context.Context) error {
@@ -860,6 +936,10 @@ func (v *ForwardTask) queryStatus() ForwardTaskStatus {
 	defer v.lock.Unlock()
 
 	status := ForwardTaskStatus{
+		LoopRunning:         v.loopRunning,
+		LoopPhase:           v.loopPhase,
+		LoopUpdated:         v.loopUpdated.Format(time.RFC3339),
+		LoopExitReason:      v.loopExitReason,
 		PID:                 v.PID,
 		State:               v.State,
 		Input:               v.Input,
@@ -1154,7 +1234,9 @@ func isForwardCustomPlatform(platform string, customed bool) bool {
 }
 
 func (v *ForwardTask) Initialize(ctx context.Context, w *ForwardWorker) error {
+	v.lock.Lock()
 	v.forwardWorker = w
+	v.lock.Unlock()
 	logger.Tf(ctx, "forward initialize uuid=%v, platform=%v", v.UUID, v.Platform)
 
 	if err := v.saveTask(ctx); err != nil {
@@ -1175,7 +1257,7 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 			return nil, errors.Wrapf(err, "hgetall %v", SRS_STREAM_ACTIVE)
 		}
 
-		streamName := v.config.Stream
+		streamName := v.configSnapshot().Stream
 		// Never select this task's own output stream, otherwise forwarding would loop.
 		ownOutput := v.ownOutputStream()
 
@@ -1228,9 +1310,11 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 	}
 
 	pfn := func(ctx context.Context) error {
+		config := v.configSnapshot()
+		v.setLoopPhase("checking-policy")
 		// Ignore when not enabled, or when the global forward switch is off (a pause that does
 		// not change each target's own enabled preference).
-		if !v.config.Enabled || !forwardMasterEnabled(ctx) {
+		if !config.Enabled || !forwardMasterEnabled(ctx) {
 			v.releaseProgram()
 			v.markHealthy()
 			return nil
@@ -1238,11 +1322,17 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 
 		// A manual end shows the configured end text for a grace period, then stops this target
 		// (the operator need not wait for the offline-stop policy).
-		if v.config.Ended && v.config.EndedAt > 0 {
+		if config.Ended && config.EndedAt > 0 {
 			grace := int64(forwardSlateConfigLoad(ctx).EndGraceSeconds)
-			if time.Now().Unix() >= v.config.EndedAt+grace {
+			if time.Now().Unix() >= config.EndedAt+grace {
 				logger.Tf(ctx, "forward platform=%v manual end grace expired, stop", v.Platform)
 				v.addEvent("end-stop", "manual end grace expired")
+				v.lock.Lock()
+				// A newer configuration may have cancelled the manual end while policy was read.
+				if !v.config.Ended || v.config.EndedAt != config.EndedAt {
+					v.lock.Unlock()
+					return nil
+				}
 				v.config.Ended = false
 				v.config.EndedAt = 0
 				v.config.Enabled = false
@@ -1251,6 +1341,7 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 						logger.Wf(ctx, "ignore forward end hset err %+v", err)
 					}
 				}
+				v.lock.Unlock()
 				v.releaseProgram()
 				v.markWaitingInput()
 				return nil
@@ -1273,6 +1364,7 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 		// forwarding the program even when the source is temporarily offline, because the
 		// program bus keeps the program published (the downstream holds the last frame).
 		if !v.hasProgram() {
+			v.setLoopPhase("selecting-source")
 			input, err := selectActiveStream()
 			if err != nil {
 				return errors.Wrapf(err, "select input")
@@ -1287,6 +1379,7 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 		}
 
 		// Start forward task.
+		v.setLoopPhase("forwarding")
 		if err := v.doForward(ctx); err != nil {
 			return fmt.Errorf("do forward: %w", err)
 		}
@@ -1296,6 +1389,7 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 
 	for ctx.Err() == nil {
 		errPfn := pfn(ctx)
+		v.setLoopPhase("cycle-returned")
 		if err := errPfn; err != nil {
 			if ctx.Err() != nil {
 				return nil
@@ -1310,6 +1404,7 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 				continue
 			}
 			delay := v.markFailure(err)
+			v.setLoopPhase("retry-wait")
 			logger.Wf(ctx, "ignore %v err %+v, retry in %v", v.String(), err, delay)
 
 			select {
@@ -1319,6 +1414,7 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 			continue
 		}
 		v.markHealthy()
+		v.setLoopPhase("poll-wait")
 
 		select {
 		case <-ctx.Done():
@@ -1525,10 +1621,7 @@ func (v *ForwardTask) bindProgram(ctx context.Context, app, stream string) {
 	v.sourceApp, v.sourceStream = app, stream
 	v.lock.Unlock()
 
-	failover := ""
-	if v.config != nil {
-		failover = v.config.Failover
-	}
+	failover := v.configSnapshot().Failover
 	if v.forwardWorker != nil && v.forwardWorker.programWorker != nil {
 		v.forwardWorker.programWorker.EnsureProgram(app, stream, failover)
 	}
@@ -1550,10 +1643,14 @@ func (v *ForwardTask) releaseProgram() {
 }
 
 func (v *ForwardTask) doForward(ctx context.Context) error {
+	config := v.configSnapshot()
 	// Create context for current task.
 	parentCtx := ctx
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	v.lock.Lock()
 	v.cancel = cancel
+	v.lock.Unlock()
 
 	// Stop the forward when the source has been offline long enough, if configured. The run loop
 	// only re-checks between FFmpeg runs, so a running fanout must be cancelled explicitly.
@@ -1592,15 +1689,15 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 	programInputURL := fmt.Sprintf("http://localhost:%v/%v/%v.flv", forwardProgramHTTPPort, sourceApp, programStream)
 
 	// Build output URL.
-	outputServer := strings.ReplaceAll(v.config.Server, "localhost", host)
-	if !strings.HasSuffix(outputServer, "/") && !strings.HasPrefix(v.config.Secret, "/") && v.config.Secret != "" {
+	outputServer := strings.ReplaceAll(config.Server, "localhost", host)
+	if !strings.HasSuffix(outputServer, "/") && !strings.HasPrefix(config.Secret, "/") && config.Secret != "" {
 		outputServer += "/"
 	}
-	outputURL := fmt.Sprintf("%v%v", outputServer, v.config.Secret)
+	outputURL := fmt.Sprintf("%v%v", outputServer, config.Secret)
 	// A local target on this SRS still needs publish authentication, but its secret must stay a
 	// clean stream name: if ?secret= were part of the secret field, SRS would parse the stream
 	// wrongly (e.g. the stream becomes the secret value). Append the local publish secret here.
-	if strings.Contains(v.config.Server, "localhost") && !strings.Contains(outputURL, "?secret=") {
+	if strings.Contains(config.Server, "localhost") && !strings.Contains(outputURL, "?secret=") {
 		if pub := forwardPublishSecret(ctx); pub != "" {
 			outputURL += "?secret=" + pub
 		}
@@ -1614,6 +1711,7 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 
 	// B3: Probe the output server before starting FFmpeg, to fail fast with a clear reason,
 	// instead of a cryptic FFmpeg dial error after several seconds.
+	v.setLoopPhase("probing-output")
 	if err := ProbeTCPServer(ctx, outputURL, 2*time.Second); err != nil {
 		return errors.Wrapf(err, "output precheck")
 	}
@@ -1633,6 +1731,7 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 	// initial connection fails hard (FFmpeg does not auto-retry a failed initial open) when the
 	// program is not published yet (the platform proxy returns 502), which would cause a
 	// spurious restart.
+	v.setLoopPhase("waiting-program")
 	if err := waitStreamReady(ctx, programInputURL, 10*time.Second); err != nil {
 		return fmt.Errorf("%w: %v", errProgramNotReady, err)
 	}
@@ -1645,7 +1744,7 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 		_, _, rate := bus.sourceSize()
 		gop = forwardGOPFrames(rate, forwardSlateConfigLoad(ctx).KeyframeSeconds)
 	}
-	args := forwardFanoutArgs(v.config != nil && v.config.Normalize, gop, programInputURL, outputURL)
+	args := forwardFanoutArgs(config.Normalize, gop, programInputURL, outputURL)
 	v.setFFmpegArgs(args)
 	// Create the command object.
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
@@ -1655,6 +1754,7 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 		return errors.Wrapf(err, "pipe process")
 	}
 
+	v.setLoopPhase("starting-ffmpeg")
 	if err := cmd.Start(); err != nil {
 		return errors.Wrapf(err, "execute ffmpeg %v", strings.Join(args, " "))
 	}
@@ -1734,6 +1834,7 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 	}
 
 	// Process terminated, or user cancel the process.
+	v.setLoopPhase("waiting-ffmpeg")
 	select {
 	case <-parentCtx.Done():
 	case <-ctx.Done():
@@ -1742,6 +1843,7 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 	logger.Tf(ctx, "Forward: Cycle stopping, platform=%v, stream=%v, pid=%v",
 		v.Platform, sourceURL, v.PID)
 
+	v.setLoopPhase("joining-ffmpeg")
 	err = cmd.Wait()
 	logger.Tf(ctx, "forward done, platform=%v, stream=%v, pid=%v, err=%v",
 		v.Platform, sourceURL, v.PID, err,

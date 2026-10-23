@@ -1,12 +1,106 @@
 package main
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/ossrs/go-oryx-lib/errors"
 )
+
+func TestForward_LoopInitializationRetry(t *testing.T) {
+	w := &ForwardWorker{}
+	task := &ForwardTask{config: &ForwardConfigure{Enabled: true}}
+	initialize := func(context.Context, *ForwardWorker) error { return errors.New("redis unavailable") }
+	runs := 0
+	run := func(context.Context) error { runs++; return nil }
+	if err := w.startTask(context.Background(), task, initialize, run); err == nil {
+		t.Fatal("expected initialization failure")
+	}
+	if task.loopRunning || task.loopExitReason != "initialize-failed" || runs != 0 {
+		t.Fatal("failed initialization retained an occupied loop slot")
+	}
+	initialize = func(context.Context, *ForwardWorker) error { return nil }
+	if err := w.startTask(context.Background(), task, initialize, run); err != nil {
+		t.Fatal(err)
+	}
+	w.wg.Wait()
+	if runs != 1 || task.loopRunning {
+		t.Fatal("retry did not run and release slot")
+	}
+	if err := w.startTask(context.Background(), task, initialize, run); err != nil {
+		t.Fatal(err)
+	}
+	w.wg.Wait()
+	if runs != 2 {
+		t.Fatal("exited loop could not be restarted")
+	}
+}
+
+func TestForward_LoopDeletionAndSingleStart(t *testing.T) {
+	w := &ForwardWorker{}
+	task := &ForwardTask{Platform: "test", config: &ForwardConfigure{Enabled: true}}
+	w.tasks.Store(task.Platform, task)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	started := make(chan struct{})
+	initialize := func(context.Context, *ForwardWorker) error { return nil }
+	run := func(ctx context.Context) error { close(started); <-ctx.Done(); return nil }
+	if err := w.startTask(ctx, task, initialize, run); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("loop did not start")
+	}
+	if err := w.startTask(ctx, task, initialize, run); err != nil {
+		t.Fatal(err)
+	}
+	w.RemoveTask(task.Platform)
+	done := make(chan struct{})
+	go func() { w.wg.Wait(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("deleted loop did not stop")
+	}
+	if ctx.Err() != nil {
+		t.Fatal("task deletion cancelled parent")
+	}
+	if task.loopExitReason != "task-context: context canceled" {
+		t.Fatal(task.loopExitReason)
+	}
+	if err := w.startTask(ctx, task, initialize, run); err != nil {
+		t.Fatal(err)
+	}
+	if task.loopRunning {
+		t.Fatal("deleted task restarted")
+	}
+}
+
+func TestForward_LoopWorkerCancellation(t *testing.T) {
+	w := &ForwardWorker{}
+	task := &ForwardTask{config: &ForwardConfigure{Enabled: true}}
+	ctx, cancel := context.WithCancel(context.Background())
+	started := make(chan struct{})
+	if err := w.startTask(ctx, task, func(context.Context, *ForwardWorker) error { return nil },
+		func(ctx context.Context) error { close(started); <-ctx.Done(); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	<-started
+	cancel()
+	w.wg.Wait()
+	if task.loopExitReason != "worker-context: context canceled" {
+		t.Fatal(task.loopExitReason)
+	}
+	copy := task.configSnapshot()
+	copy.Enabled = false
+	if !task.configSnapshot().Enabled {
+		t.Fatal("snapshot modified live configuration")
+	}
+}
 
 func TestForward_RetryDelay(t *testing.T) {
 	for _, e := range []struct {

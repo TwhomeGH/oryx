@@ -11,6 +11,20 @@
 
 前端入口：`ui/src/pages/ScenarioForward.js`。
 
+### Worker 任務生命週期診斷
+
+`tasks` 中的物件與實際 Run 迴圈分開管理。載入設定時先取得迴圈執行資格，避免同一目標重複啟動；初始化失敗或 Run 返回會釋放資格，後續設定輪詢可再次啟動。初始化失敗的物件保留供診斷，不再因 map 中已存在就永遠略過。刪除目標會取消任務迴圈與 FFmpeg，避免留下閒置 goroutine。
+
+streams API 新增 `loopRunning`、`loopPhase`、`loopUpdated`、`loopExitReason`。階段包含初始化、檢查策略、選來源、探測輸出、等待 program、啟動／等待／回收 FFmpeg、重試等待及輪詢等待。`loopUpdated` 是階段更新時間，不是媒體心跳；長時間處於 `waiting-ffmpeg` 可屬正常運行，需一起查看輸出進度。
+
+事件時間線保留 `loop-start`／`loop-exit`，退出日誌含 task UUID、platform 與原因。`worker-context` 表示父層取消，`task-context` 表示任務層取消（如刪除），`returned` 表示 Run 自行返回，`initialize-failed` 表示初始化失敗。前者是取消層級的證據，不直接等於已定位主程序內哪個呼叫觸發取消。異常退出不再以空狀態默認成 idle。
+
+單次 FFmpeg 使用子 context，函式返回時必定取消；Restart 只取消該次執行，刪除與 Worker 關閉才結束外層迴圈。背景配置更新與任務讀取使用鎖及值快照。這些修正提供恢復與定位能力，仍需線上紀錄確認「pfn 只執行兩次」的實際原因。
+
+2026-10-23 在 `oryx-p1` 本地部署驗證時，另重現 fanout 約每 3 秒被取消：`forwardFanoutNoUpdateTime=0` 的原意是停用無更新 watchdog，但 heartbeat 原本直接比較 `update + 0`，即使距上次進度僅 0.16 秒也觸發重啟。修正為僅在限制大於零時判定逾時；其他任務的正值逾時仍有效。此問題取消的是單次 FFmpeg，不能據此推論 Worker 父 context 也被取消。
+
+修正版在 `oryx-p1`（管理埠 9022）使用專用本機目標與合成影音驗證通過：新目標由 idle → waiting_input → running；輸出由 ffprobe 解碼 75 幀；連續 30 秒進度前進且程序啟動時間不變；停用後 idle、重新啟用後 running、刪除後目標消失。Linux 的 `TestForward` 與 `TestFFmpegNoUpdateExpiry` race 測試也通過。測試目標與合成推流已結束，正式 `oryx` 未替換。此為測試容器內替換後端執行檔的驗證，尚非正式映像發布或長時間壓力測試。
+
 ### 轉播頁面的指標語意
 
 表格的「本機輸出進度」由 `ForwardProgress` 解讀最新 FFmpeg 日誌，顯示累計處理 FPS、累計處理速度及輸出媒體時間。這些不是來源 FPS、近期吞吐量或目的平台的播放確認。啟動時讀取緩衝資料可能造成處理 FPS 暫時偏高，不能僅以此判定來源異常。
