@@ -28,9 +28,7 @@ func keyFamily(key string) string {
 		return ""
 	}
 	if strings.HasPrefix(key, "SRS_") {
-		if i := strings.IndexAny(key, "/:_"); i > 0 {
-			return key[:i]
-		}
+		// The constant itself is the family (SRS_FORWARD_CONFIG, SRS_STREAM_ACTIVE, ...).
 		return key
 	}
 	if i := strings.IndexByte(key, '/'); i > 0 {
