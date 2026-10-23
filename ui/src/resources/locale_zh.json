@@ -1008,7 +1008,9 @@
       "fwCancelEnd": "取消结束",
       "fwEnded": "结束中",
       "diagEvents": "串流生命周期（发布/取消）",
-      "diagNoEvents": "尚无事件。"
+      "diagNoEvents": "尚无事件。",
+      "diagClear": "清除",
+      "diagEventsNote": "最多保留 500 笔，此处显示最新 50 笔。"
     }
   },
   "meta": {

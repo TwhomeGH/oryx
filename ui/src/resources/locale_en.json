@@ -1008,7 +1008,9 @@
       "fwCancelEnd": "Cancel end",
       "fwEnded": "Ending",
       "diagEvents": "Stream lifecycle (publish/unpublish)",
-      "diagNoEvents": "No events yet."
+      "diagNoEvents": "No events yet.",
+      "diagClear": "Clear",
+      "diagEventsNote": "Newest 50 of up to 500 retained events."
     }
   },
   "meta": {

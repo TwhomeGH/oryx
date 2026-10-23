@@ -376,6 +376,7 @@ func handleHTTPService(ctx context.Context, handler *http.ServeMux) error {
 	handleMgmtCertQuery(ctx, handler)
 	handleMgmtStreamsQuery(ctx, handler)
 	handleMgmtStreamsFPS(ctx, handler)
+	handleMgmtStreamsEventsClear(ctx, handler)
 	handleMgmtStreamsKickoff(ctx, handler)
 	handleMgmtHttpMetrics(ctx, handler)
 	handleMgmtRedisInfo(ctx, handler)
@@ -2354,4 +2355,30 @@ func handleMgmtUI(ctx context.Context, handler *http.ServeMux) {
 	ep = "/mgmt/"
 	logger.Tf(ctx, "Handle %v", ep)
 	handler.HandleFunc(ep, mgmtHandler)
+}
+
+// handleMgmtStreamsEventsClear clears the bounded publish/unpublish event log.
+func handleMgmtStreamsEventsClear(ctx context.Context, handler *http.ServeMux) {
+	ep := "/terraform/v1/mgmt/streams/events/clear"
+	logger.Tf(ctx, "Handle %v", ep)
+	handler.Handle(ep, middlewareAuthTokenInBody(ctx, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := func() error {
+			var token string
+			if err := ParseBody(ctx, r.Body, &struct {
+				Token *string `json:"token"`
+			}{Token: &token}); err != nil {
+				return errors.Wrapf(err, "parse body")
+			}
+			if err := Authenticate(ctx, envApiSecret(), token, r.Header); err != nil {
+				return errors.Wrapf(err, "authenticate")
+			}
+			if err := rdb.Del(ctx, SRS_STREAM_EVENTS).Err(); err != nil && err != redis.Nil {
+				return errors.Wrapf(err, "del %v", SRS_STREAM_EVENTS)
+			}
+			ohttp.WriteData(ctx, w, r, nil)
+			return nil
+		}(); err != nil {
+			ohttp.WriteError(ctx, w, r, err)
+		}
+	})))
 }

@@ -796,7 +796,9 @@
       "fwCancelEnd": "終了を取消",
       "fwEnded": "終了中",
       "diagEvents": "ストリームのライフサイクル（publish/unpublish）",
-      "diagNoEvents": "イベントはまだありません。"
+      "diagNoEvents": "イベントはまだありません。",
+      "diagClear": "消去",
+      "diagEventsNote": "最大500件のうち新しい50件を表示。"
     },
     "openapi": {
       "title": "プラットフォーム API キー（OpenAPI）",

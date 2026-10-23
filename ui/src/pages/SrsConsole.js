@@ -1127,9 +1127,17 @@ function SrsDiagnostics({handleError}) {
       </Card.Body>
     </Card>
     <Card className="mb-3">
-      <Card.Header>{t('console.diagEvents')}</Card.Header>
+      <Card.Header className="d-flex justify-content-between align-items-center">
+        <span>{t('console.diagEvents')}</span>
+        <Button size="sm" variant="outline-secondary"
+          onClick={() => axios.post('/terraform/v1/mgmt/streams/events/clear', {}, {headers: Token.loadBearerHeader()})
+            .then(() => setEvents([])).catch(() => {})}>
+          {t('console.diagClear')}
+        </Button>
+      </Card.Header>
       <Card.Body style={{maxHeight: 240, overflowY: 'auto'}}>
         {events.length === 0 && <div className="text-muted small">{t('console.diagNoEvents')}</div>}
+        {events.length > 0 && <div className="text-muted small mb-1">{t('console.diagEventsNote')}</div>}
         <Table size="sm" borderless className="mb-0">
           <tbody>
             {events.slice(0, 50).map((e, i) => (
