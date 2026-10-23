@@ -67,6 +67,26 @@ try {
     }
 } catch { }
 
+    # Safety guard: never forward the test source to a real platform. Any enabled non-TEST target
+    # would receive it, so abort unless the operator explicitly opts in.
+    $allTargets = (Api "/terraform/v1/ffmpeg/forward/streams" @{ action = "query" }).data
+    $foreignEnabled = @($allTargets | Where-Object { $_.enabled -and $_.label -notlike "TEST *" })
+    if ($foreignEnabled.Count -gt 0) {
+        $list = ($foreignEnabled | ForEach-Object { "  - $($_.platform)  label=$($_.label)" }) -join "`n"
+        if (-not $TakeOverRealTargets) {
+            throw ("測試已中止：以下正式轉播目標仍為啟用狀態，測試流量會被推到真實平台。`n$list`n`n" +
+                "請先停用它們，或加上 -TakeOverRealTargets 讓測試暫時停用並在結束後復原。")
+        }
+        Write-Host "==> 注意：以下正式轉播目標將被【暫時停用】，測試結束後自動復原：" -ForegroundColor Yellow
+        Write-Host $list -ForegroundColor Yellow
+        $answer = Read-Host "   確認暫時停用？(y/N)"
+        if ($answer -notmatch '^(y|Y)') { throw "已取消。" }
+        foreach ($t in $foreignEnabled) {
+            Api "/terraform/v1/ffmpeg/forward/secret" @{ action = "toggle"; platform = $t.platform; enabled = $false } | Out-Null
+            $script:RestoreTargets += $t.platform
+            Write-Host "   已暫時停用 $($t.platform)" -ForegroundColor DarkYellow
+        }
+    }
 try {
     if ($TestSource) {
         $Source = "live/$srcStream"
@@ -90,26 +110,6 @@ try {
     $app = $parts[0]; $stream = $parts[1]
     $progStream = "__forward_${app}_${stream}"
 
-    # Safety guard: never forward the test source to a real platform. Any enabled non-TEST target
-    # would receive it, so abort unless the operator explicitly opts in.
-    $allTargets = (Api "/terraform/v1/ffmpeg/forward/streams" @{ action = "query" }).data
-    $foreignEnabled = @($allTargets | Where-Object { $_.enabled -and $_.label -notlike "TEST *" })
-    if ($foreignEnabled.Count -gt 0) {
-        $list = ($foreignEnabled | ForEach-Object { "  - $($_.platform)  label=$($_.label)" }) -join "`n"
-        if (-not $TakeOverRealTargets) {
-            throw ("測試已中止：以下正式轉播目標仍為啟用狀態，測試流量會被推到真實平台。`n$list`n`n" +
-                "請先停用它們，或加上 -TakeOverRealTargets 讓測試暫時停用並在結束後復原。")
-        }
-        Write-Host "==> 注意：以下正式轉播目標將被【暫時停用】，測試結束後自動復原：" -ForegroundColor Yellow
-        Write-Host $list -ForegroundColor Yellow
-        $answer = Read-Host "   確認暫時停用？(y/N)"
-        if ($answer -notmatch '^(y|Y)') { throw "已取消。" }
-        foreach ($t in $foreignEnabled) {
-            Api "/terraform/v1/ffmpeg/forward/secret" @{ action = "toggle"; platform = $t.platform; enabled = $false } | Out-Null
-            $script:RestoreTargets += $t.platform
-            Write-Host "   已暫時停用 $($t.platform)" -ForegroundColor DarkYellow
-        }
-    }
 
     Write-Host "creating local forward target '$tgtStream'"
     Api "/terraform/v1/ffmpeg/forward/secret" $target | Out-Null
