@@ -1075,6 +1075,26 @@ function SrsForwards({handleError}) {
 }
 // Consolidated diagnostics: GPU, per-target forward state, and the SRS streams on one page, so
 // a failure can be traced without switching between Settings and the console tabs.
+// FlashStat shows a labelled value and briefly tints the background when the value changes,
+// so an auto-refreshing panel reads like a market ticker instead of a static page.
+function FlashStat({label, value}) {
+  const [flash, setFlash] = React.useState(false);
+  const prev = React.useRef(value);
+  React.useEffect(() => {
+    if (prev.current !== value) {
+      prev.current = value;
+      setFlash(true);
+      const timer = setTimeout(() => setFlash(false), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [value]);
+  return (
+    <span className={`small px-2 py-1 rounded ${flash ? 'bg-warning text-dark' : 'text-muted'}`}>
+      {label}: {String(value)}
+    </span>
+  );
+}
+
 function SrsDiagnostics({handleError}) {
   const {t} = useTranslation();
   const [gpu, setGpu] = React.useState();
@@ -1140,12 +1160,16 @@ function SrsDiagnostics({handleError}) {
       <Accordion.Item eventKey="redis">
         <Accordion.Header>{t('console.diagRedis')}</Accordion.Header>
         <Accordion.Body>
-          <div className="text-end mb-2"><Button size="sm" variant="outline-secondary" onClick={refreshRedis}>{t('console.diagRefresh')}</Button></div>
           {!redis && <div className="text-muted small">{t('console.diagRedisLoading')}</div>}
           {redis && (
             <>
-              <div className="small mb-2">
-                {t('console.diagRedisKeys')}: {redis.keys} · {t('console.diagRedisMem')}: {(redis.info || {}).used_memory_human} · {t('console.diagRedisClients')}: {(redis.info || {}).connected_clients} · {t('console.diagRedisHits')}: {(redis.info || {}).keyspace_hits} / {(redis.info || {}).keyspace_misses} · {t('console.diagRedisSlow')}: {redis.slowlogCount}
+              <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <FlashStat label={t('console.diagRedisKeys')} value={redis.keys} />
+              <FlashStat label={t('console.diagRedisMem')} value={(redis.info || {}).used_memory_human} />
+                <FlashStat label={t('console.diagRedisClients')} value={(redis.info || {}).connected_clients} />
+                <FlashStat label={t('console.diagRedisHits')} value={`${(redis.info || {}).keyspace_hits} / ${(redis.info || {}).keyspace_misses}`} />
+                <FlashStat label={t('console.diagRedisSlow')} value={redis.slowlogCount} />
+                <Button size="sm" variant="outline-secondary" className="ms-auto" onClick={refreshRedis}>{t('console.diagRefresh')}</Button>
               </div>
               <Table size="sm" borderless className="mb-0">
                 <thead><tr><th className="small">{t('console.diagRedisCommand')}</th><th className="small">{t('console.diagRedisCalls')}</th><th className="small">{t('console.diagRedisUsec')}</th></tr></thead>
