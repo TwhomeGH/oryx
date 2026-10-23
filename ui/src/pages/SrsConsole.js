@@ -1233,13 +1233,15 @@ function SrsDiagnostics({handleError}) {
       <Accordion.Item eventKey="events">
         <Accordion.Header>{t('console.diagEvents')}</Accordion.Header>
         <Accordion.Body>
-          <div className="text-end mb-2"><Button size="sm" variant="outline-secondary"
-            onClick={() => axios.post('/terraform/v1/mgmt/streams/events/clear', {}, {headers: Token.loadBearerHeader()})
-              .then(() => setEvents([])).catch(() => {})}>
-            {t('console.diagClear')}
-          </Button></div>
-          {events.length === 0 && <div className="text-muted small">{t('console.diagNoEvents')}</div>}
-          {events.length > 0 && <div className="text-muted small mb-1">{t('console.diagEventsNote')}</div>}
+          {events.length === 0 && <div className="text-center text-muted small py-3">{t('console.diagNoEvents')}</div>}
+          {events.length > 0 && <div className="d-flex justify-content-between align-items-center mb-1">
+            <span className="text-muted small">{t('console.diagEventsNote')}</span>
+            <Button size="sm" variant="outline-secondary"
+              onClick={() => axios.post('/terraform/v1/mgmt/streams/events/clear', {}, {headers: Token.loadBearerHeader()})
+                .then(() => setEvents([])).catch(() => {})}>
+              {t('console.diagClear')}
+            </Button>
+          </div>}
           <div style={{maxHeight: 240, overflowY: 'auto'}}>
             <Table size="sm" borderless className="mb-0">
               <tbody>
