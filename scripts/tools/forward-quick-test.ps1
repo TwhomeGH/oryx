@@ -196,7 +196,7 @@ try {
     $label = if ($Compare) { "TEST quick (copy)" } elseif ($Normalize) { "TEST quick (normalize)" } else { "TEST quick" }
     Step "啟用轉推：本機目標 rtmp://localhost/live/$($script:TgtID)（$label）failover=$fmode"
     Api "POST" "/terraform/v1/ffmpeg/forward/secret" @{
-        action = "update"; platform = $script:Platform; server = "rtmp://localhost/live/"; secret = $script:TgtID; enabled = $true; custom = $true; label = $label; normalize = (-not $Compare -and [bool]$Normalize); failover = $(if ($Slate) { "slate" } else { "" })
+        action = "update"; platform = $script:Platform; server = "rtmp://localhost/live/"; secret = $script:TgtID; enabled = $true; ended = $false; endedAt = 0; custom = $true; label = $label; normalize = (-not $Compare -and [bool]$Normalize); failover = $(if ($Slate) { "slate" } else { "" })
     } | Out-Null
 
     if ($Compare) {
@@ -204,7 +204,7 @@ try {
         $script:ComparePlatform = "forwarding-quick-cmp-$suffix"
         Step "啟用對照目標：rtmp://localhost/live/$($script:CompareTgtID)（TEST quick (normalize)：開啟補強轉碼 CFR）"
         Api "POST" "/terraform/v1/ffmpeg/forward/secret" @{
-            action = "update"; platform = $script:ComparePlatform; server = "rtmp://localhost/live/"; secret = $script:CompareTgtID; enabled = $true; custom = $true; label = "TEST quick (normalize)"; normalize = $true; failover = ""
+            action = "update"; platform = $script:ComparePlatform; server = "rtmp://localhost/live/"; secret = $script:CompareTgtID; enabled = $true; custom = $true; label = "TEST quick (normalize)"; normalize = $true; failover = ""; ended = $false; endedAt = 0
         } | Out-Null
     }
 
