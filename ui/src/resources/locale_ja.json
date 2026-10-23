@@ -810,7 +810,9 @@
       "diagRedisCommand": "コマンド",
       "diagRedisCalls": "呼び出し",
       "diagRedisUsec": "合計 µs",
-      "diagRedisFamilies": "コマンド＋キー種別"
+      "diagRedisFamilies": "コマンド＋キー種別",
+      "diagRedisDelta": "前回更新から",
+      "diagRedisTotal": "累計"
     },
     "openapi": {
       "title": "プラットフォーム API キー（OpenAPI）",

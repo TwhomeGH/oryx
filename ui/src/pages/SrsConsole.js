@@ -1099,9 +1099,22 @@ function SrsDiagnostics({handleError}) {
   const {t} = useTranslation();
   const [gpu, setGpu] = React.useState();
   const [redis, setRedis] = React.useState();
+  const [familyDelta, setFamilyDelta] = React.useState({});
+  const prevFamilies = React.useRef({});
   const refreshRedis = () => {
     axios.post('/terraform/v1/mgmt/redis/query', {}, {headers: Token.loadBearerHeader()})
-      .then(res => setRedis(res.data.data)).catch(() => {});
+      .then(res => {
+        const data = res.data.data || {};
+        const next = {};
+        (data.families || []).forEach(f => { next[f.name] = f.count; });
+        const delta = {};
+        Object.keys(next).forEach(name => {
+          delta[name] = next[name] - (prevFamilies.current[name] || 0);
+        });
+        prevFamilies.current = next;
+        setFamilyDelta(delta);
+        setRedis(data);
+      }).catch(() => {});
   };
   React.useEffect(() => {
     refreshRedis();
@@ -1171,16 +1184,24 @@ function SrsDiagnostics({handleError}) {
                 <FlashStat label={t('console.diagRedisSlow')} value={redis.slowlogCount} />
                 <Button size="sm" variant="outline-secondary" className="ms-auto" onClick={refreshRedis}>{t('console.diagRefresh')}</Button>
               </div>
+              <div className="small fw-bold mt-2 mb-1">{t('console.diagRedisFamilies')}</div>
               <Table size="sm" borderless className="mb-0">
-                <thead><tr><th className="small">{t('console.diagRedisCommand')}</th><th className="small">{t('console.diagRedisCalls')}</th><th className="small">{t('console.diagRedisUsec')}</th></tr></thead>
+                <thead><tr>
+                  <th className="small">{t('console.diagRedisCommand')}</th>
+                  <th className="small text-end">{t('console.diagRedisDelta')}</th>
+                  <th className="small text-end">{t('console.diagRedisTotal')}</th>
+                </tr></thead>
                 <tbody>
-                  {(redis.commands || []).slice(0, 10).map((cmd, i) => (
-                    <tr key={`${cmd.name}-${i}`}>
-                      <td className="small">{cmd.name}</td>
-                      <td className="small">{cmd.calls}</td>
-                      <td className="small">{cmd.usec}</td>
-                    </tr>
-                  ))}
+                  {(redis.families || []).slice(0, 10).map((f, i) => {
+                    const d = (familyDelta[f.name] || 0);
+                    return (
+                      <tr key={`${f.name}-${i}`}>
+                        <td className="small">{f.name}</td>
+                        <td className={`small text-end ${d > 0 ? 'text-warning fw-bold' : 'text-muted'}`}>{d > 0 ? `+${d}` : '—'}</td>
+                        <td className="small text-end text-muted">{f.count}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </Table>
             </>

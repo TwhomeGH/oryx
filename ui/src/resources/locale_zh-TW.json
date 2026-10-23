@@ -1022,7 +1022,9 @@
       "diagRedisCommand": "命令",
       "diagRedisCalls": "呼叫次數",
       "diagRedisUsec": "總耗時 µs",
-      "diagRedisFamilies": "按命令＋key 類別"
+      "diagRedisFamilies": "按命令＋key 類別",
+      "diagRedisDelta": "本次增量",
+      "diagRedisTotal": "累計"
     }
   },
   "meta": {

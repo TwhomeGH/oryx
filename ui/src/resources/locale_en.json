@@ -1022,7 +1022,9 @@
       "diagRedisCommand": "command",
       "diagRedisCalls": "calls",
       "diagRedisUsec": "total µs",
-      "diagRedisFamilies": "By command + key family"
+      "diagRedisFamilies": "By command + key family",
+      "diagRedisDelta": "since last refresh",
+      "diagRedisTotal": "total"
     }
   },
   "meta": {
