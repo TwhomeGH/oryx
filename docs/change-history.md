@@ -2,6 +2,19 @@
 
 > 本檔由 changelogkit 管理（見 [變更歷史說明](changelog.md)）。新增請用 `changelogkit add`（或 `changelogkit serve` 的網頁 GUI）。
 
+## 2026.10.23 19:23 v5.21.7 串流事件可清除，並註明保留上限
+
+- 控制台「診斷 → 串流生命週期」新增清除按鈕與 500 筆上限說明。
+- 新增清除 API（/mgmt/streams/events/clear）。
+
+**類型**: 發佈
+
+### 修改 - v5.21.7
+
+- 診斷：串流事件清除 API 與按鈕，明確 500 筆上限
+
+---
+
 ## 2026.10.23 08:19 v5.21.6 手動結束改回正常停止流程
 
 - end 到期後不再強踢 SRS client，交由 FFmpeg 正常退出與 SRS on_unpublish 清理。
