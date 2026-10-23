@@ -1131,7 +1131,7 @@ function SrsDiagnostics({handleError}) {
   const gpuVariant = (u) => (u >= 90 ? 'danger' : u >= 70 ? 'warning' : 'success');
 
   return (<>
-    <Accordion defaultActiveKey="gpu">
+    <Accordion defaultActiveKey="gpu" alwaysOpen>
       <Accordion.Item eventKey="gpu">
         <Accordion.Header>{t('console.diagGpu')}</Accordion.Header>
         <Accordion.Body>
