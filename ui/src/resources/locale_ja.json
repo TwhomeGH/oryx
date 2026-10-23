@@ -809,7 +809,8 @@
       "diagRedisSlow": "遅い操作",
       "diagRedisCommand": "コマンド",
       "diagRedisCalls": "呼び出し",
-      "diagRedisUsec": "合計 µs"
+      "diagRedisUsec": "合計 µs",
+      "diagRedisFamilies": "コマンド＋キー種別"
     },
     "openapi": {
       "title": "プラットフォーム API キー（OpenAPI）",

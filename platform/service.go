@@ -2419,6 +2419,9 @@ func handleMgmtRedisQuery(ctx context.Context, handler *http.ServeMux) {
 				res["info"] = summary
 			}
 
+			// Operations by command + key family, e.g. "hget:SRS_FORWARD_CONFIG".
+			res["families"] = redisOpStats.Top(20)
+
 			if dbsize, err := rdb.DBSize(ctx).Result(); err == nil {
 				res["keys"] = dbsize
 			}

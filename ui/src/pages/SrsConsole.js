@@ -1083,7 +1083,11 @@ function SrsDiagnostics({handleError}) {
     axios.post('/terraform/v1/mgmt/redis/query', {}, {headers: Token.loadBearerHeader()})
       .then(res => setRedis(res.data.data)).catch(() => {});
   };
-  React.useEffect(() => { refreshRedis(); }, []);
+  React.useEffect(() => {
+    refreshRedis();
+    const timer = setInterval(refreshRedis, 10000);
+    return () => clearInterval(timer);
+  }, []);
   const [events, setEvents] = React.useState([]);
   React.useEffect(() => {
     const refreshEvents = () => {

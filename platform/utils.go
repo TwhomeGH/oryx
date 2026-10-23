@@ -547,6 +547,8 @@ func InitRdb() error {
 		Password: envRedisPassword(),
 		DB:       redisDatabase,
 	})
+	// Count operations by command + key family for the diagnostics panel.
+	rdb.AddHook(redisStatsHook{})
 	return nil
 }
 

@@ -1021,7 +1021,8 @@
       "diagRedisSlow": "慢操作",
       "diagRedisCommand": "命令",
       "diagRedisCalls": "呼叫次數",
-      "diagRedisUsec": "總耗時 µs"
+      "diagRedisUsec": "總耗時 µs",
+      "diagRedisFamilies": "按命令＋key 類別"
     }
   },
   "meta": {
