@@ -296,14 +296,14 @@ func TestForward_SlateSizing(t *testing.T) {
 		}
 	}
 
-	// The base rate must prefer the average (real media rate) over the reported r_frame_rate, so
-	// the video clock tracks the source's real time instead of drifting against its audio.
+	// The base rate must prefer the nominal r_frame_rate: avg_frame_rate varies between probes
+	// (59.5 vs 36.7 on one source) and would silently change the CFR output after a restart.
 	for _, e := range []struct{ r, avg, expect string }{
-		{"60/1", "30000/1001", "30000/1001"},
-		{"60/1", "120000/2002", "60000/1001"}, // reduced
+		{"60/1", "30000/1001", "60"},
+		{"60/1", "120000/2002", "60"},
 		{"60/1", "60/1", "60"},
-		{"60/1", "0/0", "60"}, // fall back to r
-		{"0/0", "0/0", "25"},  // default
+		{"0/0", "30000/1001", "30000/1001"}, // fall back to avg
+		{"0/0", "0/0", "25"},                // default
 	} {
 		if got := forwardSlateRate(e.r, e.avg); got != e.expect {
 			t.Errorf("rate r=%v avg=%v, got %v, expect %v", e.r, e.avg, got, e.expect)

@@ -568,7 +568,10 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		if conf.Normalize {
 			_, _, rate := v.sourceSize()
 			gop := forwardGOPFrames(rate, conf.KeyframeSeconds)
-			args = append(args, "-fflags", "+genpts", "-fps_mode", "cfr")
+			// Pin the output rate explicitly. Without -r, ffmpeg derives CFR from its own guess
+			// of the input rate (avg_frame_rate), which varies run to run (59.5 / 36.7) and
+			// changes after a program restart. The GOP below uses the same pinned rate.
+			args = append(args, "-fflags", "+genpts", "-fps_mode", "cfr", "-r", rate)
 			args = append(args, forwardVideoEncodeArgs(conf.OutputBitrateMbps, conf.OutputCQ, conf.OutputPresets, conf.OutputTunes)...)
 			args = append(args, "-g", fmt.Sprintf("%d", gop), "-keyint_min", fmt.Sprintf("%d", gop),
 				"-sc_threshold", "0", "-c:a", "aac", "-b:a", "128k", "-ar", "44100")
@@ -597,6 +600,7 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 			"-map", "[v]", "-map", "[a]",
 		)
 		gop := forwardGOPFrames(rate, slateConf.KeyframeSeconds)
+		args = append(args, "-r", rate)
 		args = append(args, forwardVideoEncodeArgs(slateConf.OutputBitrateMbps, slateConf.OutputCQ, slateConf.OutputPresets, slateConf.OutputTunes)...)
 		args = append(args, "-g", fmt.Sprintf("%d", gop), "-keyint_min", fmt.Sprintf("%d", gop),
 			"-sc_threshold", "0", "-c:a", "aac", "-f", "flv", output)
@@ -685,8 +689,10 @@ func forwardSlateVideo(w, h int32, rate string) string {
 	return fmt.Sprintf("color=c=0x111111:s=%dx%d:r=%v", w, h, rate)
 }
 
-// forwardSlateRate picks the base frame rate from ffprobe's average/r frame rate, preferring the
-// average (the real media rate) and reducing it to a rational ffmpeg accepts.
+// forwardSlateRate picks the base frame rate from ffprobe's r/avg frame rate, preferring the
+// nominal r_frame_rate: avg_frame_rate is derived from frames/duration, varies between probes
+// (59.5 vs 36.7 on the same source) and changes after a restart, which would silently change the
+// CFR output rate. The avg is only a fallback when the nominal rate is missing or implausible.
 func forwardSlateRate(rFrame, avgFrame string) string {
 	reduce := func(s string) (string, bool) {
 		num, den, ok := parseFPS(s)
@@ -704,10 +710,10 @@ func forwardSlateRate(rFrame, avgFrame string) string {
 		}
 		return fmt.Sprintf("%d/%d", num, den), true
 	}
-	if s, ok := reduce(avgFrame); ok {
+	if s, ok := reduce(rFrame); ok {
 		return s
 	}
-	if s, ok := reduce(rFrame); ok {
+	if s, ok := reduce(avgFrame); ok {
 		return s
 	}
 	return "25"
