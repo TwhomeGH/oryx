@@ -2,6 +2,30 @@
 
 > 本檔由 changelogkit 管理（見 [變更歷史說明](changelog.md)）。新增請用 `changelogkit add`（或 `changelogkit serve` 的網頁 GUI）。
 
+## 2026.10.23 23:37 v5.21.8 修正轉推誤殺與任務生命週期
+
+- 修正 heartbeat 把「0＝停用逾時」誤判為「已逾時」，導致 FFmpeg 每 3 秒被取消。
+- 統一 task key（config.Platform），避免不同目標的設定互相覆蓋；loadTasks 同步既有任務設定。
+- context 取消視為正常停止，不再計入 failure/restart。
+- 刪除目標會取消任務迴圈與 FFmpeg，不留閒置 goroutine。
+- 新增任務迴圈診斷欄位（loopRunning/loopPhase/loopUpdated/loopExitReason）與 loop 事件。
+- 測試：轉推改用專用目標、DVR 等完成、getExistsFile 衝突檢查、無更新逾時單元測試。
+- 驗證：Platform(42.8s)/Keepalive/Slate 三個整合測試全數 PASS。
+
+**類型**: 發佈
+
+### 修改 - v5.21.8
+
+- 測試：新增 FFmpeg 無更新逾時判斷的單元測試
+- 轉推：任務迴圈生命週期與診斷欄位
+- 轉推：修正 heartbeat 把 0 當成「超過 0 秒」而誤殺 FFmpeg
+- 轉推：統一的 task key，修正設定被別組覆蓋
+- 修正多餘return
+- 測試：轉推測試改用專用目標並修正 DVR 判定
+- 轉推：修正停止分類、SRS 連線清理與設定同步
+
+---
+
 ## 2026.10.23 19:23 v5.21.7 串流事件可清除，並註明保留上限
 
 - 控制台「診斷 → 串流生命週期」新增清除按鈕與 500 筆上限說明。
