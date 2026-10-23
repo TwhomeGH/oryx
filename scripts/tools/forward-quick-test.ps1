@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env pwsh
+#!/usr/bin/env pwsh
 #
 # 轉推快速測試工具 (forward quick test)
 #
@@ -149,9 +149,12 @@ if (-not $Rtmp) { $Rtmp = Detect-Port 1935 "rtmp" 1935 }
 
 # Use a dedicated custom target ("forwarding-" prefix so it can be deleted) instead of a
 # built-in platform like bilibili, to never overwrite the user's real forward config.
-$script:Platform = "forwarding-quick-$PID"
-$script:SrcID = "quick-src-$PID"
-$script:TgtID = "quick-tgt-$PID"
+# -Keep reuses one fixed set of targets so repeated runs do not pile up new "TEST" entries; a
+# transient run uses the PID so parallel/unattended runs never collide.
+$suffix = if ($Keep) { "keep" } else { "$PID" }
+$script:Platform = "forwarding-quick-$suffix"
+$script:SrcID = "quick-src-$suffix"
+$script:TgtID = "quick-tgt-$suffix"
 
 Write-Host "   endpoint=$Endpoint  rtmp=$Rtmp  source=$Source"
 Write-Host "   pubSecret=($($script:Pub.Length) bytes)  apiSecret=($($script:Token.Length) bytes)"
@@ -169,8 +172,8 @@ try {
     } | Out-Null
 
     if ($Compare) {
-        $script:CompareTgtID = "quick-cmp-$PID"
-        $script:ComparePlatform = "forwarding-quick-cmp-$PID"
+        $script:CompareTgtID = "quick-cmp-$suffix"
+        $script:ComparePlatform = "forwarding-quick-cmp-$suffix"
         Step "啟用對照目標：rtmp://localhost/live/$($script:CompareTgtID)（TEST quick (normalize)：開啟補強轉碼 CFR）"
         Api "POST" "/terraform/v1/ffmpeg/forward/secret" @{
             action = "update"; platform = $script:ComparePlatform; server = "rtmp://localhost/live/"; secret = $script:CompareTgtID; enabled = $true; custom = $true; label = "TEST quick (normalize)"; normalize = $true; failover = ""

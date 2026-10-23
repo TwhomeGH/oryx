@@ -427,6 +427,12 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 						elem["fallback"] = !status.ProgramSourceActive
 					}
 					elem["programSwitches"] = status.ProgramSwitches
+					if status.ProgramLastError != "" {
+						elem["programLastError"] = status.ProgramLastError
+					}
+					if len(status.ProgramLogs) > 0 {
+						elem["programLogs"] = status.ProgramLogs
+					}
 					if status.ProgramSourceRate != "" {
 						elem["programSourceRate"] = status.ProgramSourceRate
 					}
@@ -782,6 +788,8 @@ type ForwardTaskStatus struct {
 	ProgramFailover     string
 	ProgramSourceActive bool
 	ProgramSourceRate   string
+	ProgramLastError    string
+	ProgramLogs         []string
 	ProgramSwitches     int
 	Encoder             string
 	FFmpegArgs          string
@@ -975,6 +983,8 @@ func (v *ForwardTask) queryStatus() ForwardTaskStatus {
 			status.ProgramMode, status.ProgramFailover = ps.Mode, ps.Failover
 			status.ProgramSourceActive, status.ProgramSwitches = ps.SourceActive, ps.Switches
 			status.ProgramSourceRate = ps.SourceRate
+			status.ProgramLastError = ps.LastError
+			status.ProgramLogs = ps.Logs
 		}
 	}
 	// Which video encoder this target's pipeline uses: the composite/slate program and the
@@ -1260,6 +1270,13 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 		streamName := v.configSnapshot().Stream
 		// Never select this task's own output stream, otherwise forwarding would loop.
 		ownOutput := v.ownOutputStream()
+		fmt.Printf("[sel-diag] platform=%v streamName=%q ownOutput=%q candidates=%v\n", v.Platform, streamName, ownOutput, len(streams))
+		for _, raw := range streams {
+			var s SrsStream
+			if err := json.Unmarshal([]byte(raw), &s); err == nil {
+				fmt.Printf("[sel-diag]   candidate app=%v stream=%v update=%v\n", s.App, s.Stream, s.Update)
+			}
+		}
 
 		var best *SrsStream
 		for _, v := range streams {

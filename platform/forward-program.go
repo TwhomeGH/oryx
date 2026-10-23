@@ -211,8 +211,9 @@ type ProgramBus struct {
 	// as the slate/base frame rate so the video's media clock tracks the source's real time.
 	srcRate string
 
-	// The program diagnostics timeline (bounded ring).
+	// The program diagnostics timeline and recent publisher logs (bounded rings).
 	events []ForwardEvent
+	logs   []string
 }
 
 // ProgramStatus is a snapshot of a program bus for the API.
@@ -234,6 +235,9 @@ type ProgramStatus struct {
 	ReconnectReason string
 
 	Events []ForwardEvent
+	// Logs keeps the recent program-publisher stderr lines (bounded), so a failure explains itself
+	// in the UI instead of only surfacing "exit status N".
+	Logs []string
 }
 
 func (v *ProgramBus) String() string {
@@ -324,7 +328,18 @@ func (v *ProgramBus) setLastError(err error) {
 // Each "Will reconnect" is one reconnect attempt against the source. The buffered stderr line
 // may contain a long progress blob, so the reason is trimmed to the [http @ ...] marker.
 func (v *ProgramBus) onRelayLog(line string) {
-	if !strings.Contains(line, "Will reconnect") && !strings.Contains(line, "HTTP error") {
+	lower := strings.ToLower(line)
+	isReconnect := strings.Contains(line, "Will reconnect") || strings.Contains(line, "HTTP error")
+	isError := strings.Contains(lower, "error") || strings.Contains(lower, "invalid") ||
+		strings.Contains(lower, "no such") || strings.Contains(lower, "cannot") ||
+		strings.Contains(lower, "failed") || strings.Contains(lower, "unable")
+	// Keep every non-progress line: option/IO failures do not always contain "error", but skip the
+	// startup banner so it does not evict the actual error from the bounded ring.
+	if strings.TrimSpace(line) == "" || strings.HasPrefix(line, "frame=") ||
+		strings.HasPrefix(line, "size=") || strings.Contains(line, "Press [q]") ||
+		strings.HasPrefix(line, "ffmpeg version") || strings.HasPrefix(line, "built with") ||
+		strings.HasPrefix(line, "configuration:") || strings.HasPrefix(line, "  lib") ||
+		strings.HasPrefix(line, "lib") {
 		return
 	}
 
@@ -332,8 +347,8 @@ func (v *ProgramBus) onRelayLog(line string) {
 	if i := strings.Index(reason, "[http @"); i >= 0 {
 		reason = reason[i:]
 	}
-	if len(reason) > 200 {
-		reason = reason[:200]
+	if len(reason) > 300 {
+		reason = reason[:300]
 	}
 
 	v.lock.Lock()
@@ -342,6 +357,14 @@ func (v *ProgramBus) onRelayLog(line string) {
 	if strings.Contains(line, "Will reconnect") {
 		v.reconnects++
 		v.addEventLocked("program-reconnect", reason)
+	}
+	v.logs = append(v.logs, reason)
+	if len(v.logs) > forwardDiagRingSize {
+		v.logs = v.logs[len(v.logs)-forwardDiagRingSize:]
+	}
+	if isError && !isReconnect {
+		v.lastError = reason
+		v.addEventLocked("program-error", reason)
 	}
 	now := time.Now()
 	v.lastReconnectAt = &now
@@ -371,6 +394,7 @@ func (v *ProgramBus) queryStatus() ProgramStatus {
 		LastError:       v.lastError,
 		Reconnects:      v.reconnects,
 		ReconnectReason: v.reconnectReason,
+		Logs:            append([]string(nil), v.logs...),
 	}
 	if status.Mode == "" {
 		status.Mode = programModeIdle
@@ -415,6 +439,11 @@ func (v *ProgramBus) Run(ctx context.Context) {
 // it survives a source outage and keeps the program published; the downstream stays connected
 // and holds the last frame until the source recovers.
 func (v *ProgramBus) runHold(ctx context.Context) {
+	// Normalize needs the source frame rate for -r and the GOP; probe it before the first publish
+	// (the composite path does the same for its slate base).
+	if forwardSlateConfigLoad(ctx).Normalize {
+		v.probeSourceSize(ctx)
+	}
 	if err := v.switchPublisher(ctx, programModeLive); err != nil {
 		logger.Wf(ctx, "forward program start relay err %+v", err)
 	}
@@ -742,30 +771,36 @@ func (v *ProgramBus) sourceSize() (w, h int32, rate string) {
 	return v.srcWidth, v.srcHeight, v.srcRate
 }
 
-// probeSourceSize probes the live source once to learn its video size and frame rate, so the
-// slate can match it and avoid a resolution/fps change at the handoff.
 func (v *ProgramBus) probeSourceSize(ctx context.Context) {
 	url := fmt.Sprintf("http://localhost:%v/%v/%v.flv", forwardProgramHTTPPort, v.sourceApp, v.sourceStream)
-	out, err := exec.CommandContext(ctx, "ffprobe", "-v", "error", "-select_streams", "v:0",
-		"-show_entries", "stream=width,height,r_frame_rate,avg_frame_rate", "-of", "csv=p=0", url).Output()
-	if err != nil {
-		return
+	// The source may have just been published, so its header/metadata is not always ready on the
+	// first probe. Retry briefly: the output rate (-r) depends on this value, and an empty value
+	// makes NVENC fail with "Invalid framerate value" so the program never publishes.
+	for attempt := 0; attempt < 10; attempt++ {
+		out, err := exec.CommandContext(ctx, "ffprobe", "-v", "error", "-select_streams", "v:0",
+			"-show_entries", "stream=width,height,r_frame_rate,avg_frame_rate", "-of", "csv=p=0", url).Output()
+		if err == nil {
+			parts := strings.Split(strings.TrimSpace(string(out)), ",")
+			if len(parts) == 4 {
+				w, _ := strconv.Atoi(strings.TrimSpace(parts[0]))
+				h, _ := strconv.Atoi(strings.TrimSpace(parts[1]))
+				rate := forwardSlateRate(parts[2], parts[3])
+				// Bound the dimensions before narrowing to int32: ffprobe output is untrusted.
+				const maxVideoDim = 16384
+				if w > 0 && h > 0 && w <= maxVideoDim && h <= maxVideoDim {
+					v.setSourceSize(int32(w), int32(h), rate)
+					logger.Tf(ctx, "forward program probed source size %vx%v@%v (r=%v avg=%v)", w, h, rate, parts[2], parts[3])
+					return
+				}
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(500 * time.Millisecond):
+		}
 	}
-
-	parts := strings.Split(strings.TrimSpace(string(out)), ",")
-	if len(parts) != 4 {
-		return
-	}
-	w, _ := strconv.Atoi(strings.TrimSpace(parts[0]))
-	h, _ := strconv.Atoi(strings.TrimSpace(parts[1]))
-	rate := forwardSlateRate(parts[2], parts[3])
-	// Bound the dimensions before narrowing to int32: ffprobe output is untrusted, and a huge
-	// value would overflow the conversion (and no real video exceeds 16K).
-	const maxVideoDim = 16384
-	if w > 0 && h > 0 && w <= maxVideoDim && h <= maxVideoDim {
-		v.setSourceSize(int32(w), int32(h), rate)
-		logger.Tf(ctx, "forward program probed source size %vx%v@%v (r=%v avg=%v)", w, h, rate, parts[2], parts[3])
-	}
+	logger.Wf(ctx, "forward program probe failed, using default 30fps for source=%v/%v", v.sourceApp, v.sourceStream)
 }
 
 // parseFPS parses an ffprobe frame rate such as "25/1" or "30000/1001".

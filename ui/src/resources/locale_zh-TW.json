@@ -816,7 +816,8 @@
       "statusOpen": "前往設定",
       "masterHint": "暫停/恢復全部轉播，不會改動各目標的啟用設定；只會恢復你已啟用的目標，不會自動開啟其他目標。",
       "normalizeArgs": "將使用的引數",
-      "statusPaused": "轉播已暫停"
+      "statusPaused": "轉播已暫停",
+      "programError": "節目源釋出日誌"
     },
     "vle": {
       "tip": "將檔案轉直播流",

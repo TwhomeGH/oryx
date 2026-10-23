@@ -816,7 +816,8 @@
       "statusOpen": "前往设置",
       "masterHint": "暂停/恢复全部转播，不会改动各目标的启用设置；只会恢复你已启用的目标，不会自动开启其他目标。",
       "normalizeArgs": "将使用的参数",
-      "statusPaused": "转播已暂停"
+      "statusPaused": "转播已暂停",
+      "programError": "节目源发布日志"
     },
     "vle": {
       "tip": "将文件转直播流",

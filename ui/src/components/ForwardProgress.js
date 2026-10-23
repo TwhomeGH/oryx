@@ -45,7 +45,7 @@ function Sparkline({data}) {
  *   log, the metrics object, and the diagnostics timeline / recent logs of the target.
  * @returns {React.ReactElement} Local progress summary and raw diagnostics.
  */
-export default function ForwardProgress({log, metrics, events, logs, encoder, ffmpegArgs, programSourceRate}) {
+export default function ForwardProgress({log, metrics, events, logs, encoder, ffmpegArgs, programSourceRate, programLastError, programLogs}) {
   const {t} = useTranslation();
   const progress = parseForwardProgress(log);
   // Hardware encoders (NVENC/VAAPI/QSV/AMF/VideoToolbox) vs software (libx264).
@@ -62,7 +62,7 @@ export default function ForwardProgress({log, metrics, events, logs, encoder, ff
     }
   }
 
-  if (!log && !metrics && !events?.length && !logs?.length && !ffmpegArgs) {
+  if (!log && !metrics && !events?.length && !logs?.length && !ffmpegArgs && !programLastError && !(programLogs?.length)) {
     return <div className="small text-muted">{t('forward.progress.empty')}</div>;
   }
 
@@ -95,6 +95,15 @@ export default function ForwardProgress({log, metrics, events, logs, encoder, ff
         {events.map((e, i) => <li key={i}>{e.at} {e.name}{e.detail ? `: ${e.detail}` : ''}</li>)}
       </ul>
     </details>}
+    {(programLastError || programLogs?.length > 0) && (
+      <details className="mt-1">
+        <summary className="text-danger">{t('forward.programError')}</summary>
+        {programLastError && <div className="small text-danger">{programLastError}</div>}
+        <pre className="small mb-0" style={{whiteSpace: 'pre-wrap', overflowWrap: 'anywhere'}}>
+          {(programLogs || []).slice(-20).join('\n')}
+        </pre>
+      </details>
+    )}
     {logs?.length > 0 && <details className="mt-1">
       <summary>{t('forward.progress.logs')}</summary>
       <pre className="small mb-0" style={{whiteSpace: 'pre-wrap', overflowWrap: 'anywhere'}}>{logs.join('\n')}</pre>
