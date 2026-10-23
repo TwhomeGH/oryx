@@ -1108,7 +1108,12 @@ function FlashCell({value, className}) {
     }
   }, [value]);
   return (
-    <td className={`small text-end ${className || ''} ${flash ? 'table-warning' : ''}`}>{value}</td>
+    <td className="small text-end">
+      <span className={`px-1 rounded ${className || ''}`}
+        style={flash ? {backgroundColor: 'rgba(13,110,253,0.35)', transition: 'background-color 300ms'} : {transition: 'background-color 300ms'}}>
+        {value}
+      </span>
+    </td>
   );
 }
 
