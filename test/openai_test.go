@@ -501,7 +501,7 @@ func TestOpenAI_WithStream_Transcript_ClearSubtitle(t *testing.T) {
 	if !target.UserClearASR {
 		r0 = errors.Errorf("invalid segment %v", target)
 	}
-	return
+
 }
 
 func TestOpenAI_LiveRoomTextAssistant_RoomToken(t *testing.T) {
