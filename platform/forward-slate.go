@@ -34,6 +34,9 @@ type forwardSlateConfig struct {
 	// OutputPresets maps an encoder kind (nvenc, x264, amf, qsv) to its preset, so switching
 	// encoders never applies one encoder's vocabulary to another.
 	OutputPresets map[string]string `json:"outputPresets"`
+	// OutputTunes maps an encoder kind to its -tune value ("none"/"" means omit it); the value
+	// sets differ between NVENC (hq/ll/ull/lossless) and x264 (film/animation/grain/...).
+	OutputTunes map[string]string `json:"outputTunes"`
 	// EndText is shown when the operator manually ends the live (not a source outage).
 	EndText string `json:"endText"`
 	// EndGraceSeconds is how long the end screen can still be cancelled before the target stops.
@@ -92,6 +95,9 @@ func forwardSlateConfigLoad(ctx context.Context) forwardSlateConfig {
 	if conf.OutputPresets == nil {
 		conf.OutputPresets = map[string]string{}
 	}
+	if conf.OutputTunes == nil {
+		conf.OutputTunes = map[string]string{}
+	}
 	if conf.OutputPresets["nvenc"] == "" {
 		conf.OutputPresets["nvenc"] = "p4"
 	}
@@ -141,6 +147,16 @@ func forwardSlateConfigSave(ctx context.Context, conf forwardSlateConfig) error 
 		}
 		if v == "" || len(v) > 16 {
 			return errors.Errorf("invalid preset for %v=%v", k, v)
+		}
+	}
+	for k, v := range conf.OutputTunes {
+		switch k {
+		case "nvenc", "x264", "amf", "qsv":
+		default:
+			return errors.Errorf("invalid encoder kind=%v", k)
+		}
+		if len(v) > 16 {
+			return errors.Errorf("invalid tune for %v=%v", k, v)
 		}
 	}
 	if conf.EndGraceSeconds <= 0 {

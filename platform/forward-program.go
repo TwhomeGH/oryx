@@ -569,7 +569,7 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 			_, _, rate := v.sourceSize()
 			gop := forwardGOPFrames(rate, conf.KeyframeSeconds)
 			args = append(args, "-fflags", "+genpts", "-fps_mode", "cfr")
-			args = append(args, forwardVideoEncodeArgs(conf.OutputBitrateMbps, conf.OutputCQ, conf.OutputPresets)...)
+			args = append(args, forwardVideoEncodeArgs(conf.OutputBitrateMbps, conf.OutputCQ, conf.OutputPresets, conf.OutputTunes)...)
 			args = append(args, "-g", fmt.Sprintf("%d", gop), "-keyint_min", fmt.Sprintf("%d", gop),
 				"-sc_threshold", "0", "-c:a", "aac", "-b:a", "128k", "-ar", "44100")
 		} else {
@@ -597,7 +597,7 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 			"-map", "[v]", "-map", "[a]",
 		)
 		gop := forwardGOPFrames(rate, slateConf.KeyframeSeconds)
-		args = append(args, forwardVideoEncodeArgs(slateConf.OutputBitrateMbps, slateConf.OutputCQ, slateConf.OutputPresets)...)
+		args = append(args, forwardVideoEncodeArgs(slateConf.OutputBitrateMbps, slateConf.OutputCQ, slateConf.OutputPresets, slateConf.OutputTunes)...)
 		args = append(args, "-g", fmt.Sprintf("%d", gop), "-keyint_min", fmt.Sprintf("%d", gop),
 			"-sc_threshold", "0", "-c:a", "aac", "-f", "flv", output)
 	default:

@@ -379,7 +379,11 @@
       "outputPresetX264Hint": "GPU がない場合に使用：ultrafast〜veryslow。",
       "globalNormalize": "共有プログラムを正規化（全ターゲット）",
       "globalNormalizeHint": "プログラムで一度だけ変換（CFR＋タイムスタンプ補正）し、各ターゲットは -c copy。合計1回のエンコード。",
-      "normalizeArgsPreview": "FFmpeg パラメータ（プレビュー）"
+      "normalizeArgsPreview": "FFmpeg パラメータ（プレビュー）",
+      "outputTuneNvenc": "NVENC tune",
+      "outputTuneNvencHint": "hq=画質、ll/ull=低遅延、lossless=可逆。none は -tune を付けません。",
+      "outputTuneX264": "libx264 tune",
+      "outputTuneX264Hint": "film は実写向け。zerolatency は低遅延だが B フレーム無効。none は x264 既定。"
     },
     "cb": {
       "title": "シーン紹介",

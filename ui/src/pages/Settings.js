@@ -1303,6 +1303,24 @@ function SettingForwardSlate() {
       <Form.Text className="text-muted">{t('settings.outputPresetX264Hint')}</Form.Text>
     </Form.Group>
     <Form.Group className="mb-3">
+      <Form.Label>{t('settings.outputTuneNvenc')}</Form.Label>
+      <Form.Select
+        value={(conf.outputTunes || {}).nvenc || 'hq'}
+        onChange={e => setConf({...conf, outputTunes: {...(conf.outputTunes || {}), nvenc: e.target.value}})}>
+        {['none', 'hq', 'll', 'ull', 'lossless'].map(v => <option key={v} value={v}>{v}</option>)}
+      </Form.Select>
+      <Form.Text className="text-muted">{t('settings.outputTuneNvencHint')}</Form.Text>
+    </Form.Group>
+    <Form.Group className="mb-3">
+      <Form.Label>{t('settings.outputTuneX264')}</Form.Label>
+      <Form.Select
+        value={(conf.outputTunes || {}).x264 || 'none'}
+        onChange={e => setConf({...conf, outputTunes: {...(conf.outputTunes || {}), x264: e.target.value}})}>
+        {['none', 'film', 'animation', 'grain', 'stillimage', 'fastdecode', 'zerolatency', 'psnr', 'ssim'].map(v => <option key={v} value={v}>{v}</option>)}
+      </Form.Select>
+      <Form.Text className="text-muted">{t('settings.outputTuneX264Hint')}</Form.Text>
+    </Form.Group>
+    <Form.Group className="mb-3">
       <Form.Label>{t('settings.endText')}</Form.Label>
       <Form.Control as="input" type="text" maxLength="200"
         value={conf.endText || ''}

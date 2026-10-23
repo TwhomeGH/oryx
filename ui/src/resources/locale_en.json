@@ -753,7 +753,11 @@
       "outputPresetX264Hint": "Used when no GPU: ultrafast to veryslow.",
       "globalNormalize": "Normalize the shared program (all targets)",
       "globalNormalizeHint": "Transcodes once at the program: CFR + timestamp fix, then every target uses -c copy. Costs one encode total, not per target.",
-      "normalizeArgsPreview": "FFmpeg parameters (preview)"
+      "normalizeArgsPreview": "FFmpeg parameters (preview)",
+      "outputTuneNvenc": "NVENC tune",
+      "outputTuneNvencHint": "hq = quality, ll/ull = low latency, lossless = lossless. none omits -tune.",
+      "outputTuneX264": "libx264 tune",
+      "outputTuneX264Hint": "film suits live-action; zerolatency lowers latency but disables B-frames. none is the x264 default."
     },
     "coms": {
       "srs4": "SRS(Stable)",

@@ -218,7 +218,11 @@
       "outputPresetX264Hint": "無 GPU 時使用：ultrafast 到 veryslow。",
       "globalNormalize": "对共享节目源做补强转码（所有目标）",
       "globalNormalizeHint": "在节目源只转码一次（CFR＋时戳修正），各目标 -c copy；总共只编码一次，不随目标数增加。",
-      "normalizeArgsPreview": "将使用的 FFmpeg 参数（预览）"
+      "normalizeArgsPreview": "将使用的 FFmpeg 参数（预览）",
+      "outputTuneNvenc": "NVENC tune",
+      "outputTuneNvencHint": "hq=画质优先，ll/ull=低延迟，lossless=无损。none 表示不加 -tune。",
+      "outputTuneX264": "libx264 tune",
+      "outputTuneX264Hint": "film 适合实拍；zerolatency 降低延迟但关闭 B 帧。none 为 x264 默认。"
     },
     "coms": {
       "srs4": "SRS(稳定版)",

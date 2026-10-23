@@ -1446,7 +1446,7 @@ var forwardEncoderKind string
 
 // forwardVideoEncodeArgs returns the video-encoder args, choosing NVENC (GPU) when usable, and
 // applies the operator-configured output bitrate (Mbps) as a cap.
-func forwardVideoEncodeArgs(mbps, cq int, presets map[string]string) []string {
+func forwardVideoEncodeArgs(mbps, cq int, presets, tunes map[string]string) []string {
 	if mbps <= 0 {
 		mbps = 6
 	}
@@ -1455,6 +1455,9 @@ func forwardVideoEncodeArgs(mbps, cq int, presets map[string]string) []string {
 	}
 	if presets == nil {
 		presets = map[string]string{}
+	}
+	if tunes == nil {
+		tunes = map[string]string{}
 	}
 	br := fmt.Sprintf("%dM", mbps)
 	buf := fmt.Sprintf("%dM", mbps*2)
@@ -1478,19 +1481,34 @@ func forwardVideoEncodeArgs(mbps, cq int, presets map[string]string) []string {
 		if p == "" {
 			p = "p4"
 		}
-		return []string{"-c:v", "h264_nvenc", "-preset", p, "-tune", "hq", "-profile:v", "high", "-pix_fmt", "yuv420p", "-rc", "vbr", "-cq", strconv.Itoa(cq), "-b:v", br, "-maxrate", br, "-bufsize", buf}
+		t := tunes["nvenc"]
+		if t == "" {
+			t = "hq"
+		}
+		args := []string{"-c:v", "h264_nvenc", "-preset", p, "-profile:v", "high", "-pix_fmt", "yuv420p", "-rc", "vbr", "-cq", strconv.Itoa(cq), "-b:v", br, "-maxrate", br, "-bufsize", buf}
+		if t != "none" {
+			args = append(args, "-tune", t)
+		}
+		return args
 	}
 	p := presets["x264"]
 	if p == "" {
 		p = "veryfast"
 	}
-	return []string{"-c:v", "libx264", "-preset", p, "-tune", "zerolatency", "-profile:v", "high", "-pix_fmt", "yuv420p", "-crf", strconv.Itoa(cq), "-maxrate", br, "-bufsize", buf}
+	t := tunes["x264"]
+	// Default to no tune: x264's zerolatency disables B-frames/lookahead and costs quality; the
+	// operator can still pick one explicitly.
+	args := []string{"-c:v", "libx264", "-preset", p, "-profile:v", "high", "-pix_fmt", "yuv420p", "-crf", strconv.Itoa(cq), "-maxrate", br, "-bufsize", buf}
+	if t != "" && t != "none" {
+		args = append(args, "-tune", t)
+	}
+	return args
 }
 
 // forwardVideoEncoderName reports the resolved video encoder for status, e.g. "h264_nvenc"
 // (hardware) or "libx264" (software).
 func forwardVideoEncoderName() string {
-	forwardVideoEncodeArgs(6, 21, nil)
+	forwardVideoEncodeArgs(6, 21, nil, nil)
 	return forwardEncoderKind
 }
 
