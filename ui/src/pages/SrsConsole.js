@@ -1078,6 +1078,12 @@ function SrsForwards({handleError}) {
 function SrsDiagnostics({handleError}) {
   const {t} = useTranslation();
   const [gpu, setGpu] = React.useState();
+  const [redis, setRedis] = React.useState();
+  const refreshRedis = () => {
+    axios.post('/terraform/v1/mgmt/redis/query', {}, {headers: Token.loadBearerHeader()})
+      .then(res => setRedis(res.data.data)).catch(() => {});
+  };
+  React.useEffect(() => { refreshRedis(); }, []);
   const [events, setEvents] = React.useState([]);
   React.useEffect(() => {
     const refreshEvents = () => {
@@ -1127,6 +1133,33 @@ function SrsDiagnostics({handleError}) {
       </Card.Body>
     </Card>
     <Card className="mb-3">
+      <Card.Header className="d-flex justify-content-between align-items-center">
+        <span>{t('console.diagRedis')}</span>
+        <Button size="sm" variant="outline-secondary" onClick={refreshRedis}>{t('console.diagRefresh')}</Button>
+      </Card.Header>
+      <Card.Body>
+        {!redis && <div className="text-muted small">{t('console.diagRedisLoading')}</div>}
+        {redis && (
+          <>
+            <div className="small mb-2">
+              {t('console.diagRedisKeys')}: {redis.keys} · {t('console.diagRedisMem')}: {(redis.info || {}).used_memory_human} · {t('console.diagRedisClients')}: {(redis.info || {}).connected_clients} · {t('console.diagRedisHits')}: {(redis.info || {}).keyspace_hits} / {(redis.info || {}).keyspace_misses} · {t('console.diagRedisSlow')}: {redis.slowlogCount}
+            </div>
+            <Table size="sm" borderless className="mb-0">
+              <thead><tr><th className="small">{t('console.diagRedisCommand')}</th><th className="small">{t('console.diagRedisCalls')}</th><th className="small">{t('console.diagRedisUsec')}</th></tr></thead>
+              <tbody>
+                {(redis.commands || []).slice(0, 10).map((cmd, i) => (
+                  <tr key={`${cmd.name}-${i}`}>
+                    <td className="small">{cmd.name}</td>
+                    <td className="small">{cmd.calls}</td>
+                    <td className="small">{cmd.usec}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </>
+        )}
+      </Card.Body>
+    </Card>    <Card className="mb-3">
       <Card.Header className="d-flex justify-content-between align-items-center">
         <span>{t('console.diagEvents')}</span>
         <Button size="sm" variant="outline-secondary"

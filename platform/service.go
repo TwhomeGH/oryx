@@ -370,6 +370,7 @@ func handleHTTPService(ctx context.Context, handler *http.ServeMux) error {
 	handleMgmtSrsHlsQuery(ctx, handler)
 	handleMgmtDiskQuery(ctx, handler)
 	handleMgmtGPUQuery(ctx, handler)
+	handleMgmtRedisQuery(ctx, handler)
 	handleMgmtAutoSelfSignedCertificate(ctx, handler)
 	handleMgmtSsl(ctx, handler)
 	handleMgmtLetsEncrypt(ctx, handler)
@@ -2376,6 +2377,103 @@ func handleMgmtStreamsEventsClear(ctx context.Context, handler *http.ServeMux) {
 				return errors.Wrapf(err, "del %v", SRS_STREAM_EVENTS)
 			}
 			ohttp.WriteData(ctx, w, r, nil)
+			return nil
+		}(); err != nil {
+			ohttp.WriteError(ctx, w, r, err)
+		}
+	})))
+}
+
+// handleMgmtRedisQuery reports Redis/Valkey health: INFO summary, per-command stats and the
+// slow log, so operators can see it without shelling into the container.
+func handleMgmtRedisQuery(ctx context.Context, handler *http.ServeMux) {
+	ep := "/terraform/v1/mgmt/redis/query"
+	logger.Tf(ctx, "Handle %v", ep)
+	handler.Handle(ep, middlewareAuthTokenInBody(ctx, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := func() error {
+			var token string
+			if err := ParseBody(ctx, r.Body, &struct {
+				Token *string `json:"token"`
+			}{Token: &token}); err != nil {
+				return errors.Wrapf(err, "parse body")
+			}
+			if err := Authenticate(ctx, envApiSecret(), token, r.Header); err != nil {
+				return errors.Wrapf(err, "authenticate")
+			}
+
+			res := map[string]interface{}{}
+			if raw, err := rdb.Do(ctx, "INFO").Text(); err == nil {
+				info := map[string]string{}
+				for _, line := range strings.Split(raw, "\n") {
+					if v := strings.SplitN(strings.TrimSpace(line), ":", 2); len(v) == 2 {
+						info[v[0]] = v[1]
+					}
+				}
+				summary := map[string]string{}
+				for _, k := range []string{"redis_version", "used_memory_human", "connected_clients",
+					"total_commands_processed", "keyspace_hits", "keyspace_misses", "maxmemory_human"} {
+					if v, ok := info[k]; ok {
+						summary[k] = v
+					}
+				}
+				res["info"] = summary
+			}
+
+			if dbsize, err := rdb.DBSize(ctx).Result(); err == nil {
+				res["keys"] = dbsize
+			}
+
+			if raw, err := rdb.Do(ctx, "INFO", "commandstats").Text(); err == nil {
+				type cmd struct {
+					Name  string `json:"name"`
+					Calls string `json:"calls"`
+					Usec  string `json:"usec"`
+				}
+				var cmds []cmd
+				for _, line := range strings.Split(raw, "\n") {
+					// Format: cmdstat_get:calls=1,usec=2,usec_per_call=2.0,rejected_calls=0,...
+					line = strings.TrimSpace(line)
+					if !strings.HasPrefix(line, "cmdstat_") {
+						continue
+					}
+					name, rest, _ := strings.Cut(strings.TrimPrefix(line, "cmdstat_"), ":")
+					cur := cmd{Name: name}
+					for _, kv := range strings.Split(rest, ",") {
+						if p := strings.SplitN(kv, "=", 2); len(p) == 2 {
+							switch p[0] {
+							case "calls":
+								cur.Calls = p[1]
+							case "usec":
+								cur.Usec = p[1]
+							}
+						}
+					}
+					if cur.Calls != "" {
+						cmds = append(cmds, cur)
+					}
+				}
+				// Top by call count (string compare is fine for a small list).
+				sort.SliceStable(cmds, func(i, j int) bool { return len(cmds[i].Calls) > len(cmds[j].Calls) })
+				if len(cmds) > 20 {
+					cmds = cmds[:20]
+				}
+				res["commands"] = cmds
+			}
+
+			if items, err := rdb.Do(ctx, "SLOWLOG", "GET", "10").Slice(); err == nil {
+				res["slowlogCount"] = len(items)
+				var slow []map[string]interface{}
+				for _, it := range items {
+					if arr, ok := it.([]interface{}); ok && len(arr) >= 4 {
+						slow = append(slow, map[string]interface{}{
+							"id": arr[0], "timestamp": arr[1], "micros": arr[2], "command": arr[3],
+						})
+					}
+				}
+				res["slowlog"] = slow
+			}
+
+			ohttp.WriteData(ctx, w, r, res)
 			return nil
 		}(); err != nil {
 			ohttp.WriteError(ctx, w, r, err)

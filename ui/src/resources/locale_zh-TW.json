@@ -1010,7 +1010,18 @@
       "diagEvents": "串流生命週期（釋出/取消）",
       "diagNoEvents": "尚無事件。",
       "diagClear": "清除",
-      "diagEventsNote": "最多保留 500 筆，此處顯示最新 50 筆。"
+      "diagEventsNote": "最多保留 500 筆，此處顯示最新 50 筆。",
+      "diagRedis": "Redis / Valkey",
+      "diagRefresh": "重新整理",
+      "diagRedisLoading": "載入中…",
+      "diagRedisKeys": "鍵數量",
+      "diagRedisMem": "記憶體",
+      "diagRedisClients": "連線數",
+      "diagRedisHits": "命中/未命中",
+      "diagRedisSlow": "慢操作",
+      "diagRedisCommand": "命令",
+      "diagRedisCalls": "呼叫次數",
+      "diagRedisUsec": "總耗時 µs"
     }
   },
   "meta": {

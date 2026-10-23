@@ -1010,7 +1010,18 @@
       "diagEvents": "Stream lifecycle (publish/unpublish)",
       "diagNoEvents": "No events yet.",
       "diagClear": "Clear",
-      "diagEventsNote": "Newest 50 of up to 500 retained events."
+      "diagEventsNote": "Newest 50 of up to 500 retained events.",
+      "diagRedis": "Redis / Valkey",
+      "diagRefresh": "Refresh",
+      "diagRedisLoading": "Loading…",
+      "diagRedisKeys": "keys",
+      "diagRedisMem": "memory",
+      "diagRedisClients": "clients",
+      "diagRedisHits": "hits/misses",
+      "diagRedisSlow": "slow ops",
+      "diagRedisCommand": "command",
+      "diagRedisCalls": "calls",
+      "diagRedisUsec": "total µs"
     }
   },
   "meta": {
