@@ -1095,6 +1095,23 @@ function FlashStat({label, value}) {
   );
 }
 
+// FlashCell is the table variant of FlashStat: a number that briefly tints when it changes.
+function FlashCell({value, className}) {
+  const [flash, setFlash] = React.useState(false);
+  const prev = React.useRef(value);
+  React.useEffect(() => {
+    if (prev.current !== value) {
+      prev.current = value;
+      setFlash(true);
+      const timer = setTimeout(() => setFlash(false), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [value]);
+  return (
+    <td className={`small text-end ${className || ''} ${flash ? 'table-warning' : ''}`}>{value}</td>
+  );
+}
+
 function SrsDiagnostics({handleError}) {
   const {t} = useTranslation();
   const [gpu, setGpu] = React.useState();
@@ -1197,8 +1214,8 @@ function SrsDiagnostics({handleError}) {
                     return (
                       <tr key={`${f.name}-${i}`}>
                         <td className="small">{f.name}</td>
-                        <td className={`small text-end ${d > 0 ? 'text-warning fw-bold' : 'text-muted'}`}>{d > 0 ? `+${d}` : '—'}</td>
-                        <td className="small text-end text-muted">{f.count}</td>
+                        <FlashCell className={d > 0 ? 'fw-bold' : 'text-muted'} value={d > 0 ? `+${d}` : '—'} />
+                        <FlashCell className="text-muted" value={f.count} />
                       </tr>
                     );
                   })}
