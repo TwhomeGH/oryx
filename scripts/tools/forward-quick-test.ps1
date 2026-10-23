@@ -65,7 +65,7 @@ function Get-RedisField($hash, $field) {
 
 function Show-Status() {
     $list = Api "GET" "/terraform/v1/ffmpeg/forward/streams" $null
-    foreach ($platform in @($script:Platform, $script:ComparePlatform) | Where-Object { $_ }) {
+    foreach ($platform in @($script:Platform) | Where-Object { $_ }) {
         $b = $list | Where-Object { $_.platform -eq $platform }
         if (-not $b) { Write-Host "   [$platform] (no status yet)"; continue }
         $m = $b.metrics
@@ -119,7 +119,7 @@ function Cleanup() {
     Stop-Source
     Stop-Play
     if ($script:Token -and -not $Keep) {
-        foreach ($p in @($script:Platform, $script:ComparePlatform) | Where-Object { $_ }) {
+        foreach ($p in @($script:Platform) | Where-Object { $_ }) {
             try { Api "POST" "/terraform/v1/ffmpeg/forward/secret" @{ action = "delete"; platform = $p } | Out-Null } catch { }
         }
     }
@@ -193,19 +193,16 @@ try {
     Start-Sleep -Seconds 3
 
     $fmode = if ($Slate) { "slate" } else { "hold" }
-    $label = if ($Compare) { "TEST quick (copy)" } elseif ($Normalize) { "TEST quick (normalize)" } else { "TEST quick" }
+    $label = "TEST quick"
     Step "啟用轉推：本機目標 rtmp://localhost/live/$($script:TgtID)（$label）failover=$fmode"
     Api "POST" "/terraform/v1/ffmpeg/forward/secret" @{
-        action = "update"; platform = $script:Platform; server = "rtmp://localhost/live/"; secret = $script:TgtID; enabled = $true; ended = $false; endedAt = 0; custom = $true; label = $label; normalize = (-not $Compare -and [bool]$Normalize); failover = $(if ($Slate) { "slate" } else { "" })
+        action = "update"; platform = $script:Platform; server = "rtmp://localhost/live/"; secret = $script:TgtID; enabled = $true; ended = $false; endedAt = 0; custom = $true; label = $label; normalize = [bool]$Normalize; failover = $(if ($Slate) { "slate" } else { "" })
     } | Out-Null
 
     if ($Compare) {
-        $script:CompareTgtID = "quick-cmp-$suffix"
-        $script:ComparePlatform = "forwarding-quick-cmp-$suffix"
-        Step "啟用對照目標：rtmp://localhost/live/$($script:CompareTgtID)（TEST quick (normalize)：開啟補強轉碼 CFR）"
-        Api "POST" "/terraform/v1/ffmpeg/forward/secret" @{
-            action = "update"; platform = $script:ComparePlatform; server = "rtmp://localhost/live/"; secret = $script:CompareTgtID; enabled = $true; custom = $true; label = "TEST quick (normalize)"; normalize = $true; failover = ""; ended = $false; endedAt = 0
-        } | Out-Null
+        # normalize is a GLOBAL program-layer option now (per-target normalize is ignored), so the
+        # comparison must toggle it and record the same target twice, not create two targets.
+        Step "對照模式：將依序錄製「全域 normalize 關閉」與「開啟」兩段相同目標輸出"
     }
 
     $playURL = "$Endpoint/live/$($script:TgtID).flv"
@@ -220,7 +217,7 @@ try {
     }
 
     if ($Compare) {
-        Step "等待並觀察指標（約 12 秒）：對照「copy 不轉碼」與「normalize CFR 補強」的 avgFps / drift / noOutput"
+        Step "等待並觀察指標（約 12 秒）"
     } else {
         Step "等待並觀察指標（約 12 秒）"
     }
@@ -243,13 +240,14 @@ try {
     Step "完成。轉推輸出（HTTP-FLV）：$playURL"
     if ($Compare) {
         $flvA = "$Endpoint/live/$($script:TgtID).flv"
-        $flvB = "$Endpoint/live/$($script:CompareTgtID).flv"
         Write-Host ""
-        Write-Host "   畫質對比用這兩個網址（複製即可）：" -ForegroundColor Cyan
-        Write-Host "     copy      (A): $flvA" -ForegroundColor Green
-        Write-Host "     normalize (B): $flvB" -ForegroundColor Green
-        Write-Host "   指令：" -ForegroundColor Cyan
-        Write-Host "     pwsh scripts/tools/forward-quality-compare.ps1 -A `"$flvA`" -B `"$flvB`" -Seconds 20" -ForegroundColor Gray
+        Write-Host "   normalize 已移到全域設定，無法用兩個目標同時比較。" -ForegroundColor Yellow
+        Write-Host "   請用同一個目標、切換全域開關各錄一次："; 
+        Write-Host "     1. 設定 → 串流引擎 → 轉播備援：關閉『對共享節目源做補強轉碼』"
+        Write-Host "     2. 錄一段：pwsh scripts/tools/forward-quality-compare.ps1 -A `"$flvA`" -B `"$flvA`" -Seconds 20"
+        Write-Host "        （或直接把網址 $flvA 給播放器/錄製工具）"
+        Write-Host "     3. 開啟該選項，再錄一次，然後比對兩段錄檔"
+        Write-Host "   目標網址：$flvA" -ForegroundColor Green
     }
     if (-not $preview) {
         Write-Host "   看畫面：預設會自動開 ffplay 預覽；若沒開（找不到 ffplay），可把上面的 HTTP-FLV 網址貼到播放器。" -ForegroundColor Yellow

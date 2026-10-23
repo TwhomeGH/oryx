@@ -104,20 +104,44 @@ Write-Host "B = $B"
 
 New-Item -ItemType Directory -Force -Path $Out | Out-Null
 
-Section "錄製 ${Seconds}s 成檔（避免 live 串流時序對不上）"
+Section "同時錄製 ${Seconds}s（兩條流同一個 wall clock 起點）"
+# Record both streams at the same time: recording them one after another samples different
+# content of a moving source, so the comparison would be meaningless.
 $fileA = Join-Path $Out "A.mp4"
 $fileB = Join-Path $Out "B.mp4"
-& ffmpeg -hide_banner -loglevel error -y -t $Seconds -i $A -c copy $fileA 2>&1 | Select-Object -Last 2
-& ffmpeg -hide_banner -loglevel error -y -t $Seconds -i $B -c copy $fileB 2>&1 | Select-Object -Last 2
+$jobA = Start-Job -ScriptBlock { param($u,$f,$s) & ffmpeg -hide_banner -loglevel error -y -t $s -i $u -c copy $f 2>&1 } -ArgumentList $A, $fileA, $Seconds
+$jobB = Start-Job -ScriptBlock { param($u,$f,$s) & ffmpeg -hide_banner -loglevel error -y -t $s -i $u -c copy $f 2>&1 } -ArgumentList $B, $fileB, $Seconds
+Wait-Job $jobA, $jobB | Out-Null
+Remove-Job $jobA, $jobB
 if (-not (Test-Path $fileA) -or (Get-Item $fileA).Length -lt 1024) { Write-Host "  A 錄製失敗（檔案過小）" -ForegroundColor Red }
 if (-not (Test-Path $fileB) -or (Get-Item $fileB).Length -lt 1024) { Write-Host "  B 錄製失敗（檔案過小）" -ForegroundColor Red }
 
-Section "量測 PSNR / SSIM（對已錄檔，逐幀對齊）"
-# Compare the recorded files so both start at their own first frame.
-$metrics = & ffmpeg -hide_banner -loglevel info -i $fileA -i $fileB `
+Section "尋找內容對齊偏移（兩條流管線延遲不同）"
+# The two pipelines start at different points of the source, so frame N of A and frame N of B are
+# different pictures. Search a wide offset window and keep the shift with the highest PSNR.
+$bestOffset = 0.0
+$bestPsnr = -1.0
+foreach ($ms in -4000, -3000, -2000, -1500, -1000, -700, -500, -300, -150, 0, 150, 300, 500, 700, 1000, 1500, 2000, 3000, 4000) {
+    $sec = $ms / 1000.0
+    $probe = & ffmpeg -hide_banner -loglevel info -i $fileA -itsoffset $sec -i $fileB `
+        -lavfi "[0:v]setpts=PTS-STARTPTS[a];[1:v]setpts=PTS-STARTPTS[b];[a][b]psnr" -f null - 2>&1
+    $line = $probe | Where-Object { $_ -match "PSNR .*average:" } | Select-Object -Last 1
+    if ($line -and $line -match "average:([0-9.]+)") {
+        $v = [double]$Matches[1]
+        if ($v -gt $bestPsnr) { $bestPsnr = $v; $bestOffset = $sec }
+    }
+}
+Write-Host ("  最佳偏移：{0:+0.000;-0.000;0.000}s（對齊後 PSNR {1:N2} dB）" -f $bestOffset, $bestPsnr) -ForegroundColor Cyan
+if ($bestPsnr -lt 25) {
+    Write-Host "  警告：即使最佳偏移下 PSNR 仍偏低，兩條流可能不是同一段內容（請確認來源與目標設定）。" -ForegroundColor Yellow
+}
+
+Section "量測 PSNR / SSIM（整段多幀平均）"
+# Average over the whole aligned segment, not a single frame.
+$metrics = & ffmpeg -hide_banner -loglevel info -i $fileA -itsoffset $bestOffset -i $fileB `
     -lavfi "[0:v]setpts=PTS-STARTPTS[a];[1:v]setpts=PTS-STARTPTS[b];[a][b]psnr" `
     -lavfi "[0:v]setpts=PTS-STARTPTS[a2];[1:v]setpts=PTS-STARTPTS[b2];[a2][b2]ssim" -f null - 2>&1
-$found = $metrics | Where-Object { $_ -match 'PSNR|SSIM' }
+$found = $metrics | Where-Object { $_ -match "PSNR|SSIM" }
 if (-not $found) {
     Write-Host "  讀不到 PSNR/SSIM：請確認兩個網址都可播放（HTTP-FLV 需 .flv 結尾，且來源仍在推流）。" -ForegroundColor Red
     $metrics | Select-Object -Last 8 | ForEach-Object { Write-Host "  $_" -ForegroundColor DarkGray }
