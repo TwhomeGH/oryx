@@ -259,7 +259,11 @@ func TestScenario_WithStream_PublishVLiveServerFile(t *testing.T) {
 	}
 
 	// Get first matched source file.
-	sourceFile := getExistsFile(ctx, filepath.Base(*srsInputFile), destDirs...)
+	sourceFile, err := getExistsFile(ctx, filepath.Base(*srsInputFile), destDirs...)
+	if err != nil {
+		r0 = errors.Wrapf(err, "locate input file")
+		return
+	}
 	if sourceFile == "" {
 		r0 = errors.Errorf("no source file found")
 		return
@@ -697,7 +701,7 @@ func TestScenario_WithStream_PostProcessCpFile_RecordMp4(t *testing.T) {
 		}{recordFile.UUID}, nil)
 	}()
 	// Try to find the file in relative dir, then find file in absolute path.
-	buildRecordCpFilePath := func(f *RecordFile) string {
+	buildRecordCpFilePath := func(_ *RecordFile) string {
 		filename := fmt.Sprintf("%v.mp4", recordFile.UUID)
 		p := path.Join("../platform/containers/data/srs-s3-bucket", filename)
 		if _, err := os.Stat(p); err == nil {
@@ -1546,29 +1550,25 @@ func TestScenario_WithStream_PublishRtmpForwardPlatform(t *testing.T) {
 		return
 	}
 
+	// Use a dedicated TEST target instead of mutating the user's built-in platform config, so the
+	// test is isolated (and always starts from a clean state).
 	forwardStreamID := fmt.Sprintf("forward-stream-%v-%v", os.Getpid(), rand.Int())
-	bilibili, ok := conf["bilibili"]
-	if !ok || bilibili == nil {
-		bilibili = &ForwardConfig{
-			Enabled:  false,
-			Custom:   true,
-			Label:    "Test",
-			Platform: "bilibili",
-			Secret:   fmt.Sprintf("%v?secret=%v", forwardStreamID, pubSecret),
-			Server:   "rtmp://localhost/live/",
-		}
-		conf["bilibili"] = bilibili
+	testPlatform := fmt.Sprintf("forwarding-ftest-%v-%v", os.Getpid(), rand.Int())
+	bilibili := &ForwardConfig{
+		Enabled:  false,
+		Custom:   true,
+		Label:    "TEST forward platform",
+		Platform: testPlatform,
+		Secret:   fmt.Sprintf("%v?secret=%v", forwardStreamID, pubSecret),
+		Server:   "rtmp://localhost/live/",
 	}
 
-	// Restore the state of forward.
-	backup := *bilibili
+	// Delete the dedicated target when the case finishes.
 	defer func() {
-		backup.Action = "update"
-		logger.Tf(ctx, "restore config %v", backup)
-
-		// The ctx has already been cancelled by test case, which will cause the request failed.
 		ctx := context.Background()
-		NewApi().WithAuth(ctx, "/terraform/v1/ffmpeg/forward/secret", backup, nil)
+		NewApi().WithAuth(ctx, "/terraform/v1/ffmpeg/forward/secret", map[string]interface{}{
+			"action": "delete", "platform": testPlatform,
+		}, nil)
 	}()
 
 	var wg sync.WaitGroup
@@ -1611,6 +1611,39 @@ func TestScenario_WithStream_PublishRtmpForwardPlatform(t *testing.T) {
 		return
 	}
 
+	// Verify the dedicated target was actually persisted, and print its state to stdout.
+	{
+		var streams []map[string]interface{}
+		if err := NewApi().WithAuth(ctx, "/terraform/v1/ffmpeg/forward/streams", map[string]string{"action": "query"}, &streams); err != nil {
+			fmt.Printf("[apply-diag] query failed: %v\n", err)
+		} else {
+			fmt.Printf("[apply-diag] %v targets:\n", len(streams))
+			for _, s := range streams {
+				fmt.Printf("  platform=%v status=%v enabled=%v restarts=%v lastError=%v\n",
+					s["platform"], s["status"], s["enabled"], s["restartCount"], s["lastError"])
+			}
+		}
+	}
+
+	// Wait until the target reports running through the platform API (the public contract), not by
+	// reading Redis internals: the target only publishes its output once the program is bound and
+	// the fanout has started. Recording earlier reads a not-yet-published HTTP-FLV and exits.
+	for i := 0; i < 20; i++ {
+		var streams []map[string]interface{}
+		if err := NewApi().WithAuth(ctx, "/terraform/v1/ffmpeg/forward/streams", map[string]string{"action": "query"}, &streams); err == nil {
+			for _, s := range streams {
+				if fmt.Sprint(s["platform"]) == testPlatform && fmt.Sprint(s["status"]) == "running" {
+					logger.Tf(ctx, "forward target %v is running", testPlatform)
+					i = 99
+					break
+				}
+			}
+		}
+		if i < 20 {
+			time.Sleep(500 * time.Millisecond)
+		}
+	}
+
 	// Start FFprobe to detect and verify stream.
 	duration := time.Duration(*srsFFprobeDuration) * time.Millisecond
 	ffprobe := NewFFprobe(func(v *ffprobeClient) {
@@ -1640,6 +1673,19 @@ func TestScenario_WithStream_PublishRtmpForwardPlatform(t *testing.T) {
 		r4 = errors.Errorf("low score=%v < %v, %v, %v", m.Format.ProbeScore, ts, m.String(), str)
 	}
 	if dv := m.Duration(); dv < duration/5 {
+		// Dump every forward target state so a short output can be explained.
+		var streams []map[string]interface{}
+		if err := NewApi().WithAuth(ctx, "/terraform/v1/ffmpeg/forward/streams", map[string]string{"action": "query"}, &streams); err == nil {
+			f, _ := os.Create("/tmp/forward-state.txt")
+			if f != nil {
+				fmt.Fprintf(f, "forward targets at failure (%v):\n", len(streams))
+				for _, s := range streams {
+					fmt.Fprintf(f, "platform=%v status=%v restarts=%v lastError=%v events=%v\n",
+						s["platform"], s["status"], s["restartCount"], s["lastError"], s["events"])
+				}
+				f.Close()
+			}
+		}
 		r5 = errors.Errorf("short duration=%v < %v, %v, %v", dv, duration, m.String(), str)
 	}
 }
@@ -1785,6 +1831,20 @@ func testForwardKeepalive(t *testing.T, failover string, expectSlate bool) {
 	if err := NewApi().WithAuth(ctx, "/terraform/v1/ffmpeg/forward/secret", bilibili, nil); err != nil {
 		r0 = errors.Wrapf(err, "request forward apply failed")
 		return
+	}
+
+	// Verify the dedicated target was actually persisted, and print its state to stdout.
+	{
+		var streams []map[string]interface{}
+		if err := NewApi().WithAuth(ctx, "/terraform/v1/ffmpeg/forward/streams", map[string]string{"action": "query"}, &streams); err != nil {
+			fmt.Printf("[apply-diag] query failed: %v\n", err)
+		} else {
+			fmt.Printf("[apply-diag] %v targets:\n", len(streams))
+			for _, s := range streams {
+				fmt.Printf("  platform=%v status=%v enabled=%v restarts=%v lastError=%v\n",
+					s["platform"], s["status"], s["enabled"], s["restartCount"], s["lastError"])
+			}
+		}
 	}
 
 	// The program should be live, and the fanout running.

@@ -150,3 +150,5 @@ scripts/tools/local-deploy.ini
 
 # Local test artifacts (quality comparison screenshots)
 .tmp/
+
+test/oryx-test-linux

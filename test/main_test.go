@@ -419,15 +419,38 @@ func initSystemPassword(ctx context.Context) error {
 	return nil
 }
 
-// Get the first exsits file in dest directories.
-func getExistsFile(ctx context.Context, filename string, destDirs ...string) string {
+// Get the first existing file in the dest directories, but refuse to silently pick one when
+// multiple copies exist with different content: that ambiguity would make a test compare the
+// wrong source. Identical copies are fine; different ones are an error.
+func getExistsFile(_ context.Context, filename string, destDirs ...string) (string, error) {
+	var found []string
 	for _, destDir := range destDirs {
 		fn := path.Join(destDir, filename)
 		if stat, err := os.Stat(fn); err == nil && !stat.IsDir() {
-			return fn
+			found = append(found, fn)
 		}
 	}
-	return ""
+	if len(found) == 0 {
+		return "", nil
+	}
+	if len(found) == 1 {
+		return found[0], nil
+	}
+
+	ref, err := os.ReadFile(found[0])
+	if err != nil {
+		return "", errors.Wrapf(err, "read %v", found[0])
+	}
+	for _, fn := range found[1:] {
+		other, err := os.ReadFile(fn)
+		if err != nil {
+			return "", errors.Wrapf(err, "read %v", fn)
+		}
+		if len(other) != len(ref) || !bytes.Equal(ref, other) {
+			return "", errors.Errorf("conflicting %v in multiple dirs: %v", filename, found)
+		}
+	}
+	return found[0], nil
 }
 
 // Copy the file to dest directories.
@@ -1016,13 +1039,16 @@ func (v *ffprobeClient) Run(ctxCase context.Context, cancelCase context.CancelFu
 		for ctx.Err() == nil {
 			// If not DVR by FFmpeg, we just wait the DVR file to be ready, and it should be done by SRS or other tools.
 			if v.dvrByFFmpeg {
-				// If error, just ignore and retry, because the stream might not be ready. For example, for HLS, the DVR process
-				// might need to wait for a duration of segment, 10s as such.
-				_ = v.doDVR(ctx)
-			}
-
-			// Check whether DVR file is ok.
-			if fs, err := os.Stat(v.dvrFile); err == nil && fs.Size() > 1024 {
+				// Wait for the DVR process to FINISH (it records the full requested duration).
+				// Breaking on the first 1KB would probe a truncated file (e.g. 6s of a 35s
+				// recording), which falsely fails the duration assertion.
+				if err := v.doDVR(ctx); err == nil {
+					if fs, statErr := os.Stat(v.dvrFile); statErr == nil && fs.Size() > 1024 {
+						logger.Tf(ctx, "%vDVR finished, file=%v, size=%v%v", colorGreen, v.dvrFile, fs.Size(), colorReset)
+						break
+					}
+				}
+			} else if fs, err := os.Stat(v.dvrFile); err == nil && fs.Size() > 1024 {
 				logger.Tf(ctx, "%vDVR FFprobe file is ok, file=%v, size=%v%v", colorGreen, v.dvrFile, fs.Size(), colorReset)
 				break
 			}
@@ -1056,16 +1082,27 @@ func (v *ffprobeClient) Run(ctxCase context.Context, cancelCase context.CancelFu
 
 func (v *ffprobeClient) doDVR(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	if !v.dvrByFFmpeg {
 		return nil
 	}
 
+	// Diagnose: log the URL and the SRS stream keys when the DVR starts, and again 2s later.
+	keysAt := func(tag string) {
+		if out, err := exec.CommandContext(ctx, "redis-cli", "hkeys", "SRS_STREAM_ACTIVE").CombinedOutput(); err == nil {
+			fmt.Printf("[dvr-diag] %v streamURL=%v keys=%s\n", tag, v.streamURL, strings.Join(strings.Fields(string(out)), ","))
+		}
+	}
+	keysAt("start")
+
 	process := newBackendService()
 	process.name = *srsFFmpeg
+	// Put -t AFTER -i so it limits the OUTPUT duration. As an input option it stops at the first
+	// input EOF (a freshly published HTTP-FLV can end early), producing a truncated recording.
 	process.args = []string{
-		"-t", fmt.Sprintf("%v", int64(v.duration/time.Second)),
-		"-i", v.streamURL, "-c", "copy", "-y", v.dvrFile,
+		"-i", v.streamURL, "-t", fmt.Sprintf("%v", int64(v.duration/time.Second)),
+		"-c", "copy", "-y", v.dvrFile,
 	}
 	process.env = os.Environ()
 
@@ -1288,10 +1325,11 @@ func (v *ffprobeObjectMedia) String() string {
 		v.Index, v.CodecName, v.CodecType, v.Timebase, v.Bitrate, v.Profile, v.Duration))
 	sb.WriteString(fmt.Sprintf(", codects=%v", v.CodecTagString))
 
-	if v.CodecType == "video" {
+	switch v.CodecType {
+	case "video":
 		sb.WriteString(fmt.Sprintf(", size=%vx%v, csize=%vx%v, rfr=%v, afr=%v, pix=%v, level=%v",
 			v.Width, v.Height, v.CodedWidth, v.CodedHeight, v.RFramerate, v.AvgFramerate, v.PixFmt, v.Level))
-	} else if v.CodecType == "audio" {
+	case "audio":
 		sb.WriteString(fmt.Sprintf(", channels=%v, layout=%v, fmt=%v, srate=%v",
 			v.Channels, v.ChannelLayout, v.SampleFmt, v.SampleRate))
 	}
