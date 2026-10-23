@@ -2,6 +2,30 @@
 
 > 本檔由 changelogkit 管理（見 [變更歷史說明](changelog.md)）。新增請用 `changelogkit add`（或 `changelogkit serve` 的網頁 GUI）。
 
+## 2026.10.24 02:23 v5.21.9 診斷面板：Redis/Valkey 監控與可折疊版面
+
+- 新增 Redis 監控 API 與控制台卡片：鍵數/記憶體/連線/命中率/慢操作，10 秒自動更新。
+- 新增 Redis Hook 統計「命令：key 類別」呼叫次數，顯示本次增量與累計，變動時閃爍。
+- 診斷頁改為 Accordion，可同時展開多個區塊；閃爍改為貼合數字的半透明藍底。
+- CI：actions/cache 升級 v5（Node 24）。
+
+**類型**: 發佈
+
+### 修改 - v5.21.9
+
+- 控制台 Redis 面板：閃爍改為貼合數字的半透明藍底
+- 控制台 Redis 面板：增量與累計改為變動時閃背景
+- 控制台 Redis 面板：以「命令＋key 類別」的增量取代命令累計表
+- 控制台診斷：Accordion 允許同時展開多個區塊
+- 控制台 Redis 面板：數值改為看盤式小卡，變動時閃背景
+- Redis 診斷：key 類別改用完整常數名
+- Redis 診斷：命令＋key 類別統計，面板自動更新
+- 控制台診斷：改用可折疊 Accordion，預設只展開一項
+- 診斷：Redis/Valkey 監控面板（INFO、命令統計、慢操作）
+- CI：actions/cache 升級到 v5（Node 24）
+
+---
+
 ## 2026.10.23 23:37 v5.21.8 修正轉推誤殺與任務生命週期
 
 - 修正 heartbeat 把「0＝停用逾時」誤判為「已逾時」，導致 FFmpeg 每 3 秒被取消。
