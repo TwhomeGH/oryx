@@ -827,7 +827,9 @@
         "fps": "输出 fps",
         "bitrate": "码率",
         "empty": "样本不足，稍后再看。",
-        "samples": "{{count}} 个样本（5 秒间隔）"
+        "samples": "{{count}} 个样本（5 秒间隔）",
+        "range": "最小 {{min}} / 最大 {{max}}",
+        "band": "綠帶 = 健康範圍"
       }
     },
     "vle": {

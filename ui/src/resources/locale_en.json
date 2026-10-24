@@ -147,7 +147,9 @@
         "fps": "Output FPS",
         "bitrate": "Bitrate",
         "empty": "Not enough samples yet.",
-        "samples": "{{count}} samples (5s interval)"
+        "samples": "{{count}} samples (5s interval)",
+        "range": "min {{min}} / max {{max}}",
+        "band": "Green band = healthy range"
       }
     },
     "camera": {
