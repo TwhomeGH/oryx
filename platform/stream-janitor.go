@@ -73,6 +73,7 @@ func (v *streamJanitor) liveStreams(ctx context.Context) (map[string]bool, error
 	}
 
 	var parsed struct {
+		Code    int `json:"code"`
 		Streams []struct {
 			Name    string `json:"name"`
 			App     string `json:"app"`
@@ -83,7 +84,22 @@ func (v *streamJanitor) liveStreams(ctx context.Context) (map[string]bool, error
 		} `json:"streams"`
 	}
 	if err := json.Unmarshal(body, &parsed); err != nil {
+		snippet := string(body)
+		if len(snippet) > 500 {
+			snippet = snippet[:500]
+		}
+		logger.Wf(ctx, "stream janitor: SRS response parse err %+v, body=%v", err, snippet)
 		return nil, err
+	}
+	if code := parsed.Code; code != 0 {
+		logger.Wf(ctx, "stream janitor: SRS API code=%v", code)
+	}
+	if len(parsed.Streams) == 0 {
+		snippet := string(body)
+		if len(snippet) > 500 {
+			snippet = snippet[:500]
+		}
+		logger.Wf(ctx, "stream janitor: SRS returned 0 streams, body=%v", snippet)
 	}
 	live := make(map[string]bool, len(parsed.Streams))
 	for _, s := range parsed.Streams {
@@ -98,6 +114,12 @@ func (v *streamJanitor) sweep(ctx context.Context) {
 	live, err := v.liveStreams(ctx)
 	if err != nil {
 		logger.Wf(ctx, "stream janitor: list SRS streams err %+v", err)
+		return
+	}
+	// Never treat an empty SRS answer as "every stream is gone": a failed/limited API call would
+	// otherwise delete active entries and disconnect live players. Skip this sweep instead.
+	if len(live) == 0 {
+		logger.Tf(ctx, "stream janitor: SRS reported no active streams, skipping sweep")
 		return
 	}
 
