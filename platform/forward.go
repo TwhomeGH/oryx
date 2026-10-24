@@ -126,7 +126,7 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 				return errors.Wrapf(err, "parse body")
 			}
 
-			allowedActions := []string{"update", "delete", "toggle", "end", "cancel-end"}
+			allowedActions := []string{"update", "delete", "toggle", "end", "cancel-end", "metrics"}
 			allowedPlatforms := []string{"wx", "bilibili", "kuaishou"}
 			if action != "" {
 				if !slicesContains(allowedActions, action) {
