@@ -17,7 +17,7 @@ param(
     [string]$Container = "oryx",
     [string]$Source = "",
     # Explicit local media file to publish as the test source (overrides the built-in 200kbps sample).
-    [string]$Input = "",
+    [string]$InputFile = "",
     # With -Keep, stop the source and the target after this many minutes (default 10, 0 = no limit).
     [int]$KeepMinutes = 10,
     [string]$Rtmp = "",
@@ -39,7 +39,7 @@ $preview = -not $NoPlay
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 $ErrorActionPreference = "Stop"
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
-if ($Input) { $Source = $Input }
+if ($InputFile) { $Source = $InputFile }
 if (-not $Source) { $Source = Join-Path $RepoRoot "test\source.200kbps.768x320.flv" }
 if (-not (Test-Path $Source)) { Die "找不到來源檔案：$Source" }
 
@@ -103,7 +103,7 @@ function Start-Source() {
     $url = "$Rtmp/live/$($script:SrcID)?secret=$($script:Pub)"
     $err = Join-Path $env:TEMP "forward-quick-test-src.log"
     $script:SourceProc = Start-Process ffmpeg -ArgumentList @(
-        "-re", "-stream_loop", "-1", "-i", $Source, "-c", "copy", "-f", "flv", $url
+        "-re", "-stream_loop", "-1", "-i", "`"$Source`"", "-c", "copy", "-f", "flv", $url
     ) -PassThru -WindowStyle Hidden -RedirectStandardError $err
 }
 
