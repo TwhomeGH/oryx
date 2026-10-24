@@ -21,7 +21,7 @@ function ScaleChart({values, color, min, max, band, unit, height = 64}) {
   const bandRect = band
     ? { y: y(band[1]), h: Math.max(1, y(band[0]) - y(band[1])) }
     : null;
-  const fmt = v => (Math.abs(v) >= 100 ? Math.round(v) : v.toFixed(1)).replace(/\.0$/, '');
+  const fmt = v => (Math.abs(v) >= 100 ? String(Math.round(v)) : v.toFixed(1)).replace(/\\.0$/, '');
 
   return (
     <div className="d-inline-flex align-items-stretch">
