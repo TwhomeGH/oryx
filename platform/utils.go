@@ -673,11 +673,21 @@ func srsGenerateConfig(ctx context.Context) error {
 	} else if v == "low" {
 		latencyMode = "low"
 	}
+	mwLatency := 350
 	if latencyMode == "low" {
 		latencyConf = append(latencyConf, "min_latency on;", "tcp_nodelay on;")
+		mwLatency = 100
 	} else {
 		latencyConf = append(latencyConf, "min_latency off;", "tcp_nodelay off;")
 	}
+	// mw_latency is SRS's merged-write batching window: lower flushes sooner (less startup
+	// buffering) at the cost of more write overhead.
+	latencyConf = append(latencyConf, "",
+		"play {",
+		"    gop_cache on;",
+		"    queue_length 10;",
+		fmt.Sprintf("    mw_latency %v;", mwLatency),
+		"}")
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Build the High Performance HLS config. HLS is a publisher-side muxer: when enabled every
