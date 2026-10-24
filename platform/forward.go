@@ -766,6 +766,8 @@ type ForwardTask struct {
 	metricsFirstSec float64
 	metricsFirstAt  time.Time
 	lastMetricAt    time.Time
+	lastDrift       float64
+	timestampJump   bool
 	// The diagnostics timeline and recent FFmpeg logs (bounded rings).
 	logs   []string
 	events []ForwardEvent
@@ -973,6 +975,14 @@ func (v *ForwardTask) updateFrame(frame string) {
 		if !v.metrics.valid {
 			v.metricsFirstSec, v.metricsFirstAt = progress.mediaSec, now
 		}
+		// A sudden jump in the media clock means the source timestamps broke (OBS scene change,
+		// encoder reset, reconnect). A -c copy fanout cannot absorb that, so flag it and let the
+		// task loop restart the pipeline instead of stalling viewers.
+		drift := progress.mediaSec - now.Sub(v.metricsFirstAt).Seconds()
+		if v.metrics.valid && math.Abs(drift-v.lastDrift) > forwardTimestampJumpSec {
+			v.timestampJump = true
+		}
+		v.lastDrift = drift
 		v.metrics = progress
 		// Sample the history every 5s so the UI can chart drift/fps/no-output over time. The list
 		// is bounded to one hour (720 samples at 5s).
@@ -1198,6 +1208,7 @@ func (v *ForwardTask) markRunning(pid int32, inputURL, inputStreamURL, outputURL
 	v.NextRetryAt = nil
 	// Reset the output metrics of the previous run.
 	v.metrics, v.metricsFirstSec, v.metricsFirstAt = forwardProgress{}, 0, time.Time{}
+	v.lastDrift, v.timestampJump = 0, false
 	v.addEventLocked("start", redactForwardURL(outputURL))
 }
 
@@ -1444,6 +1455,22 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 
 		// A manual end shows the configured end text for a grace period, then stops this target
 		// (the operator need not wait for the offline-stop policy).
+		// Timestamp jump: restart the pipeline so the downstream gets a clean timeline instead of
+		// stalling on a broken one.
+		v.lock.Lock()
+		jumped := v.timestampJump
+		if jumped {
+			v.timestampJump = false
+		}
+		v.lock.Unlock()
+		if jumped {
+			v.addEvent("timestamp-jump", "來源時間戳跳躍，重啟管線")
+			logger.Wf(ctx, "forward %v source timestamp jump, restarting pipeline", v.Platform)
+			if err := v.Restart(ctx); err != nil {
+				return errors.Wrapf(err, "restart after timestamp jump")
+			}
+			return nil
+		}
 		if config.Ended && config.EndedAt > 0 {
 			grace := int64(forwardSlateConfigLoad(ctx).EndGraceSeconds)
 			if time.Now().Unix() >= config.EndedAt+grace {

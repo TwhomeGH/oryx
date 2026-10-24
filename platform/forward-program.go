@@ -59,6 +59,10 @@ const (
 	// Zero disables the no-update kill: the fanout must survive a program that is temporarily
 	// unavailable or holding the last frame, otherwise the downstream is dropped for no reason.
 	forwardFanoutNoUpdateTime = 0
+
+	// forwardTimestampJumpSec is the drift delta that marks a broken source timeline; a -c copy
+	// fanout cannot absorb it, so the pipeline restarts.
+	forwardTimestampJumpSec = 5.0
 )
 
 // isForwardProgramStream reports whether the stream is an internal program bus stream, which
