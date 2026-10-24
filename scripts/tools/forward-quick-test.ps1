@@ -16,6 +16,10 @@ param(
     [string]$Endpoint = "",
     [string]$Container = "oryx",
     [string]$Source = "",
+    # Explicit local media file to publish as the test source (overrides the built-in 200kbps sample).
+    [string]$Input = "",
+    # With -Keep, stop the source and the target after this many minutes (default 10, 0 = no limit).
+    [int]$KeepMinutes = 10,
     [string]$Rtmp = "",
     [switch]$Outage,
     [switch]$Play,
@@ -35,7 +39,9 @@ $preview = -not $NoPlay
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 $ErrorActionPreference = "Stop"
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+if ($Input) { $Source = $Input }
 if (-not $Source) { $Source = Join-Path $RepoRoot "test\source.200kbps.768x320.flv" }
+if (-not (Test-Path $Source)) { Die "找不到來源檔案：$Source" }
 
 $script:Token = ""
 $script:SourceProc = $null
@@ -254,6 +260,20 @@ try {
     }
     if ($Keep) {
         Write-Host "   已保留設定（-Keep）：UI 檢視請開 $Endpoint → 場景 → 轉推 → 展開「狀態」→ 該列『本機輸出進度』（含診斷時間線/近期日誌）。" -ForegroundColor Yellow
+        if ($KeepMinutes -gt 0) {
+            Write-Host "   約 $KeepMinutes 分鐘後自動停止來源與目標（-KeepMinutes 0 可取消限制）。" -ForegroundColor DarkGray
+            $srcPid = if ($script:SourceProc) { $script:SourceProc.Id } else { 0 }
+            Start-Job -ScriptBlock {
+                param($secs, $srcPid, $endpoint, $token, $platform)
+                Start-Sleep -Seconds $secs
+                if ($srcPid -gt 0) { try { Stop-Process -Id $srcPid -Force -ErrorAction SilentlyContinue } catch { } }
+                if ($platform) {
+                    $h = @{ Authorization = "Bearer $token" }
+                    $body = @{ action = 'delete'; platform = $platform } | ConvertTo-Json -Compress
+                    try { Invoke-RestMethod -Method Post -Uri "$endpoint/terraform/v1/ffmpeg/forward/secret" -Headers $h -ContentType 'application/json' -Body $body | Out-Null } catch { }
+                }
+            } -ArgumentList ($KeepMinutes * 60), $srcPid, $Endpoint, $script:Token, $script:Platform | Out-Null
+        }
     } else {
         Write-Host "   測試設定已清理（目標已刪除）；若想在 UI 看診斷，請加 -Keep 重跑一次。" -ForegroundColor DarkGray
     }
