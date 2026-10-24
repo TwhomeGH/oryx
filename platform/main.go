@@ -276,12 +276,10 @@ func doMain(ctx context.Context) error {
 		return errors.Wrapf(err, "start forward worker")
 	}
 
-	// Clean SRS_STREAM_ACTIVE entries whose publisher was killed without on_unpublish (ghost streams).
-	janitor := NewStreamJanitor(60 * time.Second)
-	defer janitor.Close()
-	if err := janitor.Start(ctx); err != nil {
-		return errors.Wrapf(err, "start stream janitor")
-	}
+	// NOTE: the stream janitor is intentionally disabled. SRS's /api/v1/streams view does not
+	// reliably report forward outputs (which are proxied), so the sweep deleted live streams and
+	// disconnected players. Ghost entries are instead cleared by the delete/kick path and by SRS's
+	// on_unpublish when a publisher exits normally.
 
 	// Create worker for vLive.
 	vLiveWorker = NewVLiveWorker()
