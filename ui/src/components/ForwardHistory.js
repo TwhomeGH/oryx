@@ -48,8 +48,8 @@ export default function ForwardHistory({platform}) {
         const res = await axios.post('/terraform/v1/ffmpeg/forward/secret',
           {action: 'metrics', platform}, {headers: Token.loadBearerHeader()});
         if (!cancelled) {
-          setSamples(res.data?.data || []);
-          setError('');
+          // Drop startup samples where the encoder had not produced frames yet (fps 0).
+          setSamples((res.data?.data || []).filter(s => Number(s.fps) > 0 && Number(s.frame) > 0));
         }
       } catch (e) {
         if (!cancelled) setError(e.message || 'failed');
@@ -78,10 +78,11 @@ export default function ForwardHistory({platform}) {
   const drift = stats('drift');
   const fps = stats('fps');
   const kbps = stats('kbps');
+  // Fixed scale first; only widen when a sample genuinely exceeds it.
   const driftMin = Math.min(-1, Math.floor(drift.min));
   const driftMax = Math.max(1, Math.ceil(drift.max));
-  const fpsMin = Math.floor(Math.min(55, fps.min));
-  const fpsMax = Math.ceil(Math.max(65, fps.max));
+  const fpsMin = Math.min(55, Math.floor(fps.min));
+  const fpsMax = Math.max(65, Math.ceil(fps.max));
   const kbpsMin = Math.floor(Math.min(kbps.min * 0.9, kbps.avg * 0.8) / 100) * 100;
   const kbpsMax = Math.ceil(Math.max(kbps.max * 1.1, kbps.avg * 1.2) / 100) * 100;
   const first = samples[0].t?.slice(11, 19);
