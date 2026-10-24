@@ -544,7 +544,8 @@
         "destination": "ローカル FFmpeg の報告です。配信先の受信・再生成功を保証しません。配信先でも確認してください。",
         "ffmpegArgs": "FFmpeg 引数",
         "sourceRate": "ソース fps",
-        "empty": "まだ指標がありません（ターゲットが実行中でない可能性）。"
+        "empty": "まだ指標がありません（ターゲットが実行中でない可能性）。",
+        "ffmpegArgsIdle": "まだ実行していません。転送開始後に実際のコマンドが表示されます。"
       },
       "statusTitle": "転送ステータス",
       "statusShort": "転送",

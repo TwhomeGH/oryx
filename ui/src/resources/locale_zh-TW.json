@@ -805,7 +805,8 @@
         "gpu": "（GPU 硬體）",
         "ffmpegArgs": "FFmpeg 引數",
         "sourceRate": "來源 fps",
-        "empty": "尚無指標（目標可能未在執行）。"
+        "empty": "尚無指標（目標可能未在執行）。",
+        "ffmpegArgsIdle": "尚未啟動；目標開始轉推後會顯示實際命令。"
       },
       "statusTitle": "轉播狀態",
       "statusShort": "轉播",

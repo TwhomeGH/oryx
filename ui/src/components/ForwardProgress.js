@@ -85,10 +85,12 @@ export default function ForwardProgress({log, metrics, events, logs, encoder, ff
       <summary>{t('forward.progress.raw')}</summary>
       <pre className="small mb-0" style={{whiteSpace: 'pre-wrap', overflowWrap: 'anywhere'}}>{log}</pre>
     </details>}
-    {ffmpegArgs && <details className="mt-1">
+    <details className="mt-1">
       <summary>{t('forward.progress.ffmpegArgs')}</summary>
-      <pre className="small mb-0" style={{whiteSpace: 'pre-wrap', overflowWrap: 'anywhere'}}>{ffmpegArgs}</pre>
-    </details>}
+      {ffmpegArgs
+        ? <pre className="small mb-0" style={{whiteSpace: 'pre-wrap', overflowWrap: 'anywhere'}}>{ffmpegArgs}</pre>
+        : <div className='small text-muted'>{t('forward.progress.ffmpegArgsIdle')}</div>}
+    </details>
     {events?.length > 0 && <details className="mt-1">
       <summary>{t('forward.progress.events')}</summary>
       <ul className="small mb-0 ps-3">

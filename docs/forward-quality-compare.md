@@ -48,7 +48,7 @@ pwsh scripts/tools/forward-quality-compare.ps1 -Source live/livestream -Seconds 
 - `A.mp4` / `B.mp4`：錄下的原始片段（除錯用）
 - 終端機輸出：對齊後的 PSNR / SSIM（含 Y/U/V 各平面）
 
-## 輸出
+## 輸出說明
 
 1. **PSNR / SSIM**：直接印在終端機（B 相對 A）。
 2. **截圖**：`A.png` 與 `B.png`（各取一半時間的一格），可並排肉眼比對。

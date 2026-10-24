@@ -125,7 +125,8 @@
         "destination": "These are local FFmpeg reports, not confirmation of destination reception or playback. Check the destination platform.",
         "ffmpegArgs": "FFmpeg arguments",
         "sourceRate": "Source fps",
-        "empty": "No metrics yet (the target may not be running)."
+        "empty": "No metrics yet (the target may not be running).",
+        "ffmpegArgsIdle": "Not running yet; the actual command appears once this target starts forwarding."
       },
       "statusTitle": "Forward status",
       "statusShort": "Forward",
