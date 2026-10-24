@@ -10,6 +10,7 @@
 import Container from "react-bootstrap/Container";
 import React from "react";
 import {Token} from "../utils";
+import {InfoCircle, StopCircle, ArrowCounterclockwise, PlayFill, PauseFill, CameraVideo} from 'react-bootstrap-icons';
 import axios from "axios";
 import {Row, Col, Card, Table, Tab, Tabs, Button, Badge, Alert, Accordion} from "react-bootstrap";
 import moment from "moment";
@@ -1052,13 +1053,13 @@ function SrsForwards({handleError}) {
               <td><Badge bg={e.enabled ? 'success' : 'secondary'} pill>{e.enabled ? t('console.fwOn') : t('console.fwOff')}</Badge></td>
               <td>{e.metrics && e.metrics.avgFps ? e.metrics.avgFps.toFixed(1) : '-'}</td>
               <td className="text-end">
-                {e.ownStream && <a className="btn btn-sm btn-outline-secondary me-1" href={`/players/srs_player.html?stream=${e.ownStream}.flv`} target="_blank" rel="noreferrer">{t('console.fwWatch')}</a>}
-                <Button size="sm" variant="outline-primary" className="me-1" onClick={() => setExpanded(expanded === e.platform ? '' : e.platform)}>{t('console.fwDetail')}</Button>
+                {e.ownStream && <a className="btn btn-sm btn-outline-secondary me-1" href={`/players/srs_player.html?stream=${e.ownStream}.flv`} target="_blank" rel="noreferrer"><CameraVideo className="me-1" />{t('console.fwWatch')}</a>}
+                <Button size="sm" variant="outline-primary" className="me-1" onClick={() => setExpanded(expanded === e.platform ? '' : e.platform)}><InfoCircle className="me-1" />{t('console.fwDetail')}</Button>
                 <Button size="sm" variant={e.ended ? 'outline-secondary' : 'outline-warning'} className="me-1" onClick={() => endTarget(e)}>
-                  {e.ended ? t('console.fwCancelEnd') : t('console.fwEnd')}
+                  {e.ended ? <><ArrowCounterclockwise className="me-1" />{t('console.fwCancelEnd')}</> : <><StopCircle className="me-1" />{t('console.fwEnd')}</>}
                 </Button>
                 <Button size="sm" variant={e.enabled ? 'outline-danger' : 'outline-success'} onClick={() => toggleTarget(e)}>
-                  {e.enabled ? t('console.fwStop') : t('console.fwStart')}
+                  {e.enabled ? <><PauseFill className="me-1" />{t('console.fwStop')}</> : <><PlayFill className="me-1" />{t('console.fwStart')}</>}
                 </Button>
               </td>
             </tr>
