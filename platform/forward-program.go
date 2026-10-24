@@ -214,6 +214,9 @@ type ProgramBus struct {
 	// The program diagnostics timeline and recent publisher logs (bounded rings).
 	events []ForwardEvent
 	logs   []string
+	// args is the actual publisher command (program layer: normalize/relay/composite), so the
+	// diagnostics page can show it next to the fanout's own -c copy command.
+	args string
 }
 
 // ProgramStatus is a snapshot of a program bus for the API.
@@ -238,6 +241,8 @@ type ProgramStatus struct {
 	// Logs keeps the recent program-publisher stderr lines (bounded), so a failure explains itself
 	// in the UI instead of only surfacing "exit status N".
 	Logs []string
+	// Args is the publisher command line (redacted), the "CFR/normalize" half of the pipeline.
+	Args string
 }
 
 func (v *ProgramBus) String() string {
@@ -395,6 +400,7 @@ func (v *ProgramBus) queryStatus() ProgramStatus {
 		Reconnects:      v.reconnects,
 		ReconnectReason: v.reconnectReason,
 		Logs:            append([]string(nil), v.logs...),
+		Args:            v.args,
 	}
 	if status.Mode == "" {
 		status.Mode = programModeIdle
@@ -603,9 +609,12 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 			args = append(args, "-fflags", "+genpts", "-fps_mode", "cfr", "-r", rate)
 			args = append(args, forwardVideoEncodeArgs(conf.OutputBitrateMbps, conf.OutputCQ, conf.OutputPresets, conf.OutputTunes)...)
 			args = append(args, "-g", fmt.Sprintf("%d", gop), "-keyint_min", fmt.Sprintf("%d", gop))
-			// -sc_threshold is an x264 option; NVENC ignores it and warns, so only add it for libx264.
+			// Keep keyframes at the fixed -g interval: x264 uses -sc_threshold 0, NVENC the
+			// equivalent -no-scenecut 1 (disable adaptive I-frame insertion at scene cuts).
 			if forwardVideoEncoderName() == "libx264" {
 				args = append(args, "-sc_threshold", "0")
+			} else {
+				args = append(args, "-no-scenecut", "1")
 			}
 			args = append(args, "-af", "aresample=async=1:first_pts=0", "-c:a", "aac", "-b:a", "128k")
 		} else {
@@ -641,6 +650,9 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		return errors.Errorf("invalid program mode %v", mode)
 	}
 
+	v.lock.Lock()
+	v.args = redactForwardArgs(args)
+	v.lock.Unlock()
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
 	// The slate clock uses the process timezone; honor the configured one (the container default
 	// is usually UTC, which would show the wrong local time).

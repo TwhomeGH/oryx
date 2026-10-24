@@ -126,7 +126,9 @@
         "ffmpegArgs": "FFmpeg arguments",
         "sourceRate": "Source fps",
         "empty": "No metrics yet (the target may not be running).",
-        "ffmpegArgsIdle": "Not running yet; the actual command appears once this target starts forwarding."
+        "ffmpegArgsIdle": "Not running yet; the actual command appears once this target starts forwarding.",
+        "ffmpegArgsProgram": "Program source (normalize/CFR, encoded once)",
+        "ffmpegArgsFanout": "Target output (each target, -c copy)"
       },
       "statusTitle": "Forward status",
       "statusShort": "Forward",

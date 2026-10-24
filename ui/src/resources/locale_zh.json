@@ -806,7 +806,9 @@
         "ffmpegArgs": "FFmpeg 参数",
         "sourceRate": "来源 fps",
         "empty": "尚無指標（目標可能未在執行）。",
-        "ffmpegArgsIdle": "尚未启动；目标开始转推后会显示实际命令。"
+        "ffmpegArgsIdle": "尚未启动；目标开始转推后会显示实际命令。",
+        "ffmpegArgsProgram": "节目源（补强/CFR，只编码一次）",
+        "ffmpegArgsFanout": "各目标输出（-c copy）"
       },
       "statusTitle": "转播状态",
       "statusShort": "转播",

@@ -430,11 +430,17 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 						elem["programFailover"] = status.ProgramFailover
 						// The fallback is active when the program is holding the last frame or
 						// showing the slate because the source is temporarily offline.
-						elem["fallback"] = !status.ProgramSourceActive
+						// "fallback" means the program is currently showing the last frame / slate because the source
+						// dropped. When the target is idle (no source ever selected, or stopped) there is no fallback —
+						// otherwise a restarted server would show "來源中斷" for targets that never started.
+						elem["fallback"] = status.State == forwardStateRunning && !status.ProgramSourceActive
 					}
 					elem["programSwitches"] = status.ProgramSwitches
 					if status.ProgramLastError != "" {
 						elem["programLastError"] = status.ProgramLastError
+					}
+					if status.ProgramArgs != "" {
+						elem["programArgs"] = status.ProgramArgs
 					}
 					if len(status.ProgramLogs) > 0 {
 						elem["programLogs"] = status.ProgramLogs
@@ -795,6 +801,7 @@ type ForwardTaskStatus struct {
 	ProgramSourceActive bool
 	ProgramSourceRate   string
 	ProgramLastError    string
+	ProgramArgs         string
 	ProgramLogs         []string
 	ProgramSwitches     int
 	Encoder             string
@@ -990,6 +997,7 @@ func (v *ForwardTask) queryStatus() ForwardTaskStatus {
 			status.ProgramSourceActive, status.ProgramSwitches = ps.SourceActive, ps.Switches
 			status.ProgramSourceRate = ps.SourceRate
 			status.ProgramLastError = ps.LastError
+			status.ProgramArgs = ps.Args
 			status.ProgramLogs = ps.Logs
 		}
 	}
@@ -1004,6 +1012,19 @@ func (v *ForwardTask) queryStatus() ForwardTaskStatus {
 		status.Encoder = "copy"
 	}
 	status.FFmpegArgs = v.ffmpegArgs
+	if status.FFmpegArgs == "" {
+		// Idle targets have no recorded command yet; show the command that WOULD run so the
+		// diagnostics page is useful before starting (placeholders mark the unknown parts).
+		gop := forwardGOPFrames(status.ProgramSourceRate, forwardSlateConfigLoad(context.Background()).KeyframeSeconds)
+		preview := forwardFanoutArgs(v.config != nil && v.config.Normalize, gop,
+			fmt.Sprintf("http://localhost:%v/live/__forward_<source>.flv", forwardProgramHTTPPort),
+			"rtmp://<platform>/<app>/<stream>")
+		redacted := make([]string, len(preview))
+		for i, a := range preview {
+			redacted[i] = redactForwardURL(a)
+		}
+		status.FFmpegArgs = strings.Join(redacted, " ") + "   (預覽：尚未啟動)"
+	}
 	if v.config != nil {
 		status.Ended = v.config.Ended
 		status.EndedAt = v.config.EndedAt
@@ -1164,6 +1185,16 @@ func redactForwardURL(s string) string {
 	}
 	return u.String()
 }
+
+// redactForwardArgs joins and redacts an ffmpeg command line.
+func redactForwardArgs(args []string) string {
+	out := make([]string, len(args))
+	for i, a := range args {
+		out[i] = redactForwardURL(a)
+	}
+	return strings.Join(out, " ")
+}
+
 func (v *ForwardTask) setFFmpegArgs(args []string) {
 	redacted := make([]string, len(args))
 	for i, a := range args {

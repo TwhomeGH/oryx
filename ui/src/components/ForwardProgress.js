@@ -45,7 +45,7 @@ function Sparkline({data}) {
  *   log, the metrics object, and the diagnostics timeline / recent logs of the target.
  * @returns {React.ReactElement} Local progress summary and raw diagnostics.
  */
-export default function ForwardProgress({log, metrics, events, logs, encoder, ffmpegArgs, programSourceRate, programLastError, programLogs}) {
+export default function ForwardProgress({log, metrics, events, logs, encoder, ffmpegArgs, programSourceRate, programLastError, programLogs, programArgs}) {
   const {t} = useTranslation();
   const progress = parseForwardProgress(log);
   // Hardware encoders (NVENC/VAAPI/QSV/AMF/VideoToolbox) vs software (libx264).
@@ -62,7 +62,7 @@ export default function ForwardProgress({log, metrics, events, logs, encoder, ff
     }
   }
 
-  if (!log && !metrics && !events?.length && !logs?.length && !ffmpegArgs && !programLastError && !(programLogs?.length)) {
+  if (!log && !metrics && !events?.length && !logs?.length && !ffmpegArgs && !programLastError && !(programLogs?.length) && !programArgs) {
     return <div className="small text-muted">{t('forward.progress.empty')}</div>;
   }
 
@@ -86,9 +86,15 @@ export default function ForwardProgress({log, metrics, events, logs, encoder, ff
       <pre className="small mb-0" style={{whiteSpace: 'pre-wrap', overflowWrap: 'anywhere'}}>{log}</pre>
     </details>}
     <details className="mt-1">
-      <summary>{t('forward.progress.ffmpegArgs')}</summary>
+      <summary>{t('forward.progress.ffmpegArgsProgram')}</summary>
+      {programArgs
+        ? <pre className='small mb-0' style={{whiteSpace: 'pre-wrap', overflowWrap: 'anywhere'}}>{programArgs}</pre>
+        : <div className='small text-muted'>{t('forward.progress.ffmpegArgsIdle')}</div>}
+    </details>
+    <details className="mt-1">
+      <summary>{t('forward.progress.ffmpegArgsFanout')}</summary>
       {ffmpegArgs
-        ? <pre className="small mb-0" style={{whiteSpace: 'pre-wrap', overflowWrap: 'anywhere'}}>{ffmpegArgs}</pre>
+        ? <pre className='small mb-0' style={{whiteSpace: 'pre-wrap', overflowWrap: 'anywhere'}}>{ffmpegArgs}</pre>
         : <div className='small text-muted'>{t('forward.progress.ffmpegArgsIdle')}</div>}
     </details>
     {events?.length > 0 && <details className="mt-1">

@@ -464,7 +464,7 @@ hold : -c copy（不轉碼，斷源時凍結最後一格）`}
                             {file.lastErrorAt?.format('YYYY-MM-DD HH:mm:ss')}
                           </div>}
                         </td>
-                        <td style={{ maxWidth: 360, wordBreak: 'break-word' }}><ForwardProgress log={file.frame?.log} metrics={file.metrics} events={file.events} logs={file.logs} encoder={file.encoder} ffmpegArgs={file.ffmpegArgs} programSourceRate={file.programSourceRate} programLastError={file.programLastError} programLogs={file.programLogs} /></td>
+                        <td style={{ maxWidth: 360, wordBreak: 'break-word' }}><ForwardProgress log={file.frame?.log} metrics={file.metrics} events={file.events} logs={file.logs} encoder={file.encoder} ffmpegArgs={file.ffmpegArgs} programSourceRate={file.programSourceRate} programLastError={file.programLastError} programLogs={file.programLogs} programArgs={file.programArgs} /></td>
                       </tr>;
                     })
                   }

@@ -545,7 +545,9 @@
         "ffmpegArgs": "FFmpeg 引数",
         "sourceRate": "ソース fps",
         "empty": "まだ指標がありません（ターゲットが実行中でない可能性）。",
-        "ffmpegArgsIdle": "まだ実行していません。転送開始後に実際のコマンドが表示されます。"
+        "ffmpegArgsIdle": "まだ実行していません。転送開始後に実際のコマンドが表示されます。",
+        "ffmpegArgsProgram": "番組ソース（normalize/CFR、1回エンコード）",
+        "ffmpegArgsFanout": "各ターゲット出力（-c copy）"
       },
       "statusTitle": "転送ステータス",
       "statusShort": "転送",
