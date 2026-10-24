@@ -276,6 +276,13 @@ func doMain(ctx context.Context) error {
 		return errors.Wrapf(err, "start forward worker")
 	}
 
+	// Clean SRS_STREAM_ACTIVE entries whose publisher was killed without on_unpublish (ghost streams).
+	janitor := NewStreamJanitor(60 * time.Second)
+	defer janitor.Close()
+	if err := janitor.Start(ctx); err != nil {
+		return errors.Wrapf(err, "start stream janitor")
+	}
+
 	// Create worker for vLive.
 	vLiveWorker = NewVLiveWorker()
 	defer vLiveWorker.Close()
