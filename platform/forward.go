@@ -260,6 +260,25 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 				ohttp.WriteData(ctx, w, r, nil)
 				logger.Tf(ctx, "forward %v ok, platform=%v", action, userConf.Platform)
 				return nil
+			case "metrics":
+				// Return the sampled history for one target (newest first in Redis, reversed here).
+				if userConf.Platform == "" {
+					return errors.Errorf("invalid platform=%v", userConf.Platform)
+				}
+				key := fmt.Sprintf("%v:%v", SRS_FORWARD_METRICS, userConf.Platform)
+				items, err := rdb.LRange(ctx, key, 0, -1).Result()
+				if err != nil && err != redis.Nil {
+					return errors.Wrapf(err, "lrange %v", key)
+				}
+				samples := make([]map[string]interface{}, 0, len(items))
+				for i := len(items) - 1; i >= 0; i-- {
+					var m map[string]interface{}
+					if err := json.Unmarshal([]byte(items[i]), &m); err == nil {
+						samples = append(samples, m)
+					}
+				}
+				ohttp.WriteData(ctx, w, r, samples)
+				return nil
 			case "delete":
 				// Only custom forwarding configs are removable, built-in platforms are protected.
 				if !strings.Contains(userConf.Platform, "forwarding-") {

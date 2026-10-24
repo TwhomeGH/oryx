@@ -140,7 +140,15 @@
       "masterHint": "Pause/resume ALL forwards without changing each target's own enabled setting. It only resumes the targets you enabled; it never enables the others.",
       "normalizeArgs": "Arguments used",
       "statusPaused": "Forward paused",
-      "programError": "Program publisher log"
+      "programError": "Program publisher log",
+      "history": {
+        "title": "Pipeline history (last hour)",
+        "drift": "Media clock drift",
+        "fps": "Output FPS",
+        "bitrate": "Bitrate",
+        "empty": "Not enough samples yet.",
+        "samples": "{{count}} samples (5s interval)"
+      }
     },
     "camera": {
       "s3": "There is no stream. Please start the live event and wait for about 30 seconds, the list will update automatically.",

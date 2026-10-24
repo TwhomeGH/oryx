@@ -820,7 +820,15 @@
       "masterHint": "暫停/恢復全部轉播，不會改動各目標的啟用設定；只會恢復你已啟用的目標，不會自動開啟其他目標。",
       "normalizeArgs": "將使用的引數",
       "statusPaused": "轉播已暫停",
-      "programError": "節目源釋出日誌"
+      "programError": "節目源釋出日誌",
+      "history": {
+        "title": "管線歷史（最近一小時）",
+        "drift": "媒體時鐘漂移",
+        "fps": "輸出 fps",
+        "bitrate": "位元率",
+        "empty": "樣本不足，稍後再看。",
+        "samples": "{{count}} 個樣本（5 秒間隔）"
+      }
     },
     "vle": {
       "tip": "將檔案轉直播流",
