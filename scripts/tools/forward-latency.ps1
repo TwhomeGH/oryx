@@ -1,3 +1,38 @@
+<#
+.SYNOPSIS
+  量測 Oryx 轉推的本機延遲（program 與目標輸出的媒體時間差）。
+
+.DESCRIPTION
+  建立一個本機 TEST 目標，取樣 program 與目標輸出的 PTS，計算中位數延遲。
+  不含目標平台與播放器的延遲。有非 TEST 目標啟用時會中止，避免測試流量外推。
+
+.PARAMETER Container
+  Docker 容器名稱，預設 oryx。
+
+.PARAMETER Endpoint
+  Oryx 平台網址，預設自動偵測。
+
+.PARAMETER Source
+  指定既有來源（app/stream），例如 live/livestream。省略時需搭配 -TestSource。
+
+.PARAMETER TestSource
+  自動啟動本機測試來源再用它量測。
+
+.PARAMETER Samples
+  取樣次數，預設 5。
+
+.PARAMETER IntervalSec
+  取樣間隔秒數，預設 3。
+
+.PARAMETER TakeOverRealTargets
+  允許暫時停用非 TEST 的正式目標，結束後復原。預設關閉。
+
+.EXAMPLE
+  pwsh scripts/tools/forward-latency.ps1 -TestSource
+
+.EXAMPLE
+  pwsh scripts/tools/forward-latency.ps1 -Source live/livestream -Samples 10
+#>
 # Measure the latency the Oryx forward itself adds: the video PTS lag of the forwarded target
 # behind the program stream (the source as seen by the fanout). This excludes the platform's own
 # latency, so you can tell how much of the end-to-end delay is Oryx's.

@@ -1,3 +1,62 @@
+<#
+.SYNOPSIS
+  一鍵啟動本機來源與轉推目標，快速確認轉推管線可運作。
+
+.DESCRIPTION
+  啟動一個測試來源（預設內建 200kbps 樣本），建立 TEST 目標，印出狀態/指標/事件，
+  可選中斷來源（-Outage）、備援畫面（-Slate）、預覽（-Play）。
+
+.PARAMETER Source
+  測試來源的本機檔案路徑（舊名稱；-InputFile 為新版）。
+
+.PARAMETER InputFile
+  指定本機媒體檔作為測試來源（覆寫內建樣本）。建議用高碼率 CFR 樣本，才測得出畫質差異。
+
+.PARAMETER Endpoint
+  Oryx 平台網址，預設自動偵測容器對外埠。
+
+.PARAMETER Container
+  Docker 容器名稱，預設 oryx。
+
+.PARAMETER Rtmp
+  RTMP 推流位址，預設自動偵測。
+
+.PARAMETER Outage
+  測試來源中斷與恢復，觀察下游是否維持（hold 凍結 / slate 時鐘）。
+
+.PARAMETER Play
+  開啟 ffplay 預覽（預設開啟；-NoPlay 可關閉）。
+
+.PARAMETER NoPlay
+  不開啟預覽（適合 CI 或無顯示環境）。
+
+.PARAMETER Normalize
+  （已廢除）補強轉碼已改為全域設定，此參數不再影響。
+
+.PARAMETER Slate
+  使用 slate 備援模式（composite，顯示時鐘與說明文字）。
+
+.PARAMETER Keep
+  保留來源與目標，方便到 UI 查看。搭配 -KeepMinutes 自動停止。
+
+.PARAMETER KeepMinutes
+  -Keep 的保留時間（預設 10 分鐘，0 = 不限）。
+
+.PARAMETER TakeOverRealTargets
+  允許測試暫時停用非 TEST 的正式目標，結束後復原。預設關閉（有正式目標啟用時直接中止）。
+
+.PARAMETER Compare
+  對照模式：提示以全域 normalize 開/關各錄一次（per-target normalize 已無效）。
+
+.EXAMPLE
+  pwsh scripts/tools/forward-quick-test.ps1
+
+.EXAMPLE
+  pwsh scripts/tools/forward-quick-test.ps1 -InputFile "C:\videos\clean-60.mp4" -Keep -KeepMinutes 3
+
+.EXAMPLE
+  pwsh scripts/tools/forward-quick-test.ps1 -Slate -Outage -Play
+#>
 #!/usr/bin/env pwsh
 #
 # 轉推快速測試工具 (forward quick test)

@@ -1,4 +1,18 @@
-﻿#!/usr/bin/env pwsh
+<#
+.SYNOPSIS
+  列出 GPU 使用情況：容器內的行程與主機上占用 VRAM 的程序。
+
+.DESCRIPTION
+  用 nvidia-smi 讀取顯卡型號、利用率、VRAM，並分別列出容器內與主機上的程序，
+  用來判斷「VRAM 被誰吃掉」。
+
+.EXAMPLE
+  pwsh scripts/tools/gpu-who.ps1
+.PARAMETER Container
+  Oryx 容器名稱，預設 oryx。
+
+#>
+#!/usr/bin/env pwsh
 #
 # GPU 顯存占用快速查詢 (gpu-who)
 #

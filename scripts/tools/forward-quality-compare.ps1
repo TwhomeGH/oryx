@@ -1,3 +1,37 @@
+<#
+.SYNOPSIS
+  比較兩條流的畫質（PSNR / SSIM / VMAF），用於評估補強轉碼或碼率調整的損失。
+
+.DESCRIPTION
+  同時錄製兩條流（避免動態來源錄到不同內容），以 -ss 搜尋最佳時間偏移後，對整段做
+  多幀平均。VMAF 為主要指標（人眼感知），PSNR/SSIM 為輔。也輸出拼貼圖供人工複核。
+
+.PARAMETER A
+  參考流（通常是不轉碼的 copy）。與 -B 成對使用。
+
+.PARAMETER B
+  待比較流（通常是 normalize 或不同碼率）。與 -A 成對使用。
+
+.PARAMETER Source
+  用正式來源（app/stream，例如 live/livestream）自動建立 copy/normalize 兩個 TEST 目標，
+  比對完自動刪除。會先檢查是否有非 TEST 的目標啟用，避免測試流量外推。
+
+.PARAMETER Seconds
+  每邊錄製秒數（預設 15）。越長越能涵蓋大動態，但耗時更久。
+
+.PARAMETER Out
+  輸出目錄（A.mp4/B.mp4、A-tiles.png/B-tiles.png 拼貼圖）。
+  預設 <repo>\.tmp\forward-quality-compare。
+
+.EXAMPLE
+  pwsh scripts/tools/forward-quality-compare.ps1 -A "http://localhost:882/live/copy.flv" -B "http://localhost:882/live/norm.flv"
+
+.EXAMPLE
+  pwsh scripts/tools/forward-quality-compare.ps1 -Source live/livestream -Seconds 20
+
+.NOTES
+  SRS HTTP-FLV 網址需以 .flv 結尾（缺少時工具會自動補上）。
+#>
 #!/usr/bin/env pwsh
 #
 # 轉推畫質對比 (forward-quality-compare)

@@ -1,3 +1,19 @@
+<#
+.SYNOPSIS
+  驗證 Valkey/Redis 升級後的相容性與資料保留。
+
+.DESCRIPTION
+  啟動測試容器、寫入代表性資料、切換映像版本並重啟，確認既有 key 與 TTL 仍可讀取。
+  僅供本地驗證，不會動到正式容器。
+.PARAMETER SourceImage
+  升級前的映像（預設依現有設定）。
+.PARAMETER TargetImage
+  升級後的映像。
+.PARAMETER GoImage
+  建置驗證程式用的 Go 映像。
+.PARAMETER SkipBareBinaryCheck
+  略過純二進位相容性檢查。
+#>
 # Synthetic migration rehearsal only. Never mounts or connects to production data.
 param(
     [string]$SourceImage = 'ghcr.io/twhomegh/oryx:latest',

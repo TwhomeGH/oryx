@@ -17,6 +17,22 @@
       pwsh scripts/tools/local-deploy.ps1 -Check                                    # 只回報（不建置/不重建）
       pwsh scripts/tools/local-deploy.ps1 -ComposeDir "C:\other" -Save              # 只更新設定
       pwsh scripts/tools/local-deploy.ps1                                           # 建置 + 回報
+.PARAMETER Image
+    映像標籤，預設 oryx:local。
+.PARAMETER Container
+    容器名稱，預設 oryx。
+.PARAMETER ComposeDir
+    docker-compose 所在目錄；指定後會記住供下次使用。
+.PARAMETER Check
+    只檢查映像／容器／原始碼的版本落差，不建置也不部署。
+.PARAMETER Deploy
+    建置後以 --force-recreate 重建容器，確保套用新映像。
+.PARAMETER Save
+    儲存本次的 -ComposeDir 設定。
+.PARAMETER DryRun
+    只印出將執行的動作，不實際變更。
+.PARAMETER Help
+    顯示說明。
 #>
 param(
     [string]$Image,
