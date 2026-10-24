@@ -21,20 +21,23 @@ function ScaleChart({values, color, min, max, band, unit, height = 64}) {
   const bandRect = band
     ? { y: y(band[1]), h: Math.max(1, y(band[0]) - y(band[1])) }
     : null;
+  const fmt = v => (Math.abs(v) >= 100 ? Math.round(v) : v.toFixed(1)).replace(/\.0$/, '');
 
   return (
-    <div className="d-flex align-items-center">
-      <div className="text-muted small pe-1" style={{width: 46, textAlign: 'right'}}>{max}{unit}</div>
+    <div className="d-inline-flex align-items-stretch">
+      {/* Vertical scale: max at the top, min at the bottom. */}
+      <div className="d-flex flex-column justify-content-between text-end text-muted small pe-1" style={{height}}>
+        <span>{fmt(max)}{unit}</span>
+        <span>{fmt(min)}{unit}</span>
+      </div>
       <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
         {bandRect && <rect x="0" y={bandRect.y} width={width} height={bandRect.h} fill="rgba(25,135,84,0.15)" />}
         <line x1="0" y1={y(0)} x2={width} y2={y(0)} stroke="#adb5bd" strokeWidth="0.5" strokeDasharray="2 2" />
         <polyline fill="none" stroke={color} strokeWidth="1.5" points={points} />
       </svg>
-      <div className="text-muted small ps-1" style={{width: 46}}>{min}{unit}</div>
     </div>
   );
 }
-
 /** Shows the sampled pipeline history (drift / fps / bitrate) for one forward target. */
 export default function ForwardHistory({platform}) {
   const {t} = useTranslation();
