@@ -294,8 +294,9 @@ const (
 	// per-target enabled preference.
 	SRS_FORWARD_ENABLED = "SRS_FORWARD_ENABLED"
 	// The fallback slate configuration (timezone, text, offline-stop policy), a JSON string.
-	SRS_FORWARD_SLATE = "SRS_FORWARD_SLATE"
-	SRS_FORWARD_TASK  = "SRS_FORWARD_TASK"
+	SRS_FORWARD_SLATE   = "SRS_FORWARD_SLATE"
+	SRS_FORWARD_TASK    = "SRS_FORWARD_TASK"
+	SRS_FORWARD_METRICS = "SRS_FORWARD_METRICS"
 	// For virtual live channel/stream.
 	SRS_VLIVE_CONFIG = "SRS_VLIVE_CONFIG"
 	SRS_VLIVE_TASK   = "SRS_VLIVE_TASK"

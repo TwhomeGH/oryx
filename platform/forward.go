@@ -238,9 +238,14 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 				if action == "end" {
 					endConf.Ended = true
 					endConf.EndedAt = time.Now().Unix()
+					// The end screen is only renderable by the composite publisher; a hold target
+					// has no way to show it, and leaving the fanout running would replay the same
+					// source forever. Stop the target immediately instead.
+					endConf.Enabled = false
 				} else {
 					endConf.Ended = false
 					endConf.EndedAt = 0
+					endConf.Enabled = true
 				}
 				if newB, err := json.Marshal(&endConf); err != nil {
 					return errors.Wrapf(err, "marshal %v", endConf.String())
@@ -741,6 +746,7 @@ type ForwardTask struct {
 	// The first valid progress sample of the current fanout run, to measure media-clock drift.
 	metricsFirstSec float64
 	metricsFirstAt  time.Time
+	lastMetricAt    time.Time
 	// The diagnostics timeline and recent FFmpeg logs (bounded rings).
 	logs   []string
 	events []ForwardEvent
@@ -949,6 +955,20 @@ func (v *ForwardTask) updateFrame(frame string) {
 			v.metricsFirstSec, v.metricsFirstAt = progress.mediaSec, now
 		}
 		v.metrics = progress
+		// Sample the history every 5s so the UI can chart drift/fps/no-output over time. The list
+		// is bounded to one hour (720 samples at 5s).
+		if time.Since(v.lastMetricAt) >= 5*time.Second {
+			v.lastMetricAt = now
+			if b, err := json.Marshal(map[string]interface{}{
+				"t": now.Format(time.RFC3339), "fps": progress.fps, "kbps": progress.bitrateKbps,
+				"drift": progress.mediaSec - time.Since(v.metricsFirstAt).Seconds(),
+				"noOut": 0, "frame": progress.frame,
+			}); err == nil {
+				key := fmt.Sprintf("%v:%v", SRS_FORWARD_METRICS, v.Platform)
+				rdb.LPush(context.Background(), key, string(b))
+				rdb.LTrim(context.Background(), key, 0, 719)
+			}
+		}
 	}
 }
 
