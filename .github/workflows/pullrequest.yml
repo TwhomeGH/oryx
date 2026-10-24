@@ -64,6 +64,18 @@ jobs:
       SRS_MAJOR: ${{ env.SRS_MAJOR }}
     runs-on: ubuntu-22.04
 
+  check-tool-docs:
+    name: Check tool script docs
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      # Static check only: every scripts/tools/*.ps1 must have comment-based help and a
+      # .PARAMETER entry for each parameter. Does not run the tools themselves.
+      - name: Check PowerShell comment-based help
+        shell: pwsh
+        run: ./scripts/tools/check-ps1-docs.ps1
+
   run-test:
     name: Run UTest
     runs-on: ubuntu-22.04
