@@ -121,24 +121,50 @@ Section "尋找內容對齊偏移（兩條流管線延遲不同）"
 # different pictures. Search a wide offset window and keep the shift with the highest PSNR.
 $bestOffset = 0.0
 $bestPsnr = -1.0
-foreach ($ms in -4000, -3000, -2000, -1500, -1000, -700, -500, -300, -150, 0, 150, 300, 500, 700, 1000, 1500, 2000, 3000, 4000) {
-    $sec = $ms / 1000.0
-    $probe = & ffmpeg -hide_banner -loglevel info -i $fileA -itsoffset $sec -i $fileB `
-        -lavfi "[0:v]setpts=PTS-STARTPTS[a];[1:v]setpts=PTS-STARTPTS[b];[a][b]psnr" -f null - 2>&1
+$coarseList = 0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 12.0, 15.0
+foreach ($sec in $coarseList) {
+    $probe = & ffmpeg -hide_banner -loglevel info -ss $sec -i $fileB -i $fileA `
+        -t 8 -lavfi "[0:v]setpts=PTS-STARTPTS[a];[1:v]setpts=PTS-STARTPTS[b];[a][b]psnr" -f null - 2>&1
     $line = $probe | Where-Object { $_ -match "PSNR .*average:" } | Select-Object -Last 1
     if ($line -and $line -match "average:([0-9.]+)") {
         $v = [double]$Matches[1]
         if ($v -gt $bestPsnr) { $bestPsnr = $v; $bestOffset = $sec }
     }
 }
-Write-Host ("  最佳偏移：{0:+0.000;-0.000;0.000}s（對齊後 PSNR {1:N2} dB）" -f $bestOffset, $bestPsnr) -ForegroundColor Cyan
+# Second pass: refine +/-0.4s in 0.1s steps around the coarse best.
+$coarseBest = $bestOffset
+foreach ($delta in -0.4, -0.3, -0.2, -0.1, 0.1, 0.2, 0.3, 0.4) {
+    $sec = [Math]::Round($coarseBest + $delta, 1)
+    if ($sec -lt 0) { continue }
+    $probe = & ffmpeg -hide_banner -loglevel info -ss $sec -i $fileB -i $fileA `
+        -t 8 -lavfi "[0:v]setpts=PTS-STARTPTS[a];[1:v]setpts=PTS-STARTPTS[b];[a][b]psnr" -f null - 2>&1
+    $line = $probe | Where-Object { $_ -match "PSNR .*average:" } | Select-Object -Last 1
+    if ($line -and $line -match "average:([0-9.]+)") {
+        $v = [double]$Matches[1]
+        if ($v -gt $bestPsnr) { $bestPsnr = $v; $bestOffset = $sec }
+    }
+}
+Write-Host ("  最佳偏移：{0:N1}s（對齊後 PSNR {1:N2} dB）" -f $bestOffset, $bestPsnr) -ForegroundColor Cyan
 if ($bestPsnr -lt 25) {
     Write-Host "  警告：即使最佳偏移下 PSNR 仍偏低，兩條流可能不是同一段內容（請確認來源與目標設定）。" -ForegroundColor Yellow
 }
 
+Section "VMAF（人眼感知，主要指標）"
+# VMAF tolerates sub-frame timing far better than PSNR/SSIM, so it is the primary number.
+$vmaf = & ffmpeg -hide_banner -loglevel info -ss $bestOffset -i $fileB -i $fileA `
+    -lavfi "[0:v]setpts=PTS-STARTPTS[a];[1:v]setpts=PTS-STARTPTS[b];[a][b]libvmaf" -f null - 2>&1
+$vmafLine = $vmaf | Where-Object { $_ -match "VMAF score" } | Select-Object -Last 1
+if ($vmafLine -and $vmafLine -match "VMAF score:\s*([0-9.]+)") {
+    $score = [double]$Matches[1]
+    $verdict = if ($score -ge 93) { "幾乎無感" } elseif ($score -ge 80) { "輕微差異" } elseif ($score -ge 60) { "可接受" } else { "明顯差異" }
+    Write-Host ("  VMAF: {0:N2}（{1}）" -f $score, $verdict) -ForegroundColor Cyan
+} else {
+    Write-Host "  這個 ffmpeg 沒有 libvmaf，改用 PSNR/SSIM。" -ForegroundColor Yellow
+}
+
 Section "量測 PSNR / SSIM（整段多幀平均）"
 # Average over the whole aligned segment, not a single frame.
-$metrics = & ffmpeg -hide_banner -loglevel info -i $fileA -itsoffset $bestOffset -i $fileB `
+$metrics = & ffmpeg -hide_banner -loglevel info -ss $bestOffset -i $fileB -i $fileA `
     -lavfi "[0:v]setpts=PTS-STARTPTS[a];[1:v]setpts=PTS-STARTPTS[b];[a][b]psnr" `
     -lavfi "[0:v]setpts=PTS-STARTPTS[a2];[1:v]setpts=PTS-STARTPTS[b2];[a2][b2]ssim" -f null - 2>&1
 $found = $metrics | Where-Object { $_ -match "PSNR|SSIM" }
@@ -168,7 +194,7 @@ if ($pngs.Count -eq 0) {
 }
 
 Write-Host ""
-Write-Host "提示：PSNR 越高越好（>35dB 通常難以察覺差異）；SSIM 越接近 1 越好。" -ForegroundColor Yellow
+Write-Host "VMAF：≥93 幾乎無感、≥80 輕微差異、≥60 可接受、<60 明顯差異（人眼感知，比 PSNR 可靠）。" -ForegroundColor Yellow
 
 if ($cleanup) {
     Section "清理對比目標"

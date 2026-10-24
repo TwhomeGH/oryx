@@ -602,8 +602,12 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 			// changes after a program restart. The GOP below uses the same pinned rate.
 			args = append(args, "-fflags", "+genpts", "-fps_mode", "cfr", "-r", rate)
 			args = append(args, forwardVideoEncodeArgs(conf.OutputBitrateMbps, conf.OutputCQ, conf.OutputPresets, conf.OutputTunes)...)
-			args = append(args, "-g", fmt.Sprintf("%d", gop), "-keyint_min", fmt.Sprintf("%d", gop),
-				"-sc_threshold", "0", "-c:a", "aac", "-b:a", "128k", "-ar", "44100")
+			args = append(args, "-g", fmt.Sprintf("%d", gop), "-keyint_min", fmt.Sprintf("%d", gop))
+			// -sc_threshold is an x264 option; NVENC ignores it and warns, so only add it for libx264.
+			if forwardVideoEncoderName() == "libx264" {
+				args = append(args, "-sc_threshold", "0")
+			}
+			args = append(args, "-af", "aresample=async=1:first_pts=0", "-c:a", "aac", "-b:a", "128k")
 		} else {
 			args = append(args, "-c", "copy")
 		}

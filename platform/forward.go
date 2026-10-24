@@ -1026,7 +1026,17 @@ func (v *ForwardTask) stoppedNoOutput() float64 {
 	if v.State != forwardStateRunning {
 		return 0
 	}
-	return time.Since(v.metrics.at).Seconds()
+	// Cap the counter: a fanout that stopped receiving frames hours ago must not report an
+	// ever-growing number. Past the cap the UI shows "stalled" instead of a bogus duration.
+	const maxNoOutput = 300.0
+	sec := time.Since(v.metrics.at).Seconds()
+	if sec > maxNoOutput {
+		return maxNoOutput
+	}
+	if sec < 0 {
+		return 0
+	}
+	return sec
 }
 
 // queryMetrics builds the local output-progress metrics. It must be called with v.lock held.
@@ -1140,9 +1150,14 @@ func redactForwardURL(s string) string {
 	if err != nil || (u.Scheme != "rtmp" && u.Scheme != "rtmps") {
 		return s
 	}
+	// Mask the last path segment (usually the stream key on a real platform) but keep it readable
+	// for local targets, where the segment is the output stream name and identifies the target.
 	if parts := strings.Split(strings.Trim(u.Path, "/"), "/"); len(parts) >= 2 {
-		parts[len(parts)-1] = "***"
-		u.Path = "/" + strings.Join(parts, "/")
+		isLocal := u.Host == "localhost" || strings.HasPrefix(u.Host, "127.0.0.1") || strings.HasPrefix(u.Host, "localhost:")
+		if !isLocal {
+			parts[len(parts)-1] = "***"
+			u.Path = "/" + strings.Join(parts, "/")
+		}
 	}
 	if u.RawQuery != "" {
 		u.RawQuery = "secret=***"
