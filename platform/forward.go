@@ -986,7 +986,8 @@ func (v *ForwardTask) updateFrame(frame string) {
 		v.metrics = progress
 		// Sample the history every 5s so the UI can chart drift/fps/no-output over time. The list
 		// is bounded to one hour (720 samples at 5s).
-		if time.Since(v.lastMetricAt) >= 5*time.Second {
+		// The history is optional (unit tests construct a task without Redis); skip when absent.
+		if rdb != nil && time.Since(v.lastMetricAt) >= 5*time.Second {
 			v.lastMetricAt = now
 			if b, err := json.Marshal(map[string]interface{}{
 				"t": now.Format(time.RFC3339), "fps": progress.fps, "kbps": progress.bitrateKbps,
