@@ -202,7 +202,7 @@ try {
     $label = "TEST quick"
     Step "啟用轉推：本機目標 rtmp://localhost/live/$($script:TgtID)（$label）failover=$fmode"
     Api "POST" "/terraform/v1/ffmpeg/forward/secret" @{
-        action = "update"; platform = $script:Platform; server = "rtmp://localhost/live/"; secret = $script:TgtID; enabled = $true; ended = $false; endedAt = 0; custom = $true; label = $label; normalize = [bool]$Normalize; failover = $(if ($Slate) { "slate" } else { "" })
+        action = "update"; platform = $script:Platform; stream = $script:SrcID; server = "rtmp://localhost/live/"; secret = $script:TgtID; enabled = $true; ended = $false; endedAt = 0; custom = $true; label = $label; normalize = [bool]$Normalize; failover = $(if ($Slate) { "slate" } else { "" })
     } | Out-Null
 
     if ($Compare) {

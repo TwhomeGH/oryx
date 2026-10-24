@@ -1320,13 +1320,24 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 		}
 
 		streamName := v.configSnapshot().Stream
-		// Never select this task's own output stream, otherwise forwarding would loop.
+		// Never select any forward output stream as a source: normalize/slate make outputs look
+		// like fresh active streams, so an auto-select could bind a target to another target's
+		// output (a loop and wrong ordering). Exclude this task's own output and every other
+		// configured target's output stream.
 		ownOutput := v.ownOutputStream()
-		fmt.Printf("[sel-diag] platform=%v streamName=%q ownOutput=%q candidates=%v\n", v.Platform, streamName, ownOutput, len(streams))
-		for _, raw := range streams {
-			var s SrsStream
-			if err := json.Unmarshal([]byte(raw), &s); err == nil {
-				fmt.Printf("[sel-diag]   candidate app=%v stream=%v update=%v\n", s.App, s.Stream, s.Update)
+		forwardOutputs := map[string]bool{}
+		if conf, err := rdb.HGetAll(ctx, SRS_FORWARD_CONFIG).Result(); err == nil {
+			for platform, raw := range conf {
+				if platform == v.Platform {
+					continue
+				}
+				var other ForwardConfigure
+				if err := json.Unmarshal([]byte(raw), &other); err != nil {
+					continue
+				}
+				if s := forwardOutputName(other); s != "" {
+					forwardOutputs[s] = true
+				}
 			}
 		}
 
@@ -1338,6 +1349,9 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 			}
 
 			if ownOutput != "" && stream.Stream == ownOutput {
+				continue
+			}
+			if forwardOutputs[stream.Stream] {
 				continue
 			}
 
@@ -1695,6 +1709,23 @@ func (v *ForwardTask) ownOutputStream() string {
 		secret = secret[:i]
 	}
 	full := fmt.Sprintf("%v/%v", strings.TrimSuffix(v.config.Server, "/"), strings.TrimPrefix(secret, "/"))
+	if i := strings.LastIndex(full, "/"); i >= 0 {
+		return full[i+1:]
+	}
+	return full
+}
+
+// forwardOutputName returns the local output stream name of a target config ("" for remote
+// platforms), used to exclude other targets' outputs from source auto-selection.
+func forwardOutputName(conf ForwardConfigure) string {
+	if !strings.Contains(conf.Server, "localhost") {
+		return ""
+	}
+	secret := conf.Secret
+	if i := strings.Index(secret, "?"); i >= 0 {
+		secret = secret[:i]
+	}
+	full := fmt.Sprintf("%v/%v", strings.TrimSuffix(conf.Server, "/"), strings.TrimPrefix(secret, "/"))
 	if i := strings.LastIndex(full, "/"); i >= 0 {
 		return full[i+1:]
 	}
