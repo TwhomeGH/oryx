@@ -10,11 +10,11 @@ import {Token} from '../utils';
  * @param {{values: number[], color: string, min: number, max: number, band?: [number, number],
  *          unit: string, height?: number}} props Chart data and scale.
  */
-function ScaleChart({values, color, min, max, band, unit, height = 46}) {
+function ScaleChart({values, color, min, max, band, unit, height = 64}) {
   if (!values || values.length < 2) {
     return <div className="text-muted small">—</div>;
   }
-  const width = 260;
+  const width = 320;
   const span = max - min || 1;
   const y = v => height - ((Math.min(Math.max(v, min), max) - min) / span) * height;
   const points = values.map((v, i) => `${((i / (values.length - 1)) * width).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
@@ -24,13 +24,13 @@ function ScaleChart({values, color, min, max, band, unit, height = 46}) {
 
   return (
     <div className="d-flex align-items-center">
-      <div className="text-muted small pe-1" style={{width: 34, textAlign: 'right'}}>{max}{unit}</div>
+      <div className="text-muted small pe-1" style={{width: 46, textAlign: 'right'}}>{max}{unit}</div>
       <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
         {bandRect && <rect x="0" y={bandRect.y} width={width} height={bandRect.h} fill="rgba(25,135,84,0.15)" />}
         <line x1="0" y1={y(0)} x2={width} y2={y(0)} stroke="#adb5bd" strokeWidth="0.5" strokeDasharray="2 2" />
         <polyline fill="none" stroke={color} strokeWidth="1.5" points={points} />
       </svg>
-      <div className="text-muted small ps-1" style={{width: 34}}>{min}{unit}</div>
+      <div className="text-muted small ps-1" style={{width: 46}}>{min}{unit}</div>
     </div>
   );
 }
@@ -104,7 +104,7 @@ export default function ForwardHistory({platform}) {
   };
 
   return (
-    <div className="mt-2">
+    <div className="mt-3 pt-3 border-top">
       <div className="small fw-bold">{t('forward.history.title')}
         <span className="text-muted fw-normal ps-2">{first} – {last}</span>
       </div>
