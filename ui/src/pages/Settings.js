@@ -116,12 +116,45 @@ function SettingDisk() {
           {gpu && !gpu.available && <div className="text-muted">{t('settings.gpuNone')}</div>}
           {gpu && gpu.available && <>
             <div>{gpu.name}</div>
-            <div className="my-2">
+            <div className="my-2 d-flex flex-wrap gap-2">
               <Badge bg={gpu.utilPct >= 90 ? 'danger' : gpu.utilPct >= 70 ? 'warning' : 'success'}>
                 {t('settings.gpuUtil')}: {gpu.utilPct}%
               </Badge>
+              <Badge bg={gpu.encUtilPct >= 90 ? 'danger' : gpu.encUtilPct >= 70 ? 'warning' : 'secondary'}>
+                {t('settings.gpuEnc')}: {gpu.encUtilPct}%
+              </Badge>
+              <Badge bg={gpu.decUtilPct >= 90 ? 'danger' : gpu.decUtilPct >= 70 ? 'warning' : 'secondary'}>
+                {t('settings.gpuDec')}: {gpu.decUtilPct}%
+              </Badge>
             </div>
-            <div className="text-muted small">{t('settings.gpuMem')}: {gpu.memUsedMB} / {gpu.memTotalMB} MB</div>
+            <Table size="sm" borderless className="mb-2">
+              <tbody>
+                <tr>
+                  <td className="text-muted small">{t('settings.gpuMem')}</td>
+                  <td className="small">{gpu.memUsedMB} / {gpu.memTotalMB} MB</td>
+                  <td className="text-muted small">{t('settings.gpuMemUtil')}</td>
+                  <td className="small">{gpu.memUtilPct}%</td>
+                </tr>
+                <tr>
+                  <td className="text-muted small">{t('settings.gpuSessions')}</td>
+                  <td className="small">{t('settings.gpuEncSessions')}: {gpu.encSessions}</td>
+                  <td className="text-muted small">{t('settings.gpuDecSessions')}</td>
+                  <td className="small">{gpu.decSessions}</td>
+                </tr>
+                <tr>
+                  <td className="text-muted small">{t('settings.gpuTemp')}</td>
+                  <td className="small">{gpu.tempC}°C</td>
+                  <td className="text-muted small">{t('settings.gpuPower')}</td>
+                  <td className="small">{gpu.powerW} / {gpu.powerLimitW} W</td>
+                </tr>
+                <tr>
+                  <td className="text-muted small">{t('settings.gpuClock')}</td>
+                  <td className="small">{gpu.clockMhz} MHz</td>
+                  <td className="text-muted small">{t('settings.gpuVramNote')}</td>
+                  <td className="small">{t('settings.gpuVramHint')}</td>
+                </tr>
+              </tbody>
+            </Table>
             {gpu.processes && gpu.processes.length > 0 && <>
               <div className="small mt-2">{t('settings.gpuProcs')}</div>
               <Table size="sm" borderless className="mb-0">

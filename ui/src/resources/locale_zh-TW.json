@@ -222,7 +222,18 @@
       "outputTuneNvenc": "NVENC tune",
       "outputTuneNvencHint": "hq=畫質優先，ll/ull=低延遲，lossless=無損。none 表示不加 -tune。",
       "outputTuneX264": "libx264 tune",
-      "outputTuneX264Hint": "film 適合實拍；zerolatency 降低延遲但關閉 B 幀。none 為 x264 預設。"
+      "outputTuneX264Hint": "film 適合實拍；zerolatency 降低延遲但關閉 B 幀。none 為 x264 預設。",
+      "gpuEnc": "編碼器",
+      "gpuDec": "解碼器",
+      "gpuMemUtil": "視訊記憶體佔用率",
+      "gpuSessions": "NVENC/NVDEC 會話",
+      "gpuEncSessions": "編碼",
+      "gpuDecSessions": "解碼",
+      "gpuTemp": "溫度",
+      "gpuPower": "功耗",
+      "gpuClock": "SM 時鐘",
+      "gpuVramNote": "視訊記憶體說明",
+      "gpuVramHint": "含主機端程式"
     },
     "coms": {
       "srs4": "SRS(穩定版)",

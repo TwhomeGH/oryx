@@ -771,7 +771,18 @@
       "outputTuneNvenc": "NVENC tune",
       "outputTuneNvencHint": "hq = quality, ll/ull = low latency, lossless = lossless. none omits -tune.",
       "outputTuneX264": "libx264 tune",
-      "outputTuneX264Hint": "film suits live-action; zerolatency lowers latency but disables B-frames. none is the x264 default."
+      "outputTuneX264Hint": "film suits live-action; zerolatency lowers latency but disables B-frames. none is the x264 default.",
+      "gpuEnc": "Encoder",
+      "gpuDec": "Decoder",
+      "gpuMemUtil": "VRAM busy",
+      "gpuSessions": "NVENC/NVDEC sessions",
+      "gpuEncSessions": "encode",
+      "gpuDecSessions": "decode",
+      "gpuTemp": "Temperature",
+      "gpuPower": "Power",
+      "gpuClock": "SM clock",
+      "gpuVramNote": "VRAM note",
+      "gpuVramHint": "Includes host apps"
     },
     "coms": {
       "srs4": "SRS(Stable)",

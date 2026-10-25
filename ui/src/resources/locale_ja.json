@@ -383,7 +383,18 @@
       "outputTuneNvenc": "NVENC tune",
       "outputTuneNvencHint": "hq=画質、ll/ull=低遅延、lossless=可逆。none は -tune を付けません。",
       "outputTuneX264": "libx264 tune",
-      "outputTuneX264Hint": "film は実写向け。zerolatency は低遅延だが B フレーム無効。none は x264 既定。"
+      "outputTuneX264Hint": "film は実写向け。zerolatency は低遅延だが B フレーム無効。none は x264 既定。",
+      "gpuEnc": "エンコーダ",
+      "gpuDec": "デコーダ",
+      "gpuMemUtil": "VRAM使用率",
+      "gpuSessions": "NVENC/NVDEC セッション",
+      "gpuEncSessions": "エンコード",
+      "gpuDecSessions": "デコード",
+      "gpuTemp": "温度",
+      "gpuPower": "消費電力",
+      "gpuClock": "SM クロック",
+      "gpuVramNote": "VRAM 補足",
+      "gpuVramHint": "ホスト側アプリを含む"
     },
     "cb": {
       "title": "シーン紹介",
