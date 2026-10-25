@@ -881,11 +881,20 @@ func (v *ProgramBus) probeSourceAudio(ctx context.Context) {
 	url := fmt.Sprintf("http://localhost:%v/%v/%v.flv", forwardProgramHTTPPort, v.sourceApp, v.sourceStream)
 	for attempt := 0; attempt < 10; attempt++ {
 		out, err := exec.CommandContext(ctx, "ffprobe", "-v", "error", "-select_streams", "a:0",
-			"-show_entries", "stream=bit_rate,sample_rate", "-of", "csv=p=0", url).Output()
+			"-show_entries", "stream=bit_rate,sample_rate", "-of", "default=nw=1", url).Output()
 		if err == nil {
-			parts := strings.Split(strings.TrimSpace(string(out)), ",")
-			bps, _ := strconv.Atoi(strings.TrimSpace(parts[0]))
-			sr, _ := strconv.Atoi(strings.TrimSpace(strings.Join(parts[1:], "")))
+			// csv=p=0 orders fields by the stream's own layout (seen: sample_rate before
+			// bit_rate), so parse named keys instead of positional columns.
+			bps, sr := 0, 0
+			for _, line := range strings.Split(string(out), "\n") {
+				line = strings.TrimSpace(line)
+				if v, ok := strings.CutPrefix(line, "bit_rate="); ok {
+					bps, _ = strconv.Atoi(v)
+				}
+				if v, ok := strings.CutPrefix(line, "sample_rate="); ok {
+					sr, _ = strconv.Atoi(v)
+				}
+			}
 			if bps > 0 {
 				v.setSourceAudio(int32(bps / 1000))
 			}
