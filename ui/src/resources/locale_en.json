@@ -782,7 +782,8 @@
       "gpuPower": "Power",
       "gpuClock": "SM clock",
       "gpuVramNote": "VRAM note",
-      "gpuVramHint": "Includes host apps"
+      "gpuVramHint": "Includes host apps",
+      "gpuWslHint": "WSL does not report encoder/decoder utilization; 0% means unknown, not idle."
     },
     "coms": {
       "srs4": "SRS(Stable)",

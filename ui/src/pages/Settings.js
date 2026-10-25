@@ -127,6 +127,7 @@ function SettingDisk() {
                 {t('settings.gpuDec')}: {gpu.decUtilPct}%
               </Badge>
             </div>
+            {gpu.wsl && <div className="text-muted small mb-2">{t('settings.gpuWslHint')}</div>}
             <Table size="sm" borderless className="mb-2">
               <tbody>
                 <tr>

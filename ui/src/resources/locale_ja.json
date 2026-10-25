@@ -394,7 +394,8 @@
       "gpuPower": "消費電力",
       "gpuClock": "SM クロック",
       "gpuVramNote": "VRAM 補足",
-      "gpuVramHint": "ホスト側アプリを含む"
+      "gpuVramHint": "ホスト側アプリを含む",
+      "gpuWslHint": "WSL ではエンコーダー/デコーダー使用率を報告しません。0% は不明であり、停止中ではありません。"
     },
     "cb": {
       "title": "シーン紹介",

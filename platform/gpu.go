@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"net/http"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -36,9 +37,12 @@ type gpuInfo struct {
 	PowerLimitW float64 `json:"powerLimitW"`
 	ClockMHz    int     `json:"clockMhz"`
 	// NVENC/NVDEC session counts show whether Oryx itself is saturating the encoder.
-	EncSessions int          `json:"encSessions"`
-	DecSessions int          `json:"decSessions"`
-	Processes   []gpuProcess `json:"processes"`
+	EncSessions int `json:"encSessions"`
+	DecSessions int `json:"decSessions"`
+	// WSL's GPU pass-through reports utilization.encoder/decoder as a constant 0 and does not
+	// expose encoder.stats, so a 0% reading there means "unknown", not "idle".
+	WSL       bool         `json:"wsl"`
+	Processes []gpuProcess `json:"processes"`
 }
 
 // queryGPU reads the first GPU via nvidia-smi. An absent GPU returns Available=false, not an
@@ -77,6 +81,7 @@ func queryGPU(ctx context.Context) gpuInfo {
 	info.PowerW = flt(8, "W")
 	info.PowerLimitW = flt(9, "W")
 	info.ClockMHz = num(10, "MHz")
+	info.WSL = isWSL(ctx)
 	if out, err := exec.CommandContext(ctx, "nvidia-smi",
 		"--query-gpu=encoder.stats.sessionCount,decoder.stats.sessionCount", "--format=csv,noheader").Output(); err == nil {
 		fields := strings.Split(strings.TrimSpace(strings.SplitN(string(out), "\n", 2)[0]), ",")
@@ -101,6 +106,16 @@ func queryGPU(ctx context.Context) gpuInfo {
 		}
 	}
 	return info
+}
+
+// isWSL reports whether the platform runs under the Windows Subsystem for Linux, where
+// per-engine GPU utilization counters are not exposed.
+func isWSL(ctx context.Context) bool {
+	out, err := os.ReadFile("/proc/version")
+	if err != nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(string(out)), "microsoft")
 }
 
 // handleMgmtGPUQuery reports GPU utilization (empty when no GPU is exposed to the container).

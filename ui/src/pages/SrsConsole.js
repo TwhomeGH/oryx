@@ -1181,6 +1181,7 @@ function SrsDiagnostics({handleError}) {
               <Badge bg={gpuVariant(gpu.encUtilPct)}>{t('settings.gpuEnc')}: {gpu.encUtilPct}%</Badge>
               <Badge bg={gpuVariant(gpu.decUtilPct)}>{t('settings.gpuDec')}: {gpu.decUtilPct}%</Badge>
             </div>
+            {gpu.wsl && <div className="text-muted small mb-2">{t('settings.gpuWslHint')}</div>}
             <Table size="sm" borderless className="mb-2">
               <tbody>
                 <tr>
