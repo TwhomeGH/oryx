@@ -280,6 +280,13 @@ func doMain(ctx context.Context) error {
 	// reliably report forward outputs (which are proxied), so the sweep deleted live streams and
 	// disconnected players. Ghost entries are instead cleared by the delete/kick path and by SRS's
 	// on_unpublish when a publisher exits normally.
+	//
+	// Restart safety: on a platform (and SRS) restart nothing is publishing yet, so any entries left
+	// in SRS_STREAM_ACTIVE are stale by definition. Clear them once instead of leaving ghost streams
+	// in the console list until each one is individually deleted.
+	if err := rdb.Del(ctx, SRS_STREAM_ACTIVE).Err(); err != nil && err != redis.Nil {
+		return errors.Wrapf(err, "clear stale %v", SRS_STREAM_ACTIVE)
+	}
 
 	// Create worker for vLive.
 	vLiveWorker = NewVLiveWorker()
