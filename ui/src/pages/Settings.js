@@ -49,7 +49,6 @@ function SystemsImpl() {
 // Disk capacity of the platform data dir, to correlate "out of space" with failures.
 function SettingDisk() {
   const [disk, setDisk] = React.useState();
-  const [gpu, setGpu] = React.useState();
   const handleError = useErrorHandler();
   const { t } = useTranslation();
 
@@ -63,17 +62,7 @@ function SettingDisk() {
     }).catch(handleError);
   }, [handleError]);
 
-  const refreshGpu = React.useCallback(() => {
-    axios.post('/terraform/v1/mgmt/gpu/query', {}, {headers: Token.loadBearerHeader()})
-      .then(res => setGpu(res.data.data)).catch(handleError);
-  }, [handleError]);
-
   React.useEffect(() => { refresh(); }, [refresh]);
-  React.useEffect(() => {
-    refreshGpu();
-    const timer = setInterval(refreshGpu, 10000);
-    return () => clearInterval(timer);
-  }, [refreshGpu]);
 
   const gb = (b) => (Number.isFinite(b) ? (b / 1024 / 1024 / 1024).toFixed(1) : '—');
   const variant = (p) => (p >= 95 ? 'danger' : p >= 85 ? 'warning' : 'success');
@@ -109,7 +98,30 @@ function SettingDisk() {
           </>}
         </Accordion.Body>
       </Accordion.Item>
-      <Accordion.Item eventKey="2">
+    </Accordion>
+  );
+}
+
+// GPU state, to tell whether the encoder is actually working (and which engine is busy).
+function SettingGPU() {
+  const [gpu, setGpu] = React.useState();
+  const handleError = useErrorHandler();
+  const { t } = useTranslation();
+
+  const refreshGpu = React.useCallback(() => {
+    axios.post('/terraform/v1/mgmt/gpu/query', {}, {headers: Token.loadBearerHeader()})
+      .then(res => setGpu(res.data.data)).catch(handleError);
+  }, [handleError]);
+
+  React.useEffect(() => {
+    refreshGpu();
+    const timer = setInterval(refreshGpu, 10000);
+    return () => clearInterval(timer);
+  }, [refreshGpu]);
+
+  return (
+    <Accordion defaultActiveKey={["1"]} alwaysOpen>
+      <Accordion.Item eventKey="1">
         <Accordion.Header>{t('settings.gpuTitle')}</Accordion.Header>
         <Accordion.Body>
           {!gpu && <div className="text-muted">{t('settings.gpuLoading')}</div>}
@@ -170,14 +182,13 @@ function SettingDisk() {
                 </tbody>
               </Table>
             </>}
+            <Button className="mt-2" variant="secondary" size="sm" onClick={() => refreshGpu()}>{t('settings.diskRefresh')}</Button>
           </>}
-          <Button className="mt-2" variant="secondary" size="sm" onClick={() => refreshGpu()}>{t('settings.diskRefresh')}</Button>
         </Accordion.Body>
       </Accordion.Item>
     </Accordion>
   );
 }
-
 // A non-clickable section header for the settings navigation.
 function GroupLabel({ children }) {
   return <span className="text-muted small fw-bold text-uppercase d-block mt-3 px-3">{children}</span>;
@@ -219,6 +230,7 @@ function SettingsImpl2({ defaultActiveTab }) {
                 <GroupLabel>{t('settings.groupEngine')}</GroupLabel>
                 <Nav.Link eventKey="hls">HLS</Nav.Link>
                 <Nav.Link eventKey="disk">{t('settings.tabDisk')}</Nav.Link>
+          <Nav.Link eventKey="gpu">{t('settings.tabGpu')}</Nav.Link>
                 <Nav.Link eventKey="streams">{t('settings.tabStreams')}</Nav.Link>
               <Nav.Link eventKey="slate">{t('settings.tabSlate')}</Nav.Link>
 
@@ -237,6 +249,7 @@ function SettingsImpl2({ defaultActiveTab }) {
                 <Tab.Pane eventKey="https"><SettingHttps /></Tab.Pane>
                 <Tab.Pane eventKey="hls"><SettingHighPerformanceHLS /></Tab.Pane>
                 <Tab.Pane eventKey="disk"><SettingDisk /></Tab.Pane>
+          <Tab.Pane eventKey="gpu"><SettingGPU /></Tab.Pane>
                 <Tab.Pane eventKey="beian"><SettingBeian /></Tab.Pane>
                 <Tab.Pane eventKey="limits"><SettingLimits /></Tab.Pane>
                 <Tab.Pane eventKey="llm"><SettingLLM /></Tab.Pane>

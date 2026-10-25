@@ -234,7 +234,8 @@
       "gpuClock": "SM 时钟",
       "gpuVramNote": "显存说明",
       "gpuVramHint": "含主機端程式",
-      "gpuWslHint": "WSL 不回報編碼器/解碼器利用率，顯示 0% 代表「未知」而非「沒在跑」。"
+      "gpuWslHint": "WSL 不回報編碼器/解碼器利用率，顯示 0% 代表「未知」而非「沒在跑」。",
+      "tabGpu": "GPU"
     },
     "coms": {
       "srs4": "SRS(稳定版)",

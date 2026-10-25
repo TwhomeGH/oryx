@@ -783,7 +783,8 @@
       "gpuClock": "SM clock",
       "gpuVramNote": "VRAM note",
       "gpuVramHint": "Includes host apps",
-      "gpuWslHint": "WSL does not report encoder/decoder utilization; 0% means unknown, not idle."
+      "gpuWslHint": "WSL does not report encoder/decoder utilization; 0% means unknown, not idle.",
+      "tabGpu": "GPU"
     },
     "coms": {
       "srs4": "SRS(Stable)",
