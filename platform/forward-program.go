@@ -213,7 +213,9 @@ type ProgramBus struct {
 	srcWidth, srcHeight int32
 	// The source's average frame rate as a rational (e.g. "60" or "1475589000/24728941"), used
 	// as the slate/base frame rate so the video's media clock tracks the source's real time.
-	srcRate string
+	srcRate       string
+	srcAudioKbps  int32
+	srcSampleRate int32
 
 	// The program diagnostics timeline and recent publisher logs (bounded rings).
 	events []ForwardEvent
@@ -453,6 +455,7 @@ func (v *ProgramBus) runHold(ctx context.Context) {
 	// (the composite path does the same for its slate base).
 	if forwardSlateConfigLoad(ctx).Normalize {
 		v.probeSourceSize(ctx)
+		v.probeSourceAudio(ctx)
 	}
 	if err := v.switchPublisher(ctx, programModeLive); err != nil {
 		logger.Wf(ctx, "forward program start relay err %+v", err)
@@ -498,6 +501,7 @@ func (v *ProgramBus) runHold(ctx context.Context) {
 func (v *ProgramBus) runComposite(ctx context.Context) {
 	// Learn the source size/fps while it is live, so the slate base matches it.
 	v.probeSourceSize(ctx)
+	v.probeSourceAudio(ctx)
 	if err := v.switchPublisher(ctx, programModeComposite); err != nil {
 		logger.Wf(ctx, "forward program start composite err %+v", err)
 	}
@@ -513,6 +517,7 @@ func (v *ProgramBus) runComposite(ctx context.Context) {
 		if active && !wasActive {
 			logger.Tf(ctx, "forward program source recovered, restart composite")
 			v.probeSourceSize(ctx)
+			v.probeSourceAudio(ctx)
 			if err := v.switchPublisher(ctx, programModeComposite); err != nil {
 				logger.Wf(ctx, "forward program restart composite err %+v", err)
 			}
@@ -620,7 +625,7 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 			} else {
 				args = append(args, "-no-scenecut", "1")
 			}
-			args = append(args, "-af", "aresample=async=1:first_pts=0", "-c:a", "aac", "-b:a", "128k")
+			args = append(args, "-af", "aresample=async=1:first_pts=0", "-c:a", "aac", "-b:a", fmt.Sprintf("%dk", v.audioKbps()))
 		} else {
 			args = append(args, "-c", "copy")
 		}
@@ -640,7 +645,7 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		args = append(args,
 			"-re",
 			"-f", "lavfi", "-i", forwardSlateVideo(w, h, rate),
-			"-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
+			"-f", "lavfi", "-i", fmt.Sprintf("anullsrc=channel_layout=stereo:sample_rate=%d", v.sampleRate()),
 			"-i", srcURL,
 			"-filter_complex", filter,
 			"-map", "[v]", "-map", "[a]",
@@ -649,7 +654,7 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		args = append(args, "-r", rate)
 		args = append(args, forwardVideoEncodeArgs(slateConf.OutputBitrateMbps, slateConf.OutputCQ, slateConf.OutputPresets, slateConf.OutputTunes)...)
 		args = append(args, "-g", fmt.Sprintf("%d", gop), "-keyint_min", fmt.Sprintf("%d", gop),
-			"-sc_threshold", "0", "-c:a", "aac", "-f", "flv", output)
+			"-sc_threshold", "0", "-c:a", "aac", "-b:a", fmt.Sprintf("%dk", v.audioKbps()), "-f", "flv", output)
 	default:
 		return errors.Errorf("invalid program mode %v", mode)
 	}
@@ -785,6 +790,53 @@ func (v *ProgramBus) setSourceSize(w, h int32, rate string) {
 	v.srcWidth, v.srcHeight, v.srcRate = w, h, rate
 }
 
+// setSourceAudio / sourceAudio carry the probed source audio bitrate so the transcode can keep
+// the original quality instead of forcing every stream to 128kbps.
+func (v *ProgramBus) setSourceAudio(kbps int32) {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	v.srcAudioKbps = kbps
+}
+
+// audioKbps returns the source audio bitrate, clamped to a sane AAC range, defaulting to 128.
+func (v *ProgramBus) audioKbps() int32 {
+	k := v.sourceAudio()
+	if k < 32 || k > 320 {
+		return 128
+	}
+	return k
+}
+
+// setSourceSampleRate / sourceSampleRate carry the source audio sample rate so the composite's
+// silence base matches it (amix otherwise resamples everything to the anullsrc rate).
+func (v *ProgramBus) setSourceSampleRate(rate int32) {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	v.srcSampleRate = rate
+}
+
+func (v *ProgramBus) sourceSampleRate() int32 {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	return v.srcSampleRate
+}
+
+// sampleRate returns the source sample rate (default 48000) so the silence base and the mixed
+// audio keep the original rate instead of being resampled to 44100.
+func (v *ProgramBus) sampleRate() int32 {
+	sr := v.sourceSampleRate()
+	if sr != 44100 && sr != 48000 && sr != 32000 && sr != 22050 {
+		return 48000
+	}
+	return sr
+}
+
+func (v *ProgramBus) sourceAudio() int32 {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	return v.srcAudioKbps
+}
+
 func (v *ProgramBus) sourceSize() (w, h int32, rate string) {
 	v.lock.Lock()
 	defer v.lock.Unlock()
@@ -821,6 +873,36 @@ func (v *ProgramBus) probeSourceSize(ctx context.Context) {
 		}
 	}
 	logger.Wf(ctx, "forward program probe failed, using default 30fps for source=%v/%v", v.sourceApp, v.sourceStream)
+}
+
+// probeSourceAudio reads the source audio bitrate (bits/s) so the program transcode can match it
+// instead of upscaling a low-bitrate source to 128kbps.
+func (v *ProgramBus) probeSourceAudio(ctx context.Context) {
+	url := fmt.Sprintf("http://localhost:%v/%v/%v.flv", forwardProgramHTTPPort, v.sourceApp, v.sourceStream)
+	for attempt := 0; attempt < 10; attempt++ {
+		out, err := exec.CommandContext(ctx, "ffprobe", "-v", "error", "-select_streams", "a:0",
+			"-show_entries", "stream=bit_rate,sample_rate", "-of", "csv=p=0", url).Output()
+		if err == nil {
+			parts := strings.Split(strings.TrimSpace(string(out)), ",")
+			bps, _ := strconv.Atoi(strings.TrimSpace(parts[0]))
+			sr, _ := strconv.Atoi(strings.TrimSpace(strings.Join(parts[1:], "")))
+			if bps > 0 {
+				v.setSourceAudio(int32(bps / 1000))
+			}
+			if sr > 0 {
+				v.setSourceSampleRate(int32(sr))
+			}
+			if bps > 0 || sr > 0 {
+				logger.Tf(ctx, "forward program probed source audio %vkbps %vHz", bps/1000, sr)
+				return
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
 }
 
 // parseFPS parses an ffprobe frame rate such as "25/1" or "30000/1001".
