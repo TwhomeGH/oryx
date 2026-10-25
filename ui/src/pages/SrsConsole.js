@@ -1175,11 +1175,40 @@ function SrsDiagnostics({handleError}) {
           {!gpu && <div className="text-muted small">{t('settings.gpuLoading')}</div>}
           {gpu && !gpu.available && <div className="text-muted small">{t('settings.gpuNone')}</div>}
           {gpu && gpu.available && <>
-            <div className="mb-2">
+            <div className="mb-2 d-flex flex-wrap align-items-center gap-2">
               <b>{gpu.name}</b>
-              <Badge bg={gpuVariant(gpu.utilPct)} className="ms-2">{gpu.utilPct}%</Badge>
-              <span className="ms-2 small text-muted">{gpu.memUsedMB} / {gpu.memTotalMB} MB</span>
+              <Badge bg={gpuVariant(gpu.utilPct)}>{t('settings.gpuUtil')}: {gpu.utilPct}%</Badge>
+              <Badge bg={gpuVariant(gpu.encUtilPct)}>{t('settings.gpuEnc')}: {gpu.encUtilPct}%</Badge>
+              <Badge bg={gpuVariant(gpu.decUtilPct)}>{t('settings.gpuDec')}: {gpu.decUtilPct}%</Badge>
             </div>
+            <Table size="sm" borderless className="mb-2">
+              <tbody>
+                <tr>
+                  <td className="text-muted small">{t('settings.gpuMem')}</td>
+                  <td className="small">{gpu.memUsedMB} / {gpu.memTotalMB} MB</td>
+                  <td className="text-muted small">{t('settings.gpuMemUtil')}</td>
+                  <td className="small">{gpu.memUtilPct}%</td>
+                </tr>
+                <tr>
+                  <td className="text-muted small">{t('settings.gpuSessions')}</td>
+                  <td className="small">{t('settings.gpuEncSessions')}: {gpu.encSessions}</td>
+                  <td className="text-muted small">{t('settings.gpuDecSessions')}</td>
+                  <td className="small">{gpu.decSessions}</td>
+                </tr>
+                <tr>
+                  <td className="text-muted small">{t('settings.gpuTemp')}</td>
+                  <td className="small">{gpu.tempC}°C</td>
+                  <td className="text-muted small">{t('settings.gpuPower')}</td>
+                  <td className="small">{gpu.powerW} / {gpu.powerLimitW} W</td>
+                </tr>
+                <tr>
+                  <td className="text-muted small">{t('settings.gpuClock')}</td>
+                  <td className="small">{gpu.clockMhz} MHz</td>
+                  <td className="text-muted small">{t('settings.gpuVramNote')}</td>
+                  <td className="small">{t('settings.gpuVramHint')}</td>
+                </tr>
+              </tbody>
+            </Table>
             {gpu.processes && gpu.processes.length > 0 && <Table size="sm" borderless className="mb-0">
               <tbody>
                 {gpu.processes.map((proc) => (
