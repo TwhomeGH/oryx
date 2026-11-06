@@ -854,8 +854,10 @@ type ForwardEvent struct {
 	Detail string `json:"detail,omitempty"`
 }
 
-// forwardDiagRingSize bounds the retained diagnostics per forward target.
-const forwardDiagRingSize = 50
+// forwardDiagRingSize bounds the retained diagnostics per forward target. It is larger than the
+// on-screen list so a rare cause (a timestamp jump, a muxer error) is not pushed out by routine
+// reconnect chatter before the operator opens the panel.
+const forwardDiagRingSize = 200
 
 func (v *ForwardTask) String() string {
 	// Identity is immutable; avoid racing runtime fields or logging stream secrets.
@@ -1149,6 +1151,12 @@ var forwardDiagnosticMarkers = []string{
 	"Will reconnect", "HTTP error", "Exiting", "Connection refused",
 	"Input/output error", "Server returned", "Broken pipe", "No such file",
 	"Invalid data", "error", "Error",
+	// Timestamp / container integrity: these are the lines that explain a freeze or a jump.
+	"Non-monotonous DTS", "non monotonically increasing dts", "Non-monotonic DTS",
+	"PES packet size mismatch", "Invalid timestamps", "timestamp discontinuity",
+	"Packet corrupt", "corrupt input packet", "Application provided invalid",
+	"Past duration", "DTS ", "missing picture", "decode_slice_header error",
+	"Truncating packet", "Partial file",
 }
 
 func isForwardDiagnosticLine(line string) bool {
