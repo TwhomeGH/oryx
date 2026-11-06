@@ -126,7 +126,7 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 				return errors.Wrapf(err, "parse body")
 			}
 
-			allowedActions := []string{"update", "delete", "toggle", "end", "cancel-end", "metrics"}
+			allowedActions := []string{"update", "delete", "toggle", "end", "cancel-end", "metrics", "sessions"}
 			allowedPlatforms := []string{"wx", "bilibili", "kuaishou"}
 			if action != "" {
 				if !slicesContains(allowedActions, action) {
@@ -278,6 +278,18 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 					}
 				}
 				ohttp.WriteData(ctx, w, r, samples)
+				return nil
+			case "sessions":
+				// Return the persisted run history for one target, newest first. This survives a
+				// restart, unlike the in-memory event timeline and log ring.
+				if userConf.Platform == "" {
+					return errors.Errorf("invalid platform=%v", userConf.Platform)
+				}
+				sessions, err := queryForwardSessions(ctx, userConf.Platform)
+				if err != nil {
+					return err
+				}
+				ohttp.WriteData(ctx, w, r, sessions)
 				return nil
 			case "delete":
 				// Only custom forwarding configs are removable, built-in platforms are protected.
@@ -1371,6 +1383,18 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 	ctx = logger.WithContext(ctx)
 	logger.Tf(ctx, "forward run task %v", v.String())
 
+	// Persist the completed run so a failure can be investigated after the task moves on or the
+	// platform restarts. Only runs that actually did something are kept, so idle starts do not
+	// flush useful history.
+	startedAt := time.Now()
+	hadActivity := false
+	defer func() {
+		if !hadActivity {
+			return
+		}
+		saveForwardSession(ctx, v.Platform, v.buildForwardSession(startedAt))
+	}()
+
 	// select active stream by stream name or random select one when stream name is empty.
 	selectActiveStream := func() (*SrsStream, error) {
 		streams, err := rdb.HGetAll(ctx, SRS_STREAM_ACTIVE).Result()
@@ -1548,6 +1572,10 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 	for ctx.Err() == nil {
 		errPfn := pfn(ctx)
 		v.setLoopPhase("cycle-returned")
+		if err := errPfn; err == nil {
+			// A successful cycle means the task produced output, so this run is worth keeping.
+			hadActivity = true
+		}
 		if err := errPfn; err != nil {
 			if ctx.Err() != nil {
 				return nil

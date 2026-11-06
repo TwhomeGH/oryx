@@ -836,13 +836,21 @@
       "programError": "節目源釋出日誌",
       "history": {
         "title": "管線歷史（最近一小時）",
-        "drift": "媒體時鐘漂移",
+        "drift": "PTS/DTS 漂移",
         "fps": "輸出 fps",
         "bitrate": "位元率",
         "empty": "樣本不足，稍後再看。",
         "samples": "{{count}} 個樣本（5 秒間隔）",
         "range": "最小 {{min}} / 最大 {{max}}",
         "band": "綠帶 = 健康範圍"
+      },
+      "sessions": {
+        "title": "執行紀錄（最近幾場）",
+        "empty": "尚未記錄任何完成的執行。",
+        "error": "無法載入執行紀錄。",
+        "restarts": "重啟: {{count}}",
+        "timeline": "診斷時間線",
+        "logs": "近期日誌"
       }
     },
     "vle": {

@@ -19,6 +19,7 @@ import {useErrorHandler} from "react-error-boundary";
 import {SrsErrorBoundary} from "../components/SrsErrorBoundary";
 import ForwardProgress from "../components/ForwardProgress";
 import ForwardHistory from "../components/ForwardHistory";
+import ForwardSessions from "../components/ForwardSessions";
 import {LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer} from "recharts";
 
 export default function SrsConsole() {
@@ -1065,7 +1066,7 @@ function SrsForwards({handleError}) {
             </tr>
             {expanded === e.platform && (
               <tr><td colSpan="5" className="p-4 border-top">
-                <ForwardProgress log={''} metrics={e.metrics} events={e.events} logs={e.logs} encoder={e.encoder} ffmpegArgs={e.ffmpegArgs} programSourceRate={e.programSourceRate} programLastError={e.programLastError} programLogs={e.programLogs} programArgs={e.programArgs} /><ForwardHistory platform={e.platform} />
+                <ForwardProgress log={''} metrics={e.metrics} events={e.events} logs={e.logs} encoder={e.encoder} ffmpegArgs={e.ffmpegArgs} programSourceRate={e.programSourceRate} programLastError={e.programLastError} programLogs={e.programLogs} programArgs={e.programArgs} /><ForwardHistory platform={e.platform} /><ForwardSessions platform={e.platform} />
               </td></tr>
             )}
           </React.Fragment>
