@@ -349,3 +349,18 @@ func TestSourceIsCFR(t *testing.T) {
 		}
 	}
 }
+
+func TestForwardEncoderFromArgs(t *testing.T) {
+	cases := []struct{ args, want string }{
+		{"-i x -c copy -f flv y", ""},
+		{"-i x -c:v copy -c:a aac -f flv y", ""},
+		{"-i x -c:v h264_nvenc -c:a aac -f flv y", "h264_nvenc"},
+		{"-i x -c:v libx264 -c:a aac -f flv y", "libx264"},
+		{"", ""},
+	}
+	for _, c := range cases {
+		if got := forwardEncoderFromArgs(c.args); got != c.want {
+			t.Errorf("forwardEncoderFromArgs(%q)=%q want %q", c.args, got, c.want)
+		}
+	}
+}

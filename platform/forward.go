@@ -1068,15 +1068,20 @@ func (v *ForwardTask) queryStatus() ForwardTaskStatus {
 			status.ProgramLogs = ps.Logs
 		}
 	}
-	// Which video encoder this target's pipeline uses: the composite/slate program and the
-	// normalize fanout both transcode (hardware NVENC when available, else libx264), while a
-	// plain hold + no-normalize pipeline is a zero-transcode copy.
-	if v.config != nil && (normalizeForwardFailover(v.config.Failover) == forwardFailoverSlate || v.config.Normalize) {
+	// Report what the pipeline ACTUALLY runs, taken from the program command: the fanout is always
+	// -c copy, so the only possible transcode is the program (normalize or the slate composite).
+	// Deriving this from configuration was wrong once normalize moved to the global setting and
+	// once CFR sources started skipping the transcode.
+	status.Encoder = "copy"
+	if ps != nil {
+		if name := forwardEncoderFromArgs(ps.Args); name != "" {
+			status.Encoder = name
+		}
+	} else if v.config != nil && normalizeForwardFailover(v.config.Failover) == forwardFailoverSlate {
+		// Idle target with no program yet: fall back to the configured intent.
 		if name := forwardVideoEncoderName(); name != "" {
 			status.Encoder = name
 		}
-	} else {
-		status.Encoder = "copy"
 	}
 	status.FFmpegArgs = v.ffmpegArgs
 	if status.FFmpegArgs == "" {
@@ -1640,6 +1645,23 @@ func (v *ForwardTask) programSource() (string, string) {
 	v.lock.Lock()
 	defer v.lock.Unlock()
 	return v.sourceApp, v.sourceStream
+}
+
+// forwardEncoderFromArgs returns the video encoder an FFmpeg command line actually uses, or "" for
+// a pure copy. The program args are the authoritative record of whether anything is encoded.
+func forwardEncoderFromArgs(args string) string {
+	if args == "" {
+		return ""
+	}
+	if strings.Contains(args, "-c copy") || strings.Contains(args, "-c:v copy") || strings.Contains(args, "-vcodec copy") {
+		return ""
+	}
+	for _, name := range []string{"h264_nvenc", "hevc_nvenc", "h264_amf", "hevc_amf", "h264_qsv", "hevc_qsv", "h264_vaapi", "hevc_vaapi", "libx264", "libx265"} {
+		if strings.Contains(args, name) {
+			return name
+		}
+	}
+	return ""
 }
 
 // forwardEncoderArgs is the video-encoder FFmpeg args, chosen once: NVENC (GPU) when the container
