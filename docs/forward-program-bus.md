@@ -112,7 +112,7 @@ fanout 改讀 HTTP-FLV+reconnect（使 program 可切換 publisher 而下游不�
 - 需來源可經 HTTP-FLV 取得（一般 RTMP/SRT 推流都會 mount `.flv`；純 WebRTC-only 可能沒有）。
 - 停頓上限受 fanout 心跳（2 分鐘）與下游平台容忍度限制。
 - 平台代理在串流未發布時可能回 502，故 reconnect 需含 `5xx`。
-- slate 固定 1280x720；來源解析度不同時切換瞬間下游可能觸發解碼器重建。
+- slate／composite 的尺寸與幀率取自來源探測（`ffprobe`），探測失敗才退回 1280x720@25；換手瞬間若解析度改變，下游仍可能重建解碼器。
 - 自動來源（`config.Stream` 空）目前「首次綁定後固定」，尚未跟隨最新來源。
 
 ## 7. 恢復：為何要重啟 fanout（實測修正）
@@ -124,8 +124,57 @@ SRS:8080 也一樣。因此「靠 relay 的 HTTP-FLV 重連撐住 program」無�
 
 修正：
 - `runHold`：來源恢復（sourceActive false→true）時**重啟 relay**，讓 program 乾淨地重新發布。
-- `doForward`：偵測到 **program 換 publisher**（`programSwitches` 變動）時**重啟 fanout**，
-  以全新連線讀到恢復後的 program。
+- `doForward`：偵測到 **program 換 publisher**（`programSwitches` 或 **`programGeneration`**
+  變動）時**重啟 fanout**，以全新連線讀到恢復後的 program。
+
+> `programGeneration` 是後來補上的關鍵：program 程序被 SIGKILL 後，重試會以**同一個模式**
+> 重新發布，`programSwitches` 不會變動，fanout 因此永遠卡在已死的 HTTP-FLV 連線上（實測
+> fps 凍結在 41.6 且永不恢復）。改為每次發布程序（含重試）都遞增 generation 後，實測
+> `kill -9` 節目源 → **約 8 秒**恢復（`waiting_input` → `running`，fps 回到 60）。
 
 代價：恢復時下游會**重連一次**；中斷期間下游仍**不斷線**（凍結最後一幀）。
 整合測試 `TestScenario_WithStream_PublishRtmpForwardKeepalive` 已加入「輸出必須恢復」斷言。
+
+## 8. 節目源保證什麼、不保證什麼
+
+節目源（program bus）是**解耦用的穩定層**，不是「永遠不會壞」的備援流。把它誤解成後者，
+會在下游定格或節目源程序崩潰時誤判「轉播沒問題」。
+
+### 保證
+
+| 保證 | 機制 |
+|---|---|
+| 下游只讀一條穩定的「節目源」 | 各目標 fanout 全部讀 `__forward_<app>_<stream>`，不再各自綁來源 |
+| 來源短暫消失時下游**不掉線** | relay 用 HTTP-FLV `-reconnect` 撐住，維持 program 的發布者身分 |
+| 只有一條連線受來源影響（不是 N 條） | 來源中斷只影響 relay 這一段 |
+
+### 不保證
+
+| 情境 | 實際行為 |
+|---|---|
+| 來源中斷（`failover=hold`，預設） | 下游**凍結最後一格**：連線還在，但沒有新畫面 |
+| 來源中斷（`failover=slate`） | 時鐘畫面持續輸出，但整條管線持續編碼（NVENC） |
+| **節目源程序被殺／崩潰** | program 短暫消失，fanout 重建 → 約 **5–8 秒**中斷 |
+| 來源內容損壞／時間戳跳躍 | **不修**，原樣轉送；跳躍超過門檻才自動重啟管線 |
+
+### 成本（實測，copy 模式）
+
+| 項目 | 數值 |
+|---|---|
+| program 程序 CPU | 約 0.4% |
+| program 程序記憶體 | 約 43 MB |
+| 轉碼模式（normalize／slate） | 使用 NVENC，約 20–40% GPU |
+
+### 監測盲點
+
+`hold` 模式讓來源的短暫中斷在**下游看不出來**（畫面定格但連線未斷），遠端平台的統計不會
+記錄該次中斷。唯一可見依據是 Oryx 本地：
+
+- 事件時間線：`program-reconnect`、`source-back`、`timestamp-jump`
+- 指標：`mediaClockDriftSec`、`noOutputSeconds`、`relayReconnects`
+
+### 已 CFR 的來源不轉碼
+
+來源名目與平均幀率一致（或平均落在標準幀率）時，program 直接 `-c copy`：
+不強制 `-r/CFR`，避免把一個本來正常的來源改成「時間軸超前牆鐘」而累積漂移
+（實測強制 CFR 曾讓漂移累積到 **+132 秒**，改回 copy 後穩定在 ±0.2 秒）。
