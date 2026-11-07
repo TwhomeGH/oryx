@@ -207,6 +207,8 @@ type ProgramBus struct {
 	inactiveSince time.Time
 	lastSwitchAt  *time.Time
 	lastError     string
+	lastErrorAt   time.Time
+	attemptAt     time.Time
 
 	// Source reconnect evidence from the relay FFmpeg stderr.
 	reconnects      int
@@ -248,6 +250,10 @@ type ProgramStatus struct {
 	SourceRate   string
 	LastSwitchAt string
 	LastError    string
+	// StaleErrorAt/AttemptAt let the caller ignore an error that predates the current publisher
+	// attempt: after a restart the old message stayed on screen and looked like a live fault.
+	LastErrorAt time.Time
+	AttemptAt   time.Time
 
 	Reconnects      int
 	LastReconnectAt string
@@ -414,6 +420,8 @@ func (v *ProgramBus) queryStatus() ProgramStatus {
 		SourceActive:    v.sourceActive,
 		SourceRate:      v.srcRate,
 		LastError:       v.lastError,
+		LastErrorAt:     v.lastErrorAt,
+		AttemptAt:       v.attemptAt,
 		Reconnects:      v.reconnects,
 		ReconnectReason: v.reconnectReason,
 		Logs:            append([]string(nil), v.logs...),
@@ -582,6 +590,7 @@ func (v *ProgramBus) switchPublisher(parent context.Context, mode string) error 
 		for ctx.Err() == nil {
 			v.lock.Lock()
 			v.generation++
+			v.attemptAt = time.Now()
 			v.lock.Unlock()
 			if err := v.runPublisherOnce(ctx, mode); err != nil {
 				v.setLastError(err)

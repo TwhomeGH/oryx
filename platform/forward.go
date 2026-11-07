@@ -1060,8 +1060,10 @@ func (v *ForwardTask) queryStatus() ForwardTaskStatus {
 			ps = &p
 			status.ProgramMode, status.ProgramFailover = ps.Mode, ps.Failover
 			status.ProgramSourceActive, status.ProgramSwitches = ps.SourceActive, ps.Switches
+			if ps.LastError != "" && (ps.AttemptAt.IsZero() || ps.LastErrorAt.After(ps.AttemptAt)) {
+				status.ProgramLastError = ps.LastError
+			}
 			status.ProgramSourceRate = ps.SourceRate
-			status.ProgramLastError = ps.LastError
 			status.ProgramArgs = ps.Args
 			status.ProgramLogs = ps.Logs
 		}
