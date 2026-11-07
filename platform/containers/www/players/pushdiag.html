@@ -19,6 +19,17 @@
             white-space: nowrap;
         }
         .nav-back:hover { background: var(--accent-glow); text-decoration: none; }
+        /* A layer that recovered keeps a dismissible mark so a flapping fault is not forgotten. */
+        .badge-recovered {
+            margin-left: 8px;
+            padding: 1px 8px;
+            font-size: 11px;
+            color: #f0b429;
+            border: 1px solid #f0b429;
+            border-radius: 999px;
+            cursor: pointer;
+        }
+        .badge-recovered:hover { background: rgba(240, 180, 41, 0.15); }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1.8.2/dist/mpegts.min.js"></script>
@@ -1427,19 +1438,32 @@ function startPtsMs() {
 
 // One compact chip per layer in a single row, so the overall health is scannable at a glance; the
 // expected -> actual detail is nested and only visible when the layer is opened (or is not ok).
+// A layer that was ever in warn/err stays open (and keeps a "recovered" mark) even after it turns
+// ok, so a flapping condition cannot hide the anomaly before it has been read. The operator's own
+// expand/collapse choice wins over both rules and survives re-renders.
 function layerRow(layer, idx) {
   var cls = layer.status === 'ok' ? 'badge-ok' : layer.status === 'warn' ? 'badge-warn'
     : layer.status === 'err' ? 'badge-err' : 'badge-info';
   var label = layer.status === 'ok' ? '正常' : layer.status === 'warn' ? '注意'
     : layer.status === 'err' ? '異常' : '待測';
-  var openByDefault = layer.status === 'warn' || layer.status === 'err';
+  var key = layer.name;
+  var isBad = layer.status === 'warn' || layer.status === 'err';
+  state.layerSeenBad = state.layerSeenBad || {};
+  state.layerOpen = state.layerOpen || {};
+  if (isBad) state.layerSeenBad[key] = true;
+  var seenBad = !!state.layerSeenBad[key];
+  var userOpen = state.layerOpen[key];
+  var open = userOpen !== undefined ? userOpen : (isBad || seenBad);
+  // "Recovered" marker: the layer was bad at some point in this session and is ok now.
+  var recovered = seenBad && !isBad && layer.status !== 'pending'
+    ? '<span class="badge-recovered" data-clear="' + esc(key) + '" title="點擊清除標記">已恢復</span>' : '';
   var detailId = 'layerDetail' + idx;
   return '<div class="diag-layer">' +
-    '<div class="diag-layer-head" style="cursor:pointer" data-target="' + detailId + '">' +
+    '<div class="diag-layer-head" style="cursor:pointer" data-target="' + detailId + '" data-key="' + esc(key) + '">' +
       badge(cls, label) +
-      '<span class="diag-layer-name">' + esc(layer.name) + '</span>' +
-      '<span class="diag-layer-toggle text-dim fs-12">' + (openByDefault ? '▾' : '▸') + '</span></div>' +
-    '<div class="diag-layer-body' + (openByDefault ? '' : ' hidden') + '" id="' + detailId + '">' +
+      '<span class="diag-layer-name">' + esc(layer.name) + '</span>' + recovered +
+      '<span class="diag-layer-toggle text-dim fs-12">' + (open ? '▾' : '▸') + '</span></div>' +
+    '<div class="diag-layer-body' + (open ? '' : ' hidden') + '" id="' + detailId + '">' +
       '<span class="diag-layer-exp">預期</span> ' + esc(layer.expected) +
       ' <span class="diag-layer-exp">→ 實際</span> ' + esc(layer.actual) + '</div>' +
     '</div>';
@@ -1678,10 +1702,21 @@ function bindLayerToggles() {
   var heads = document.querySelectorAll('#layerDiag .diag-layer-head[data-target]');
   for (var i = 0; i < heads.length; i++) {
     (function (head) {
-      head.addEventListener('click', function () {
+      head.addEventListener('click', function (ev) {
+        // Let the "recovered" chip dismiss the mark without toggling the row.
+        var clearKey = ev.target && ev.target.getAttribute && ev.target.getAttribute('data-clear');
+        if (clearKey) {
+          if (state.layerSeenBad) delete state.layerSeenBad[clearKey];
+          ev.stopPropagation();
+          renderDiagnostics();
+          return;
+        }
         var body = document.getElementById(head.getAttribute('data-target'));
         if (!body) return;
         var hidden = body.classList.toggle('hidden');
+        // Persist the operator's choice so the periodic re-render does not undo it.
+        state.layerOpen = state.layerOpen || {};
+        state.layerOpen[head.getAttribute('data-key')] = !hidden;
         var tog = head.querySelector('.diag-layer-toggle');
         if (tog) tog.textContent = hidden ? '▸' : '▾';
       });
@@ -2220,6 +2255,8 @@ function resetState() {
   state.syncSeries = [];
     state.audioRollbackCount = 0;
     state.videoRollbackCount = 0;
+    state.layerOpen = {};
+    state.layerSeenBad = {};
     state.firstVideoPts = null;
   state.audioBlocks = [];
   state.videoBlocks = [];
