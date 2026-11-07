@@ -34,7 +34,11 @@ export default function Navigator({initialized, token, localChanged}) {
       {eventKey: '5', to: '/routers-console', text: t('nav.console')},
       {eventKey: '6', to: '/routers-contact', text: t('nav.contact')},
       {eventKey: '7', to: '/routers-logout', text: t('nav.logout')},
-      {eventKey: '8', href: '/players/pushdiag.html', text: t('nav.pushdiag')},
+      // Cache-busting query: the page ships its logic inline, so a browser holding an old copy
+      // (served previously with a long max-age) would otherwise keep an outdated diagnostics page.
+      // Cache-busting query: the page ships its logic inline, so a browser holding an old copy
+      // (served previously with a long max-age) would otherwise keep an outdated diagnostics page.
+      {eventKey: '8', href: `/players/pushdiag.html?v=${Date.now()}`, text: t('nav.pushdiag')},
     ].map(e => {
       if (e.to && r0.indexOf(e.to) >= 0) {
         e.className = 'text-light';

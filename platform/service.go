@@ -431,7 +431,14 @@ func handleHTTPService(ctx context.Context, handler *http.ServeMux) error {
 		}
 		if strings.HasPrefix(r.URL.Path, "/players/") || strings.HasPrefix(r.URL.Path, "/tools/") {
 			if r.URL.Path != "/tools/player.html" && r.URL.Path != "/tools/xgplayer.html" {
-				w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%v", 30*24*3600))
+				// HTML pages must revalidate: they carry the page logic inline and change with
+				// every deploy, so a 30-day cache kept serving stale pages (e.g. a diagnostics
+				// page that ignored an updated preference). Static assets keep the long cache.
+				if strings.HasSuffix(r.URL.Path, ".html") || strings.HasSuffix(r.URL.Path, ".htm") {
+					w.Header().Set("Cache-Control", "no-cache, max-age=0")
+				} else {
+					w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%v", 30*24*3600))
+				}
 			}
 			platformFileServer.ServeHTTP(w, r)
 			return
