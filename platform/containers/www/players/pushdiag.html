@@ -1198,6 +1198,16 @@ function median(arr) {
   return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
 }
 
+// Linear-interpolated percentile, used to describe the offset sample distribution.
+function percentile(arr, p) {
+  if (!arr.length) return 0;
+  var a = arr.slice().sort(function (x, y) { return x - y; });
+  var pos = (a.length - 1) * p;
+  var lo = Math.floor(pos), hi = Math.ceil(pos);
+  if (lo === hi) return a[lo];
+  return a[lo] + (a[hi] - a[lo]) * (pos - lo);
+}
+
 function measureFps() {
   var h = state.videoTsHistory;
   if (h.length < 10) return null;
@@ -1555,18 +1565,28 @@ function buildLayerDiag() {
     (syncStats.fps < 8 || syncStats.jitterMs > 100 || syncStats.maxGap > 500);
   var l6status = 'pending', l6actual = '尚未累積足夠樣本';
   if (sync.length >= 10) {
-    var cur = sync[sync.length - 1].offset;
     var offs = sync.map(function (s) { return s.offset; });
-    var start = median(offs.slice(0, Math.min(10, offs.length)));
-    var end = median(offs.slice(-Math.min(10, offs.length)));
-    var drift = end - start;
-    // At very low frame rates there are few samples and the median drift is noisy, so only a
-    // large offset counts as a warning; otherwise report the numbers without flagging.
-    l6status = lowFps
-      ? (Math.abs(cur) > 1000 ? 'warn' : 'ok')
-      : ((Math.abs(cur) > 1000 || Math.abs(drift) > 800) ? 'warn' : 'ok');
-    var lag = Math.abs(cur) < 40 ? '持平' : (cur > 0 ? '音訊領先 ' + cur + 'ms' : '畫面領先 ' + (-cur) + 'ms');
-    l6actual = lag + '、漂移 ' + drift.toFixed(0) + 'ms';
+    // Judge the SAMPLE DISTRIBUTION, not the last sample: a single spike or a stale sample must
+    // not flip the layer to a warning, and a real desync shows up as a shifted centre or a wide
+    // spread. Percentiles are robust to the occasional outlier a VFR source produces.
+    var center = median(offs);
+    var p10 = percentile(offs, 0.10);
+    var p90 = percentile(offs, 0.90);
+    var spread = p90 - p10;
+    var outliers = 0;
+    for (var oi = 0; oi < offs.length; oi++) {
+      if (Math.abs(offs[oi] - center) > 500) outliers++;
+    }
+    var outlierRatio = offs.length ? outliers / offs.length : 0;
+    // Sustained offset (centre) or unstable timing (spread / outliers) are the two failure modes.
+    var offsetBad = Math.abs(center) > 200;
+    var unstable = spread > 400 || outlierRatio > 0.2;
+    l6status = (offsetBad || unstable) ? 'warn' : 'ok';
+    var lagDir = Math.abs(center) < 40 ? '持平'
+      : (center > 0 ? '音訊領先 ' + center.toFixed(0) + 'ms' : '畫面領先 ' + (-center).toFixed(0) + 'ms');
+    l6actual = lagDir + '（中位）、範圍 p10–p90 ' + p10.toFixed(0) + '~' + p90.toFixed(0) + 'ms' +
+      (outlierRatio > 0 ? '、離群 ' + Math.round(outlierRatio * 100) + '%' : '') +
+      (offsetBad ? '；⚠ 持續偏移' : '') + (unstable ? '；⚠ 偏移不穩定' : '');
   }
   var vPts = state.videoLastTs === null || state.videoLastTs === undefined ? '—' : state.videoLastTs + 'ms';
   var aPts = state.audioLastTs === null || state.audioLastTs === undefined ? '—' : state.audioLastTs + 'ms';
@@ -1605,7 +1625,7 @@ function buildLayerDiag() {
   if (ppm !== null) extra.push('時鐘漂移 ' + ppm.toFixed(1) + 'ppm');
   layers.push({
     name: '影音同步 (audio - video)', status: l6status,
-    expected: '|偏移| < 1000ms，無持續漂移',
+    expected: '中位 |偏移| < 200ms、p10–p90 < 400ms、離群 < 20%',
     actual: l6actual + '；目前影片 PTS ' + vPts + '、音訊 PTS ' + aPts + rollback +
       (extra.length ? '；' + extra.join('、') : ''),
   });
