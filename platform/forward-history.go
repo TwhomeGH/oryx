@@ -22,6 +22,7 @@ const forwardSessionHistorySize = 10
 // investigated after the process has restarted or the task has moved on.
 type ForwardSession struct {
 	ID           string         `json:"id"`
+	Running      bool           `json:"running,omitempty"`
 	StartedAt    string         `json:"startedAt"`
 	EndedAt      string         `json:"endedAt"`
 	DurationSec  float64        `json:"durationSec"`
@@ -35,6 +36,13 @@ type ForwardSession struct {
 // forwardSessionKey returns the Redis list key holding a target's run history.
 func forwardSessionKey(platform string) string {
 	return fmt.Sprintf("%v:%v", SRS_FORWARD_SESSIONS, platform)
+}
+
+// forwardSessionCurrentKey holds the live snapshot of the run in progress. It exists so the
+// diagnostics page can show the current session and so a crash/restart does not erase the record
+// of a run that never got to finish.
+func forwardSessionCurrentKey(platform string) string {
+	return fmt.Sprintf("%v_CURRENT:%v", SRS_FORWARD_SESSIONS, platform)
 }
 
 // saveForwardSession appends a completed run to the bounded per-target history. Diagnostics are a
@@ -65,7 +73,19 @@ func queryForwardSessions(ctx context.Context, platform string) ([]ForwardSessio
 	if err != nil && err != redis.Nil {
 		return nil, errors.Wrapf(err, "lrange %v", forwardSessionKey(platform))
 	}
-	sessions := make([]ForwardSession, 0, len(raw))
+	sessions := make([]ForwardSession, 0, len(raw)+1)
+	// The running session is not in the history list yet (it is appended when the run ends), so
+	// prepend its latest checkpoint; otherwise the panel reads "no completed runs" while a target
+	// is actively forwarding.
+	if cur, err := rdb.Get(ctx, forwardSessionCurrentKey(platform)).Result(); err == nil && cur != "" {
+		var session ForwardSession
+		if json.Unmarshal([]byte(cur), &session) == nil {
+			session.Running = true
+			sessions = append(sessions, session)
+		}
+	} else if err != nil && err != redis.Nil {
+		return nil, errors.Wrapf(err, "get %v", forwardSessionCurrentKey(platform))
+	}
 	for _, item := range raw {
 		var session ForwardSession
 		if err := json.Unmarshal([]byte(item), &session); err != nil {
@@ -74,6 +94,26 @@ func queryForwardSessions(ctx context.Context, platform string) ([]ForwardSessio
 		sessions = append(sessions, session)
 	}
 	return sessions, nil
+}
+
+// saveForwardSessionCurrent checkpoints the in-progress run, refreshed periodically by the task.
+func saveForwardSessionCurrent(ctx context.Context, platform string, session ForwardSession, ttl time.Duration) {
+	if rdb == nil {
+		return
+	}
+	raw, err := json.Marshal(session)
+	if err != nil {
+		return
+	}
+	_ = rdb.Set(ctx, forwardSessionCurrentKey(platform), string(raw), ttl).Err()
+}
+
+// clearForwardSessionCurrent drops the live checkpoint once the run has been recorded.
+func clearForwardSessionCurrent(ctx context.Context, platform string) {
+	if rdb == nil {
+		return
+	}
+	_ = rdb.Del(ctx, forwardSessionCurrentKey(platform)).Err()
 }
 
 // buildForwardSession snapshots the live task into a history record, used when a run ends.

@@ -307,6 +307,7 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 					logger.Wf(ctx, "ignore forward task hdel err %+v", err)
 				}
 				v.RemoveTask(userConf.Platform)
+				clearForwardSessionCurrent(ctx, userConf.Platform)
 				// Also disconnect the SRS publisher so no stale stream/client is left behind.
 				kickForwardStreams(ctx, "live", userConf.Secret)
 
@@ -1388,6 +1389,7 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 	// flush useful history.
 	startedAt := time.Now()
 	hadActivity := false
+	lastCheckpoint := time.Time{}
 	// A new run starts a new timeline: clear the previous run's samples so the chart reflects this
 	// run only. Otherwise the "last hour" view can mix samples from two unrelated runs (or from
 	// before a restart) and the drift/fps range looks wrong.
@@ -1401,6 +1403,7 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 			return
 		}
 		saveForwardSession(ctx, v.Platform, v.buildForwardSession(startedAt))
+		clearForwardSessionCurrent(ctx, v.Platform)
 	}()
 
 	// select active stream by stream name or random select one when stream name is empty.
@@ -1608,6 +1611,12 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 			continue
 		}
 		v.markHealthy()
+		// Checkpoint the running session so the record survives a crash/restart and so the
+		// diagnostics page can show it while the target is still forwarding.
+		if time.Since(lastCheckpoint) >= 10*time.Second {
+			lastCheckpoint = time.Now()
+			saveForwardSessionCurrent(ctx, v.Platform, v.buildForwardSession(startedAt), 5*time.Minute)
+		}
 		v.setLoopPhase("poll-wait")
 
 		select {

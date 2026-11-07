@@ -157,7 +157,9 @@
         "error": "Failed to load run history.",
         "restarts": "restarts: {{count}}",
         "timeline": "Diagnostic timeline",
-        "logs": "Recent logs"
+        "logs": "Recent logs",
+        "running": "live",
+        "inProgress": "in progress"
       }
     },
     "camera": {

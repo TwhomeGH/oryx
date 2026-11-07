@@ -850,7 +850,9 @@
         "error": "無法載入執行紀錄。",
         "restarts": "重啟: {{count}}",
         "timeline": "診斷時間線",
-        "logs": "近期日誌"
+        "logs": "近期日誌",
+        "running": "進行中",
+        "inProgress": "進行中"
       }
     },
     "vle": {

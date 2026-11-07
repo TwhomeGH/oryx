@@ -53,9 +53,14 @@ export default function ForwardSessions({ platform }) {
           {sessions.map((s) => (
             <React.Fragment key={s.id}>
               <tr style={{cursor: 'pointer'}} onClick={() => setOpen(open === s.id ? '' : s.id)}>
-                <td className="text-muted small">{when(s.startedAt)}</td>
-                <td className="small text-end text-nowrap">{Math.round(s.durationSec)}s</td>
-                <td className="small text-end text-nowrap">{s.finalState}</td>
+                <td className="text-muted small">
+                  {when(s.startedAt)}
+                  {s.running && <span className="badge bg-success ms-2">{t('forward.sessions.running')}</span>}
+                </td>
+                <td className="small text-end text-nowrap">
+                  {Math.round(s.running ? (Date.now() - new Date(s.startedAt).getTime()) / 1000 : s.durationSec)}s
+                </td>
+                <td className="small text-end text-nowrap">{s.running ? t('forward.sessions.inProgress') : s.finalState}</td>
                 <td className="small text-end text-nowrap text-muted">
                   {t('forward.sessions.restarts', {count: s.restartCount})}
                 </td>

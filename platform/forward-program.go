@@ -629,7 +629,9 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		} else {
 			args = append(args, "-c", "copy")
 		}
-		args = append(args, "-f", "flv", output)
+		// Keep the muxer tolerant of the source's initial timestamp offset (audio can start ~2s before
+		// video); without this FLV/RTMP can reject the first packets with EINVAL.
+		args = append(args, "-avoid_negative_ts", "make_zero", "-f", "flv", output)
 	case programModeComposite:
 		// A single persistent publisher that renders the slate itself: a dark base with a
 		// ticking clock, the source overlaid end-on-EOF, and the audio mixed with silence (so

@@ -589,7 +589,9 @@
         "error": "実行履歴を取得できませんでした。",
         "restarts": "再起動: {{count}}",
         "timeline": "診断タイムライン",
-        "logs": "最近のログ"
+        "logs": "最近のログ",
+        "running": "実行中",
+        "inProgress": "実行中"
       }
     },
     "fp": {
