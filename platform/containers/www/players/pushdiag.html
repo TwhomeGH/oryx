@@ -1097,6 +1097,9 @@ function handleTag(type, ts, data) {
       row.detail = 'format=' + soundFormat;
     }
 
+    if (state.audioLastTs !== null && state.audioLastTs !== undefined && ts <= state.audioLastTs) {
+      state.audioRollbackCount = (state.audioRollbackCount || 0) + 1;
+    }
     state.audioLastTs = ts;
     state.audioBlocks = state.audioBlocks || [];
     state.audioBlocks.push({
@@ -1451,7 +1454,9 @@ function buildLayerDiag() {
     expected: '首個 audio tag 為 aacPacketType=0 (ASC)', actual: l5actual,
   });
 
-  // Layer 6: A/V sync.
+  // Layer 6: A/V sync, with the raw PTS of each stream and which side is ahead. "offset" is
+  // audio - video: positive means audio is ahead of the last video frame, negative means the
+  // picture is ahead of the audio.
   var sync = state.syncSeries;
   var l6status = 'pending', l6actual = '尚未累積足夠樣本';
   if (sync.length >= 10) {
@@ -1461,11 +1466,18 @@ function buildLayerDiag() {
     var end = median(offs.slice(-Math.min(10, offs.length)));
     var drift = end - start;
     l6status = (Math.abs(cur) > 1000 || Math.abs(drift) > 800) ? 'warn' : 'ok';
-    l6actual = '目前 ' + cur + 'ms、漂移 ' + drift.toFixed(0) + 'ms';
+    var lag = Math.abs(cur) < 40 ? '持平' : (cur > 0 ? '音訊領先 ' + cur + 'ms' : '畫面領先 ' + (-cur) + 'ms');
+    l6actual = lag + '、漂移 ' + drift.toFixed(0) + 'ms';
   }
+  var vPts = state.videoLastTs === null || state.videoLastTs === undefined ? '—' : state.videoLastTs + 'ms';
+  var aPts = state.audioLastTs === null || state.audioLastTs === undefined ? '—' : state.audioLastTs + 'ms';
+  // Audio rollback: a non-increasing PTS on consecutive audio tags means the source timestamps
+  // went backwards, which a -c copy consumer cannot repair.
+  var rollback = state.audioRollbackCount ? '，音訊回退 ' + state.audioRollbackCount + ' 次' : '';
   layers.push({
     name: '影音同步 (audio - video)', status: l6status,
-    expected: '|偏移| < 1000ms，無持續漂移', actual: l6actual,
+    expected: '|偏移| < 1000ms，無持續漂移',
+    actual: l6actual + '；目前影片 PTS ' + vPts + '、音訊 PTS ' + aPts + rollback,
   });
 
   return layers;
@@ -2038,6 +2050,7 @@ function resetState() {
   state.perSec = new Map();
   state.packetSeries = [];
   state.syncSeries = [];
+    state.audioRollbackCount = 0;
   state.audioBlocks = [];
   state.videoBlocks = [];
   state.videoTsHistory = [];
@@ -2668,21 +2681,26 @@ document.getElementById('clearPktsBtn').addEventListener('click', function () {
   document.getElementById('pktTable').innerHTML = '';
 });
 
-var connCollapsed = false;
-document.getElementById('connToggle').addEventListener('click', function () {
-  connCollapsed = !connCollapsed;
-  var body = document.getElementById('connBody');
-  body.classList.toggle('hidden');
-  this.textContent = connCollapsed ? '▸ 連線設定' : '▾ 連線設定';
-});
-
-var rtcConnCollapsed = false;
-document.getElementById('rtcConnToggle').addEventListener('click', function () {
-  rtcConnCollapsed = !rtcConnCollapsed;
-  var body = document.getElementById('rtcConnBody');
-  body.classList.toggle('hidden');
-  this.textContent = rtcConnCollapsed ? '▸ WebRTC 連線設定' : '▾ WebRTC 連線設定';
-});
+// Remember each collapsible card's state so a reload does not re-expand a card the user closed.
+function bindPersistedCollapse(toggleId, bodyId, label) {
+  var toggle = document.getElementById(toggleId);
+  var body = document.getElementById(bodyId);
+  if (!toggle || !body) return;
+  var key = 'SRS_PUSH_DIAG_COLLAPSE_' + bodyId;
+  var collapsed = localStorage.getItem(key) === '1';
+  function render() {
+    body.classList.toggle('hidden', collapsed);
+    toggle.textContent = collapsed ? '▸ ' + label : '▾ ' + label;
+  }
+  render();
+  toggle.addEventListener('click', function () {
+    collapsed = !collapsed;
+    try { localStorage.setItem(key, collapsed ? '1' : '0'); } catch (e) { /* private mode */ }
+    render();
+  });
+}
+bindPersistedCollapse('connToggle', 'connBody', '連線設定');
+bindPersistedCollapse('rtcConnToggle', 'rtcConnBody', 'WebRTC 連線設定');
 
 document.getElementById('streamEye').addEventListener('click', toggleStreamReveal);
 document.getElementById('flvUrl').addEventListener('click', toggleStreamReveal);
