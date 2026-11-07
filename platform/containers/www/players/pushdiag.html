@@ -217,6 +217,7 @@
             <div class="card mb-0">
                 <h2 class="text-warn mb-12">關鍵影格間隔 (GOP, ms)</h2>
                 <div class="chart-box"><canvas id="gopChart"></canvas></div>
+                <div id="gopDist" class="text-dim fs-12 mb-12">GOP 分布會在累積幾個關鍵影格後顯示。</div>
             </div>
         </div>
 
@@ -1341,6 +1342,34 @@ function renderHealth() {
 // ── 分層診斷 ──
 // Render each layer of the RTMP/FLV pipeline as expected -> actual, so the abnormal
 // layer is obvious. The AVC sequence header layer gets a prominent banner when broken.
+// GOP distribution: percentiles plus a coarse histogram, so an irregular keyframe interval (a source
+// encoder that inserts extra I-frames, or scene-cut bursts) is visible instead of hidden by the
+// single "median" number.
+function updateGopDistribution() {
+  var el = document.getElementById('gopDist');
+  if (!el) return;
+  var gaps = state.keyGaps || [];
+  if (gaps.length < 4) {
+    el.textContent = 'GOP 分布會在累積幾個關鍵影格後顯示。';
+    return;
+  }
+  var sorted = gaps.slice().sort(function (a, b) { return a - b; });
+  var pct = function (p) { return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))]; };
+  // 4 buckets by absolute gap so the shape is interpretable without knowing the nominal GOP.
+  var edges = [1000, 2000, 5000, 10000];
+  var counts = [0, 0, 0, 0, 0];
+  gaps.forEach(function (g) {
+    var i = 0;
+    while (i < edges.length && g > edges[i]) i++;
+    counts[i]++;
+  });
+  var buckets = [
+    '≤1s ' + counts[0], '1-2s ' + counts[1], '2-5s ' + counts[2], '5-10s ' + counts[3], '>10s ' + counts[4],
+  ];
+  el.textContent = 'p50 ' + (pct(0.5) / 1000).toFixed(2) + 's / p90 ' + (pct(0.9) / 1000).toFixed(2) +
+    's / p99 ' + (pct(0.99) / 1000).toFixed(2) + 's　分布：' + buckets.join('、');
+}
+
 // The first video PTS of this session, i.e. the FLV timeline origin used by the preview player.
 function startPtsMs() {
   return state.firstVideoPts === undefined || state.firstVideoPts === null ? 0 : state.firstVideoPts;
@@ -1613,6 +1642,7 @@ function updateBitrateBuckets() {
 
   gopChart.data.labels = state.keyGaps.map(function (_, i) { return i; });
   gopChart.data.datasets[0].data = state.keyGaps;
+  updateGopDistribution();
   gopChart.update('none');
 
   var kbps = state.bytes * 8 / 1024 / Math.max(elapsedSec, 0.001);
