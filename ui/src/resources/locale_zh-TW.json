@@ -835,7 +835,7 @@
       "statusPaused": "轉播已暫停",
       "programError": "節目源釋出日誌",
       "history": {
-        "title": "管線歷史（最近一小時）",
+        "title": "管線歷史（本次執行）",
         "drift": "PTS/DTS 漂移",
         "fps": "輸出 fps",
         "bitrate": "位元率",

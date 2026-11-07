@@ -1388,6 +1388,14 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 	// flush useful history.
 	startedAt := time.Now()
 	hadActivity := false
+	// A new run starts a new timeline: clear the previous run's samples so the chart reflects this
+	// run only. Otherwise the "last hour" view can mix samples from two unrelated runs (or from
+	// before a restart) and the drift/fps range looks wrong.
+	if rdb != nil {
+		if err := rdb.Del(ctx, fmt.Sprintf("%v:%v", SRS_FORWARD_METRICS, v.Platform)).Err(); err != nil && err != redis.Nil {
+			logger.Wf(ctx, "ignore forward metrics clear err %+v", err)
+		}
+	}
 	defer func() {
 		if !hadActivity {
 			return

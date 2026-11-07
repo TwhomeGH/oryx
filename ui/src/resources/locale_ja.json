@@ -574,7 +574,7 @@
       "statusPaused": "転送一時停止",
       "programError": "プログラム配信ログ",
       "history": {
-        "title": "パイプライン履歴（直近1時間）",
+        "title": "パイプライン履歴（今回の実行）",
         "drift": "PTS/DTS ドリフト",
         "fps": "出力FPS",
         "bitrate": "ビットレート",

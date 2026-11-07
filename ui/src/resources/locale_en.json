@@ -142,7 +142,7 @@
       "statusPaused": "Forward paused",
       "programError": "Program publisher log",
       "history": {
-        "title": "Pipeline history (last hour)",
+        "title": "Pipeline history (this run)",
         "drift": "PTS/DTS drift",
         "fps": "Output FPS",
         "bitrate": "Bitrate",
