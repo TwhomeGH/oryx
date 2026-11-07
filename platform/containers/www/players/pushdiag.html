@@ -1056,6 +1056,19 @@ function handleTag(type, ts, data) {
       var vdelta = ts - state.videoLastTs;
       if (vdelta > 5000) row.detail = (row.detail ? row.detail + ' | ' : '') + '⚠ 間距 ' + (vdelta / 1000).toFixed(1) + 's';
     }
+    // Sample the A/V offset when a video frame arrives, comparing it with the newest audio PTS:
+    // both then describe the same instant. Audio PTS advances continuously, so sampling on audio
+    // tags against a stale video PTS made a healthy VFR (low-fps) source look like it was
+    // oscillating by hundreds of ms. Skip the sample when audio has just stalled.
+    if (state.audioLastTs !== null && state.audioLastTs !== undefined &&
+        (performance.now() - (state.audioWall || 0)) < 1000) {
+      var syncOff = state.audioLastTs - ts;
+      var lastSync = state.syncSeries[state.syncSeries.length - 1];
+      if (!lastSync || state.seq - lastSync.i > 10) {
+        state.syncSeries.push({ i: state.seq, offset: syncOff });
+        if (state.syncSeries.length > 120) state.syncSeries.shift();
+      }
+    }
     state.videoLastTs = ts;
     state.packetSeries.push({ i: state.seq, size: data.length, key: frameType === 1 });
     if (state.packetSeries.length > 400) state.packetSeries.shift();
@@ -1073,6 +1086,12 @@ function handleTag(type, ts, data) {
     // Only actual frames feed the fps measurement; an AVC sequence header is not a
     // frame and used to inflate the measured fps (and jitter) by one tag per header.
     if (avcPacketType !== 0) {
+      // A non-increasing video timestamp is a real DTS anomaly; an irregular interval is not.
+      // Compare against the previous FRAME (history), because videoLastTs is already this tag.
+      var prevFrame = state.videoTsHistory.length ? state.videoTsHistory[state.videoTsHistory.length - 1].ts : null;
+      if (prevFrame !== null && prevFrame !== undefined && ts <= prevFrame) {
+        state.videoRollbackCount = (state.videoRollbackCount || 0) + 1;
+      }
       state.videoTsHistory.push({ ts: ts, wall: performance.now() });
       if (state.videoTsHistory.length > 600) state.videoTsHistory.shift();
     }
@@ -1135,21 +1154,13 @@ function handleTag(type, ts, data) {
       state.audioRollbackCount = (state.audioRollbackCount || 0) + 1;
     }
     state.audioLastTs = ts;
+    state.audioWall = performance.now();
     state.audioBlocks = state.audioBlocks || [];
     state.audioBlocks.push({
       seq: state.seq, ts: ts, size: data.length,
       aacType: aacTypeName, srate: srate, channels: ch, aot: aot,
     });
     if (state.audioBlocks.length > 50) state.audioBlocks.shift();
-
-    if (state.videoLastTs !== null) {
-      var offset = ts - state.videoLastTs;
-      var lastSync = state.syncSeries[state.syncSeries.length - 1];
-      if (!lastSync || state.seq - lastSync.i > 10) {
-        state.syncSeries.push({ i: state.seq, offset: offset });
-        if (state.syncSeries.length > 120) state.syncSeries.shift();
-      }
-    }
   } else {
     row.typeName = 'TYPE' + type;
     row.frame = '—';
@@ -1504,15 +1515,21 @@ function buildLayerDiag() {
   var vui = state.sps && state.sps.fps ? state.sps.fps : null;
   var l4status = 'pending', l4actual = '尚未累積足夠影格';
   if (stats) {
-    var dev = vui ? Math.abs(stats.fps - vui) / vui : 0;
-    l4status = (vui && dev > 0.1) ? 'warn' : (stats.jitterMs > 50 ? 'warn' : 'ok');
+    // A variable frame rate (phone screen recording while idle, screen share) legitimately has
+    // uneven intervals and a low average fps, so only non-monotonic timestamps count as a fault.
+    // Comparing the average against VUI there would flag a healthy VFR source.
+    var vfr = stats.jitterMs > 100 || stats.maxGap > 500;
+    var rolls = state.videoRollbackCount || 0;
+    l4status = rolls > 0 ? 'warn' : 'ok';
     l4actual = stats.fps.toFixed(1) + ' fps（近 ' + stats.count + ' 幀）、jitter ' + stats.jitterMs.toFixed(1) +
       'ms、間距 ' + stats.minGap + '-' + stats.maxGap + 'ms';
     if (vui) l4actual += '；VUI ' + vui.toFixed(1);
+    if (vfr) l4actual += '；VFR／低幀率來源，間距不固定屬正常';
+    if (rolls > 0) l4actual += '；⚠ 時間戳回退 ' + rolls + ' 次';
   }
   layers.push({
     name: '視訊時間戳 (DTS)', status: l4status,
-    expected: vui ? ('單調遞增，fps ≈ VUI ' + vui.toFixed(1)) : '單調遞增', actual: l4actual,
+    expected: '單調遞增（VFR 來源允許間距不固定）', actual: l4actual,
   });
 
   // Layer 5: AAC sequence header.
@@ -1530,8 +1547,12 @@ function buildLayerDiag() {
 
   // Layer 6: A/V sync, with the raw PTS of each stream and which side is ahead. "offset" is
   // audio - video: positive means audio is ahead of the last video frame, negative means the
-  // picture is ahead of the audio.
+  // picture is ahead of the audio. Samples are taken at video-frame instants, so a VFR source
+  // (iOS idle screen recording, variable frame rate) is judged only on meaningful samples.
   var sync = state.syncSeries;
+  var syncStats = recentFpsStats();
+  var lowFps = syncStats && syncStats.fps > 0 &&
+    (syncStats.fps < 8 || syncStats.jitterMs > 100 || syncStats.maxGap > 500);
   var l6status = 'pending', l6actual = '尚未累積足夠樣本';
   if (sync.length >= 10) {
     var cur = sync[sync.length - 1].offset;
@@ -1539,7 +1560,11 @@ function buildLayerDiag() {
     var start = median(offs.slice(0, Math.min(10, offs.length)));
     var end = median(offs.slice(-Math.min(10, offs.length)));
     var drift = end - start;
-    l6status = (Math.abs(cur) > 1000 || Math.abs(drift) > 800) ? 'warn' : 'ok';
+    // At very low frame rates there are few samples and the median drift is noisy, so only a
+    // large offset counts as a warning; otherwise report the numbers without flagging.
+    l6status = lowFps
+      ? (Math.abs(cur) > 1000 ? 'warn' : 'ok')
+      : ((Math.abs(cur) > 1000 || Math.abs(drift) > 800) ? 'warn' : 'ok');
     var lag = Math.abs(cur) < 40 ? '持平' : (cur > 0 ? '音訊領先 ' + cur + 'ms' : '畫面領先 ' + (-cur) + 'ms');
     l6actual = lag + '、漂移 ' + drift.toFixed(0) + 'ms';
   }
@@ -1552,13 +1577,15 @@ function buildLayerDiag() {
   // Clock drift rate in ppm: (drift ms / elapsed s) is a fraction; x1e6 gives parts-per-million.
   // A stable ~0 ppm is a healthy lock; a sustained non-zero ppm means the two clocks run at
   // different rates (long-run A/V desync even if the current offset looks acceptable).
+  // Require enough samples and elapsed time: a millisecond-quantized offset measured over a few
+  // seconds produces a large, meaningless ppm number (e.g. one 10ms step in 20s = 500 ppm).
   var ppm = null;
-  if (state.syncSeries.length >= 10 && state.startTime) {
+  if (state.syncSeries.length >= 20 && state.startTime) {
     var elapsedSec = (performance.now() - state.startTime) / 1000;
-    if (elapsedSec > 5) {
-      var curOff = state.syncSeries[state.syncSeries.length - 1].offset;
+    if (elapsedSec >= 30) {
       var firstOff = state.syncSeries[0].offset;
-      ppm = ((curOff - firstOff) / 1000) / elapsedSec * 1e6;
+      var lastOff = state.syncSeries[state.syncSeries.length - 1].offset;
+      ppm = ((lastOff - firstOff) / 1000) / elapsedSec * 1e6;
     }
   }
 
@@ -1573,7 +1600,8 @@ function buildLayerDiag() {
   }
 
   var extra = [];
-  if (frameLag !== null) extra.push('畫面落後 ' + frameLag.toFixed(0) + 'ms');
+  if (lowFps) extra.push('低幀率／VFR 來源（' + syncStats.fps.toFixed(1) + ' fps），偏移為取樣值');
+  if (frameLag !== null && !lowFps) extra.push('畫面落後 ' + frameLag.toFixed(0) + 'ms');
   if (ppm !== null) extra.push('時鐘漂移 ' + ppm.toFixed(1) + 'ppm');
   layers.push({
     name: '影音同步 (audio - video)', status: l6status,
@@ -2171,6 +2199,7 @@ function resetState() {
   state.packetSeries = [];
   state.syncSeries = [];
     state.audioRollbackCount = 0;
+    state.videoRollbackCount = 0;
     state.firstVideoPts = null;
   state.audioBlocks = [];
   state.videoBlocks = [];
