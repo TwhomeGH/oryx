@@ -1337,15 +1337,22 @@ function renderHealth() {
 // ── 分層診斷 ──
 // Render each layer of the RTMP/FLV pipeline as expected -> actual, so the abnormal
 // layer is obvious. The AVC sequence header layer gets a prominent banner when broken.
-function layerRow(layer) {
+// One compact chip per layer in a single row, so the overall health is scannable at a glance; the
+// expected -> actual detail is nested and only visible when the layer is opened (or is not ok).
+function layerRow(layer, idx) {
   var cls = layer.status === 'ok' ? 'badge-ok' : layer.status === 'warn' ? 'badge-warn'
     : layer.status === 'err' ? 'badge-err' : 'badge-info';
   var label = layer.status === 'ok' ? '正常' : layer.status === 'warn' ? '注意'
     : layer.status === 'err' ? '異常' : '待測';
+  var openByDefault = layer.status === 'warn' || layer.status === 'err';
+  var detailId = 'layerDetail' + idx;
   return '<div class="diag-layer">' +
-    '<div class="diag-layer-head">' + badge(cls, label) +
-      '<span class="diag-layer-name">' + esc(layer.name) + '</span></div>' +
-    '<div class="diag-layer-body"><span class="diag-layer-exp">預期</span> ' + esc(layer.expected) +
+    '<div class="diag-layer-head" style="cursor:pointer" data-target="' + detailId + '">' +
+      badge(cls, label) +
+      '<span class="diag-layer-name">' + esc(layer.name) + '</span>' +
+      '<span class="diag-layer-toggle text-dim fs-12">' + (openByDefault ? '▾' : '▸') + '</span></div>' +
+    '<div class="diag-layer-body' + (openByDefault ? '' : ' hidden') + '" id="' + detailId + '">' +
+      '<span class="diag-layer-exp">預期</span> ' + esc(layer.expected) +
       ' <span class="diag-layer-exp">→ 實際</span> ' + esc(layer.actual) + '</div>' +
     '</div>';
 }
@@ -1497,6 +1504,7 @@ function renderDiagnostics() {
   else summary = '全部正常';
   document.getElementById('diagSummary').textContent = summary;
   document.getElementById('layerDiag').innerHTML = layers.map(layerRow).join('');
+  bindLayerToggles();
 
   // Prominent AVC sequence header banner (the most actionable error), showing the
   // expected -> actual of every field that was inspected.
@@ -1519,6 +1527,22 @@ function renderDiagnostics() {
       '；目前首個 video tag = ' + kindName(d.firstVideoKind);
   } else {
     banner.className = 'alert alert-danger hidden';
+  }
+}
+
+// Wire the layer expand/collapse once per re-render (the row markup is rebuilt every stats tick).
+function bindLayerToggles() {
+  var heads = document.querySelectorAll('#layerDiag .diag-layer-head[data-target]');
+  for (var i = 0; i < heads.length; i++) {
+    (function (head) {
+      head.addEventListener('click', function () {
+        var body = document.getElementById(head.getAttribute('data-target'));
+        if (!body) return;
+        var hidden = body.classList.toggle('hidden');
+        var tog = head.querySelector('.diag-layer-toggle');
+        if (tog) tog.textContent = hidden ? '▸' : '▾';
+      });
+    })(heads[i]);
   }
 }
 
