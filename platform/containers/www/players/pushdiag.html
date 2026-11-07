@@ -72,6 +72,7 @@
                 <span id="connToggle" class="collapse-trigger">▾ 連線設定</span>
                 <div class="form-row">
                     <span id="connSummary" class="text-dim"></span>
+                    <span id="connStateSummary" class="text-dim fs-12"></span>
                     <button id="startBtn" class="btn btn-primary btn-sm">開始分析</button>
                     <button id="stopBtn" class="btn btn-secondary btn-sm hidden">停止</button>
                 </div>
@@ -919,6 +920,9 @@ function inspectAvcSeqHeader(data) {
 }
 
 function handleTag(type, ts, data) {
+  if (type === 9 && (state.firstVideoPts === undefined || state.firstVideoPts === null)) {
+    state.firstVideoPts = ts;
+  }
   state.seq++;
   var now = performance.now();
   var delta = state.lastTs !== null ? ts - state.lastTs : null;
@@ -1097,6 +1101,9 @@ function handleTag(type, ts, data) {
       row.detail = 'format=' + soundFormat;
     }
 
+    if (state.audioLastTs !== null && state.audioLastTs !== undefined && ts <= state.audioLastTs) {
+      state.audioRollbackCount = (state.audioRollbackCount || 0) + 1;
+    }
     state.audioLastTs = ts;
     state.audioBlocks = state.audioBlocks || [];
     state.audioBlocks.push({
@@ -1334,15 +1341,27 @@ function renderHealth() {
 // ── 分層診斷 ──
 // Render each layer of the RTMP/FLV pipeline as expected -> actual, so the abnormal
 // layer is obvious. The AVC sequence header layer gets a prominent banner when broken.
-function layerRow(layer) {
+// The first video PTS of this session, i.e. the FLV timeline origin used by the preview player.
+function startPtsMs() {
+  return state.firstVideoPts === undefined || state.firstVideoPts === null ? 0 : state.firstVideoPts;
+}
+
+// One compact chip per layer in a single row, so the overall health is scannable at a glance; the
+// expected -> actual detail is nested and only visible when the layer is opened (or is not ok).
+function layerRow(layer, idx) {
   var cls = layer.status === 'ok' ? 'badge-ok' : layer.status === 'warn' ? 'badge-warn'
     : layer.status === 'err' ? 'badge-err' : 'badge-info';
   var label = layer.status === 'ok' ? '正常' : layer.status === 'warn' ? '注意'
     : layer.status === 'err' ? '異常' : '待測';
+  var openByDefault = layer.status === 'warn' || layer.status === 'err';
+  var detailId = 'layerDetail' + idx;
   return '<div class="diag-layer">' +
-    '<div class="diag-layer-head">' + badge(cls, label) +
-      '<span class="diag-layer-name">' + esc(layer.name) + '</span></div>' +
-    '<div class="diag-layer-body"><span class="diag-layer-exp">預期</span> ' + esc(layer.expected) +
+    '<div class="diag-layer-head" style="cursor:pointer" data-target="' + detailId + '">' +
+      badge(cls, label) +
+      '<span class="diag-layer-name">' + esc(layer.name) + '</span>' +
+      '<span class="diag-layer-toggle text-dim fs-12">' + (openByDefault ? '▾' : '▸') + '</span></div>' +
+    '<div class="diag-layer-body' + (openByDefault ? '' : ' hidden') + '" id="' + detailId + '">' +
+      '<span class="diag-layer-exp">預期</span> ' + esc(layer.expected) +
       ' <span class="diag-layer-exp">→ 實際</span> ' + esc(layer.actual) + '</div>' +
     '</div>';
 }
@@ -1451,7 +1470,9 @@ function buildLayerDiag() {
     expected: '首個 audio tag 為 aacPacketType=0 (ASC)', actual: l5actual,
   });
 
-  // Layer 6: A/V sync.
+  // Layer 6: A/V sync, with the raw PTS of each stream and which side is ahead. "offset" is
+  // audio - video: positive means audio is ahead of the last video frame, negative means the
+  // picture is ahead of the audio.
   var sync = state.syncSeries;
   var l6status = 'pending', l6actual = '尚未累積足夠樣本';
   if (sync.length >= 10) {
@@ -1461,11 +1482,46 @@ function buildLayerDiag() {
     var end = median(offs.slice(-Math.min(10, offs.length)));
     var drift = end - start;
     l6status = (Math.abs(cur) > 1000 || Math.abs(drift) > 800) ? 'warn' : 'ok';
-    l6actual = '目前 ' + cur + 'ms、漂移 ' + drift.toFixed(0) + 'ms';
+    var lag = Math.abs(cur) < 40 ? '持平' : (cur > 0 ? '音訊領先 ' + cur + 'ms' : '畫面領先 ' + (-cur) + 'ms');
+    l6actual = lag + '、漂移 ' + drift.toFixed(0) + 'ms';
   }
+  var vPts = state.videoLastTs === null || state.videoLastTs === undefined ? '—' : state.videoLastTs + 'ms';
+  var aPts = state.audioLastTs === null || state.audioLastTs === undefined ? '—' : state.audioLastTs + 'ms';
+  // Audio rollback: a non-increasing PTS on consecutive audio tags means the source timestamps
+  // went backwards, which a -c copy consumer cannot repair.
+  var rollback = state.audioRollbackCount ? '，音訊回退 ' + state.audioRollbackCount + ' 次' : '';
+
+  // Clock drift rate in ppm: (drift ms / elapsed s) is a fraction; x1e6 gives parts-per-million.
+  // A stable ~0 ppm is a healthy lock; a sustained non-zero ppm means the two clocks run at
+  // different rates (long-run A/V desync even if the current offset looks acceptable).
+  var ppm = null;
+  if (state.syncSeries.length >= 10 && state.startTime) {
+    var elapsedSec = (performance.now() - state.startTime) / 1000;
+    if (elapsedSec > 5) {
+      var curOff = state.syncSeries[state.syncSeries.length - 1].offset;
+      var firstOff = state.syncSeries[0].offset;
+      ppm = ((curOff - firstOff) / 1000) / elapsedSec * 1e6;
+    }
+  }
+
+  // Frame lag: how far the displayed frame trails the newest decoded PTS. A persistent large gap
+  // means the player (not the encoder) is behind, e.g. a stalling decode path or a long buffer.
+  // startPtsMs() is the first video PTS seen this session, the origin of the FLV timeline.
+  var frameLag = null;
+  var videoEl = document.getElementById('previewVideo');
+  if (videoEl && state.videoLastTs !== null && state.videoLastTs !== undefined && videoEl.currentTime > 0) {
+    var displayedMs = startPtsMs() + videoEl.currentTime * 1000;
+    frameLag = state.videoLastTs - displayedMs;
+  }
+
+  var extra = [];
+  if (frameLag !== null) extra.push('畫面落後 ' + frameLag.toFixed(0) + 'ms');
+  if (ppm !== null) extra.push('時鐘漂移 ' + ppm.toFixed(1) + 'ppm');
   layers.push({
     name: '影音同步 (audio - video)', status: l6status,
-    expected: '|偏移| < 1000ms，無持續漂移', actual: l6actual,
+    expected: '|偏移| < 1000ms，無持續漂移',
+    actual: l6actual + '；目前影片 PTS ' + vPts + '、音訊 PTS ' + aPts + rollback +
+      (extra.length ? '；' + extra.join('、') : ''),
   });
 
   return layers;
@@ -1485,6 +1541,7 @@ function renderDiagnostics() {
   else summary = '全部正常';
   document.getElementById('diagSummary').textContent = summary;
   document.getElementById('layerDiag').innerHTML = layers.map(layerRow).join('');
+  bindLayerToggles();
 
   // Prominent AVC sequence header banner (the most actionable error), showing the
   // expected -> actual of every field that was inspected.
@@ -1507,6 +1564,22 @@ function renderDiagnostics() {
       '；目前首個 video tag = ' + kindName(d.firstVideoKind);
   } else {
     banner.className = 'alert alert-danger hidden';
+  }
+}
+
+// Wire the layer expand/collapse once per re-render (the row markup is rebuilt every stats tick).
+function bindLayerToggles() {
+  var heads = document.querySelectorAll('#layerDiag .diag-layer-head[data-target]');
+  for (var i = 0; i < heads.length; i++) {
+    (function (head) {
+      head.addEventListener('click', function () {
+        var body = document.getElementById(head.getAttribute('data-target'));
+        if (!body) return;
+        var hidden = body.classList.toggle('hidden');
+        var tog = head.querySelector('.diag-layer-toggle');
+        if (tog) tog.textContent = hidden ? '▸' : '▾';
+      });
+    })(heads[i]);
   }
 }
 
@@ -2038,6 +2111,8 @@ function resetState() {
   state.perSec = new Map();
   state.packetSeries = [];
   state.syncSeries = [];
+    state.audioRollbackCount = 0;
+    state.firstVideoPts = null;
   state.audioBlocks = [];
   state.videoBlocks = [];
   state.videoTsHistory = [];
@@ -2266,6 +2341,13 @@ function renderStreamVisibility() {
   var host = document.getElementById('hostInput').value.trim().replace(/\/+$/, '');
   var app = getAppKey();
   document.getElementById('connSummary').textContent = streamRevealed ? buildFlvUrl(host, app, stream) : host + '/' + app + '/' + masked + '.flv';
+  var stateEl = document.getElementById('connStateSummary');
+  if (stateEl) {
+    var d = state.diag || {};
+    var running = !document.getElementById('startBtn').classList.contains('hidden');
+    var errs = (state.syncSeries.length >= 10 && Math.abs((state.syncSeries[state.syncSeries.length - 1] || {}).offset || 0) > 1000) ? ' · 影音偏移過大' : '';
+    stateEl.textContent = running ? ('分析中' + errs) : '未啟動';
+  }
   var flvEl = document.getElementById('flvUrl');
   flvEl.textContent = streamRevealed ? getFlvUrl() : host + '/' + app + '/' + masked + '.flv';
 }
@@ -2668,21 +2750,26 @@ document.getElementById('clearPktsBtn').addEventListener('click', function () {
   document.getElementById('pktTable').innerHTML = '';
 });
 
-var connCollapsed = false;
-document.getElementById('connToggle').addEventListener('click', function () {
-  connCollapsed = !connCollapsed;
-  var body = document.getElementById('connBody');
-  body.classList.toggle('hidden');
-  this.textContent = connCollapsed ? '▸ 連線設定' : '▾ 連線設定';
-});
-
-var rtcConnCollapsed = false;
-document.getElementById('rtcConnToggle').addEventListener('click', function () {
-  rtcConnCollapsed = !rtcConnCollapsed;
-  var body = document.getElementById('rtcConnBody');
-  body.classList.toggle('hidden');
-  this.textContent = rtcConnCollapsed ? '▸ WebRTC 連線設定' : '▾ WebRTC 連線設定';
-});
+// Remember each collapsible card's state so a reload does not re-expand a card the user closed.
+function bindPersistedCollapse(toggleId, bodyId, label) {
+  var toggle = document.getElementById(toggleId);
+  var body = document.getElementById(bodyId);
+  if (!toggle || !body) return;
+  var key = 'SRS_PUSH_DIAG_COLLAPSE_' + bodyId;
+  var collapsed = localStorage.getItem(key) === '1';
+  function render() {
+    body.classList.toggle('hidden', collapsed);
+    toggle.textContent = collapsed ? '▸ ' + label : '▾ ' + label;
+  }
+  render();
+  toggle.addEventListener('click', function () {
+    collapsed = !collapsed;
+    try { localStorage.setItem(key, collapsed ? '1' : '0'); } catch (e) { /* private mode */ }
+    render();
+  });
+}
+bindPersistedCollapse('connToggle', 'connBody', '連線設定');
+bindPersistedCollapse('rtcConnToggle', 'rtcConnBody', 'WebRTC 連線設定');
 
 document.getElementById('streamEye').addEventListener('click', toggleStreamReveal);
 document.getElementById('flvUrl').addEventListener('click', toggleStreamReveal);
