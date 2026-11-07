@@ -3,7 +3,6 @@ import {useSearchParams} from "react-router-dom";
 import {Accordion, Alert, Button, Card, Col, Form, Nav, Row, Spinner, Table} from "react-bootstrap";
 import {useSrsLanguage} from "../components/LanguageSwitch";
 import {useTranslation} from "react-i18next";
-import {useErrorHandler} from "react-error-boundary";
 import axios from "axios";
 import {Token, isZh} from "../utils";
 import PopoverConfirm from "../components/PopoverConfirm";
@@ -12,6 +11,7 @@ import { saveAs } from 'file-saver';
 import {SrsErrorBoundary} from "../components/SrsErrorBoundary";
 import ChooseVideoSource from "../components/VideoSourceSelector";
 import * as Icon from "react-bootstrap-icons";
+import { useApiErrorHandler } from "../useApiErrorHandler.js";
 
 export default function ScenarioDubbing() {
   const [searchParams] = useSearchParams();
@@ -32,7 +32,7 @@ export default function ScenarioDubbing() {
 function ScenarioDubbingList({setDubbingId}) {
   const language = useSrsLanguage();
   const {t} = useTranslation();
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
   const [searchParams, setSearchParams] = useSearchParams();
   const [name, setName] = React.useState('My Dubbing Video');
   const [projects, setProjects] = React.useState([]);
@@ -196,7 +196,7 @@ function ScenarioDubbingList({setDubbingId}) {
 
 function ScenarioDubbingImpl({dubbingId, setDubbingId}) {
   const {t} = useTranslation();
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
   const [project, setProject] = React.useState();
   const [searchParams, setSearchParams] = useSearchParams();
   const [requesting, setRequesting] = React.useState(false);
@@ -268,7 +268,7 @@ function ScenarioDubbingImpl({dubbingId, setDubbingId}) {
 
 function DubbingSettings({project, requesting, updateProject}) {
   const {t} = useTranslation();
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
   const language = useSrsLanguage();
   const [name, setName] = React.useState(project.title);
   const [configItem, setConfigItem] = React.useState('asr');
@@ -839,7 +839,7 @@ function DubbingUISubtitles({task, playerRef, isFullscreen, showHeader, showASR,
 }
 
 function DubbingStudioEditor({project, isFullscreen, setIsFullscreen}) {
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
   const [requesting, setRequesting] = React.useState(false);
   const [processing, setProcessing] = React.useState(false);
   const [startupRequesting, setStartupRequesting] = React.useState(true);

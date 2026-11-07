@@ -9,7 +9,6 @@ import {Accordion, Button, Card, Form, Nav, Spinner, Table} from "react-bootstra
 import {useTranslation} from "react-i18next";
 import axios from "axios";
 import {Clipboard, Locale, Token, isZh} from "../utils";
-import {useErrorHandler} from "react-error-boundary";
 import {useSearchParams} from "react-router-dom";
 import {buildUrls} from "../components/UrlGenerator";
 import HlsDisabledHint from "../components/HlsDisabledHint";
@@ -18,6 +17,7 @@ import * as Icon from "react-bootstrap-icons";
 import PopoverConfirm from "../components/PopoverConfirm";
 import {OpenAISecretSettings} from "../components/OpenAISettings";
 import {CodeSecret} from "../components/CodeSecret";
+import { useApiErrorHandler } from "../useApiErrorHandler.js";
 
 export default function ScenarioLiveRoom() {
   const [searchParams] = useSearchParams();
@@ -39,7 +39,7 @@ export default function ScenarioLiveRoom() {
 function ScenarioLiveRoomList({setRoomId}) {
   const language = useSrsLanguage();
   const {t} = useTranslation();
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
   const [searchParams, setSearchParams] = useSearchParams();
   const [name, setName] = React.useState('My Live Room');
   const [rooms, setRooms] = React.useState([]);
@@ -229,7 +229,7 @@ function ScenarioLiveRoomList({setRoomId}) {
 
 function ScenarioLiveRoomImpl({roomId, setRoomId}) {
   const {t} = useTranslation();
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
   const [requesting, setRequesting] = React.useState(false);
   const [room, setRoom] = React.useState();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -416,7 +416,7 @@ function LiveRoomStreamer({room}) {
 
 function LiveRoomAssistant({room, requesting, updateRoom}) {
   const {t} = useTranslation();
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
   const language = useSrsLanguage();
 
   const [aiName, setAiName] = React.useState(room.aiName);

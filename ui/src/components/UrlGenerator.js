@@ -7,8 +7,8 @@ import React from "react";
 import {Token, StreamName} from "../utils";
 import axios from "axios";
 import {useTranslation} from "react-i18next";
-import {useErrorHandler} from "react-error-boundary";
 import {SrsEnvContext} from "./SrsEnvContext";
+import { useApiErrorHandler } from "../useApiErrorHandler.js";
 
 export function buildUrls(defaultUrl, secret, env) {
   if (!defaultUrl) defaultUrl = `live/livestream`;
@@ -117,7 +117,7 @@ export default function useUrls() {
   const [loading, setLoading] = React.useState(true);
   const [secret, setSecret] = React.useState();
   const {t} = useTranslation();
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
   const env = React.useContext(SrsEnvContext)[0];
 
   const updateStreamName = React.useCallback(() => {

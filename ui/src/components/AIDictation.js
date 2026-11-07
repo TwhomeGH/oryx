@@ -1,15 +1,15 @@
 import React from "react";
 import {Alert, Button, Card, Col, Dropdown, Form, InputGroup, Row, Spinner} from "react-bootstrap";
 import {useTranslation} from "react-i18next";
-import {useErrorHandler} from "react-error-boundary";
 import {useIsMobile} from "./IsMobile";
 import axios from "axios";
 import {Locale, Token} from "../utils";
 import * as Icon from "react-bootstrap-icons";
+import { useApiErrorHandler } from "../useApiErrorHandler.js";
 
 export function AITalkDictationPanel({roomUUID, roomToken, username, userLanguage}) {
   const {t} = useTranslation();
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
   const isMobile = useIsMobile();
 
   // The timeout in milliseconds.
@@ -598,7 +598,7 @@ export function AITalkDictationPanel({roomUUID, roomToken, username, userLanguag
 }
 
 function AITalkUserConfig({roomUUID, roomToken, username, userLanguage, stageUUID, userID, disabled, label, onSubmit, onCancel}) {
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
   const [loading, setLoading] = React.useState(true);
   const [user, setUser] = React.useState(null);
 
@@ -629,7 +629,7 @@ function AITalkUserConfig({roomUUID, roomToken, username, userLanguage, stageUUI
 
 function AITalkUserConfigImpl({roomUUID, roomToken, stageUUID, user, disabled, label, onSubmit, onCancel}) {
   const {t} = useTranslation();
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
 
   const [requesting, setRequesting] = React.useState(false);
   const [userName, setUserName] = React.useState(user.username);

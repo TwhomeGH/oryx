@@ -4,12 +4,12 @@ import {useSrsLanguage} from "../components/LanguageSwitch";
 import {useTranslation} from "react-i18next";
 import {Token, isZh} from "../utils";
 import axios from "axios";
-import {useErrorHandler} from "react-error-boundary";
 import PopoverConfirm from "../components/PopoverConfirm";
 import {OpenAISecretSettings} from "../components/OpenAISettings";
+import { useApiErrorHandler } from "../useApiErrorHandler.js";
 
 export default function ScenarioTranscript(props) {
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
   const [config, setConfig] = React.useState();
   const [uuid, setUuid] = React.useState();
   const [activeKey, setActiveKey] = React.useState();
@@ -43,7 +43,7 @@ export default function ScenarioTranscript(props) {
 function ScenarioTranscriptImpl({activeKey, defaultEnabled, defaultConf, defaultUuid}) {
   const language = useSrsLanguage();
   const {t} = useTranslation();
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
 
   const [operating, setOperating] = React.useState(false);
   const [refreshNow, setRefreshNow] = React.useState();

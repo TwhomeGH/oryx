@@ -2,15 +2,15 @@ import React from "react";
 import {useSrsLanguage} from "../components/LanguageSwitch";
 import {Accordion, Badge, Button, Form, Stack} from "react-bootstrap";
 import {useTranslation} from "react-i18next";
-import {useErrorHandler} from "react-error-boundary";
 import {Token, isZh} from "../utils";
 import axios from "axios";
 import {buildUrls} from "../components/UrlGenerator";
 import moment from "moment/moment";
 import {SrsEnvContext} from "../components/SrsEnvContext";
+import { useApiErrorHandler } from "../useApiErrorHandler.js";
 
 export default function ScenarioTranscode(props) {
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
   const [config, setConfig] = React.useState();
   const [activeKey, setActiveKey] = React.useState();
 
@@ -40,7 +40,7 @@ export default function ScenarioTranscode(props) {
 function ScenarioTranscodeImpl({activeKey, urls, defaultEnabled, defaultConf}) {
   const language = useSrsLanguage();
   const {t} = useTranslation();
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
 
   const [transcodeEnabled, setTranscodeEnabled] = React.useState(defaultEnabled);
   const [vbitrate, setVbitrate] = React.useState(defaultConf.vbitrate || 1200);

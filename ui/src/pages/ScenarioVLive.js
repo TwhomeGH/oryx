@@ -8,18 +8,18 @@ import {Accordion, Badge, Button, Col, Form, Row, Table} from "react-bootstrap";
 import {Token, isZh} from "../utils";
 import axios from "axios";
 import moment from "moment";
-import {useErrorHandler} from "react-error-boundary";
 import {useSrsLanguage} from "../components/LanguageSwitch";
 import {useTranslation} from "react-i18next";
 import {SecretInput} from "../components/SecretInput";
 import {SrsErrorBoundary} from "../components/SrsErrorBoundary";
 import ChooseVideoSource, {VLiveFileFormatInfo} from "../components/VideoSourceSelector";
+import { useApiErrorHandler } from "../useApiErrorHandler.js";
 
 export default function ScenarioVLive() {
   const [init, setInit] = React.useState();
   const [activeKey, setActiveKey] = React.useState();
   const [secrets, setSecrets] = React.useState();
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
 
   React.useEffect(() => {
     axios.post('/terraform/v1/ffmpeg/vlive/secret', {
@@ -56,7 +56,7 @@ export default function ScenarioVLive() {
 function ScenarioVLiveImpl({defaultActiveKey, defaultSecrets}) {
   const language = useSrsLanguage();
   const {t} = useTranslation();
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
 
   const [vLives, setVLives] = React.useState();
   const [submiting, setSubmiting] = React.useState();

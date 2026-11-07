@@ -11,9 +11,9 @@ import SetupCamSecret from '../components/SetupCamSecret';
 import moment from "moment";
 import {TutorialsButton, useTutorials} from "../components/TutorialsButton";
 import useDvrVodStatus from "../components/DvrStatus";
-import {useErrorHandler} from "react-error-boundary";
 import {useTranslation} from "react-i18next";
 import {useSrsLanguage} from "../components/LanguageSwitch";
+import { useApiErrorHandler } from "../useApiErrorHandler.js";
 
 export default function ScenarioRecordCos() {
   const language = useSrsLanguage();
@@ -55,7 +55,7 @@ function ScenarioRecordCosCn() {
 function ScenarioRecordCosImpl({activeKey, defaultApplyAll, enabled}) {
   const [dvrAll, setDvrAll] = React.useState(defaultApplyAll);
   const [dvrFiles, setDvrFiles] = React.useState();
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
   const {t} = useTranslation();
 
   const dvrTutorials = useTutorials('recordCos');

@@ -9,13 +9,13 @@ import {Token, StreamURL, Clipboard, isZh} from "../utils";
 import axios from "axios";
 import moment from "moment";
 import {useRecordStatus} from "../components/DvrStatus";
-import {useErrorHandler} from "react-error-boundary";
 import {useTranslation} from "react-i18next";
 import {useSrsLanguage} from "../components/LanguageSwitch";
 import * as Icon from "react-bootstrap-icons";
 import PopoverConfirm from "../components/PopoverConfirm";
 import TutorialsText from "../components/TutorialsText";
 import { minimatch } from "minimatch";
+import { useApiErrorHandler } from "../useApiErrorHandler.js";
 
 export default function ScenarioRecord() {
   const recordStatus = useRecordStatus();
@@ -50,7 +50,7 @@ export default function ScenarioRecord() {
 function ScenarioRecordImpl({activeKeys, defaultApplyAll, defaultGlobs, defaultPostProcess, defaultPostProcessValue, recordHome}) {
   const language = useSrsLanguage();
   const {t} = useTranslation();
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
 
   const [recordAll, setRecordAll] = React.useState(defaultApplyAll);
   const [recordFiles, setRecordFiles] = React.useState();

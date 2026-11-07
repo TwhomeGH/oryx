@@ -14,10 +14,10 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {Token, isZh} from "../utils";
 import {useSrsLanguage} from "../components/LanguageSwitch";
-import {useErrorHandler} from "react-error-boundary";
 
 import defaultZh from "../resources/contact-default.md?raw";
 import defaultEn from "../resources/contact-default.en.md?raw";
+import { useApiErrorHandler } from "../useApiErrorHandler.js";
 
 // Split a markdown document into sections at each `## ` heading, so that a
 // partial translation can overlay the main content section by section.
@@ -53,7 +53,7 @@ export default function Contact() {
 }
 
 function ContactImpl({locale}) {
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
   const [content, setContent] = React.useState();
   const [custom, setCustom] = React.useState(false);
 

@@ -4,18 +4,18 @@
 // SPDX-License-Identifier: MIT
 //
 import React from "react";
-import {useErrorHandler} from "react-error-boundary";
 import {MediaSource, Tools} from "../utils";
 import {useTranslation} from "react-i18next";
 import moment from "moment";
 import {Button, Col, Form, InputGroup, Row, ListGroup} from "react-bootstrap";
 import axios from "axios";
+import { useApiErrorHandler } from "../useApiErrorHandler.js";
 
 export default function FileUploader({onFilesUploaded}) {
   const accept = React.useMemo(() => MediaSource.exts, []);
   const multiple = React.useMemo(() => false, []);
 
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
   const {t} = useTranslation();
   const [uploading, setUploading] = React.useState(false);
   const [filesToUpload, setFilesToUpload] = React.useState([]);

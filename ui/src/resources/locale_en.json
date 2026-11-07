@@ -872,7 +872,8 @@
       "noNginx": "No nginx support for docker",
       "offline": "Server unreachable",
       "offlineHint": "The management server is offline or the network dropped. Your data is safe; retry when it is back.",
-      "retry": "Retry"
+      "retry": "Retry",
+      "serverDown": "Management service unreachable. The current view is kept; it refreshes automatically when the connection returns."
     },
     "fp": {
       "label": "Choose File",

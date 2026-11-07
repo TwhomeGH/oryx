@@ -3,11 +3,11 @@ import axios from "axios";
 import {Token} from "../utils";
 import {Button, Form, Spinner} from "react-bootstrap";
 import {useTranslation} from "react-i18next";
-import {useErrorHandler} from "react-error-boundary";
+import { useApiErrorHandler } from "../useApiErrorHandler.js";
 
 export function OpenAISecretSettings({baseURL, setBaseURL, secretKey, setSecretKey, organization, setOrganization, model, setModel, chatModel, setChatModel}) {
   const {t} = useTranslation();
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
 
   const [checking, setChecking] = React.useState(false);
 

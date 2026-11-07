@@ -7,15 +7,15 @@ import React from 'react';
 import { Alert } from 'react-bootstrap';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
-import { useErrorHandler } from 'react-error-boundary';
 
 import { Token } from '../utils';
+import { useApiErrorHandler } from "../useApiErrorHandler.js";
 
 // Shows a hint when the HLS master switch is off, so HLS links/players on this page don't
 // silently break. Renders nothing while HLS is enabled.
 export default function HlsDisabledHint() {
   const { t } = useTranslation();
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
   const [enabled, setEnabled] = React.useState(true);
 
   React.useEffect(() => {

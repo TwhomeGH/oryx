@@ -31,13 +31,14 @@ import Scenario from "./pages/Scenario";
 import Settings from "./pages/Settings";
 import SrsConsole from "./pages/SrsConsole";
 import Contact from "./pages/Contact";
-import {ErrorBoundary, useErrorHandler} from 'react-error-boundary';
+import { ErrorBoundary } from 'react-error-boundary';
 import {SrsErrorBoundary} from "./components/SrsErrorBoundary";
 import {SrsOfflineBanner} from "./components/SrsOfflineBanner";
 import {resources} from "./localeLoader";
 import {SrsEnvContext} from "./components/SrsEnvContext";
 import Popouts from "./pages/Popouts";
 import i18n from "./i18n";
+import { useApiErrorHandler } from "./useApiErrorHandler.js";
 
 function App() {
   const [env, setEnv] = React.useState(null);
@@ -60,7 +61,7 @@ function RootError({error}) {
 
 function AppPreImpl() {
   const [env, setEnv] = React.useContext(SrsEnvContext);
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
 
   React.useEffect(() => {
     if (!setEnv) return;
@@ -90,7 +91,7 @@ function AppImpl() {
   const [loading, setLoading] = React.useState(true);
   // Possible value is 1: yes, -1: no, 0: undefined.
   const [initialized, setInitialized] = React.useState(0);
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
 
   React.useEffect(() => {
     axios.get('/terraform/v1/mgmt/check').then(res => {

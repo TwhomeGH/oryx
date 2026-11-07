@@ -656,7 +656,7 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		args = append(args, "-r", rate)
 		args = append(args, forwardVideoEncodeArgs(slateConf.OutputBitrateMbps, slateConf.OutputCQ, slateConf.OutputPresets, slateConf.OutputTunes)...)
 		args = append(args, "-g", fmt.Sprintf("%d", gop), "-keyint_min", fmt.Sprintf("%d", gop),
-			"-sc_threshold", "0", "-c:a", "aac", "-b:a", fmt.Sprintf("%dk", v.audioKbps()), "-f", "flv", output)
+			"-sc_threshold", "0", "-c:a", "aac", "-b:a", fmt.Sprintf("%dk", v.audioKbps()), "-avoid_negative_ts", "make_zero", "-f", "flv", output)
 	default:
 		return errors.Errorf("invalid program mode %v", mode)
 	}

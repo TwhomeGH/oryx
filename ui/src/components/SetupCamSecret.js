@@ -8,12 +8,12 @@ import {Button, Form} from "react-bootstrap";
 import {Token} from "../utils";
 import axios from "axios";
 import {useTranslation} from "react-i18next";
-import {useErrorHandler} from "react-error-boundary";
+import { useApiErrorHandler } from "../useApiErrorHandler.js";
 
 export default function SetupCamSecret({children}) {
   const [secretId, setSecretId] = React.useState();
   const [secretKey, setSecretKey] = React.useState();
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
   const {t} = useTranslation();
 
   const updateTencentSecret = React.useCallback((e) => {

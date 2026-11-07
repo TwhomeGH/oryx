@@ -15,12 +15,12 @@ import axios from "axios";
 import {Row, Col, Card, Table, Tab, Tabs, Button, Badge, Alert, Accordion} from "react-bootstrap";
 import moment from "moment";
 import {useTranslation} from "react-i18next";
-import {useErrorHandler} from "react-error-boundary";
 import {SrsErrorBoundary} from "../components/SrsErrorBoundary";
 import ForwardProgress from "../components/ForwardProgress";
 import ForwardHistory from "../components/ForwardHistory";
 import ForwardSessions from "../components/ForwardSessions";
 import {LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer} from "recharts";
+import { useApiErrorHandler } from "../useApiErrorHandler.js";
 
 export default function SrsConsole() {
   return (
@@ -56,7 +56,7 @@ function srsApi(path, params) {
 
 function SrsConsoleImpl() {
   const {t} = useTranslation();
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
   const [key, setKey] = React.useState('overview');
 
   return (

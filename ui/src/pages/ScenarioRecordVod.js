@@ -11,9 +11,9 @@ import SetupCamSecret from '../components/SetupCamSecret';
 import useDvrVodStatus from "../components/DvrStatus";
 import moment from "moment";
 import {TutorialsButton, useTutorials} from "../components/TutorialsButton";
-import {useErrorHandler} from "react-error-boundary";
 import {useTranslation} from "react-i18next";
 import {useSrsLanguage} from "../components/LanguageSwitch";
+import { useApiErrorHandler } from "../useApiErrorHandler.js";
 
 export default function ScenarioRecordVod() {
   const language = useSrsLanguage();
@@ -56,7 +56,7 @@ function ScenarioRecordVodCn() {
 function ScenarioRecordVodImpl({activeKey, defaultApplyAll, enabled}) {
   const [vodAll, setVodAll] = React.useState(defaultApplyAll);
   const [vodFiles, setVodFiles] = React.useState();
-  const handleError = useErrorHandler();
+  const handleError = useApiErrorHandler();
   const {t} = useTranslation();
 
   const vodTutorials = useTutorials('recordVod');
