@@ -60,18 +60,6 @@
     </div>
 </nav>
 
-<script>
-// The console route carries the locale (/:locale/routers-console); reuse the preference the web UI
-// stores so this link lands on the same language instead of always defaulting to zh.
-(function () {
-  try {
-    var saved = JSON.parse(localStorage.getItem('ORYX_LOCALE') || 'null');
-    var lang = (saved && saved.lang) || 'zh';
-    var el = document.getElementById('navBack');
-    if (el) el.href = '/mgmt/' + encodeURIComponent(lang) + '/routers-console';
-  } catch (e) { /* keep the default */ }
-})();
-</script>
 
 <div class="container diag-full">
     <div id="preview_banner" class="preview-banner hidden"></div>
@@ -2974,6 +2962,18 @@ setInterval(function () {
 
 buildCharts();
 buildRtcCharts();
+</script>
+<script>
+// The console route carries the locale (/:locale/routers-console); reuse the preference the web UI
+// stores so this link lands on the same language instead of always defaulting to zh.
+(function () {
+  try {
+    var saved = JSON.parse(localStorage.getItem('ORYX_LOCALE') || 'null');
+    var lang = (saved && saved.lang) || 'zh';
+    var el = document.getElementById('navBack');
+    if (el) el.href = '/mgmt/' + encodeURIComponent(lang) + '/routers-console';
+  } catch (e) { /* keep the default */ }
+})();
 </script>
 </body>
 </html>
