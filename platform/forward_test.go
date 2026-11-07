@@ -329,3 +329,23 @@ func TestForward_SlateSizing(t *testing.T) {
 		}
 	}
 }
+
+func TestSourceIsCFR(t *testing.T) {
+	cases := []struct {
+		nominal, avg string
+		want         bool
+	}{
+		{"60/1", "60/1", true},
+		{"60/1", "179/3", true},  // 59.67, near-CFR
+		{"1000/1", "60/1", true}, // placeholder nominal, whole-number average
+		{"", "60/1", true},
+		{"60/1", "22/5", false},     // 4.4 fps idle screen recording
+		{"1000/1", "697/24", false}, // ~29.04 but not whole and nominal unusable
+		{"", "0/0", false},
+	}
+	for _, c := range cases {
+		if got := sourceIsCFR(c.nominal, c.avg); got != c.want {
+			t.Errorf("sourceIsCFR(%q,%q)=%v want %v", c.nominal, c.avg, got, c.want)
+		}
+	}
+}

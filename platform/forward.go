@@ -2052,6 +2052,7 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 	if forwardFanoutRestartOnSwitch {
 		if bus := v.programBus(); bus != nil {
 			startSwitches := bus.queryStatus().Switches
+			startGeneration := bus.queryStatus().Generation
 			go func() {
 				ticker := time.NewTicker(2 * time.Second)
 				defer ticker.Stop()
@@ -2060,7 +2061,11 @@ func (v *ForwardTask) doForward(ctx context.Context) error {
 					case <-ctx.Done():
 						return
 					case <-ticker.C:
-						if bus.queryStatus().Switches != startSwitches {
+						// A killed publisher restarts in place (mode unchanged), so the switch
+						// counter does not move; the generation does. Without this the fanout
+						// stayed stuck on a dead HTTP-FLV consumer forever.
+						st := bus.queryStatus()
+						if st.Switches != startSwitches || st.Generation != startGeneration {
 							logger.Tf(ctx, "forward: program publisher changed, restart fanout, platform=%v", v.Platform)
 							cancel()
 							return

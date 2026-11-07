@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"strconv"
@@ -190,13 +191,17 @@ type ProgramBus struct {
 
 	cancel context.CancelFunc
 
-	lock         sync.Mutex
-	refs         int
-	mode         string
-	failover     string
-	pubCancel    context.CancelFunc
-	pid          int32
-	switches     int
+	lock      sync.Mutex
+	refs      int
+	mode      string
+	failover  string
+	pubCancel context.CancelFunc
+	pid       int32
+	switches  int
+	// generation increments every time a publisher process starts (including retries after the
+	// process dies), so downstream consumers can tell that the program was re-published and must
+	// reconnect with a fresh ffmpeg.
+	generation   int
 	sourceActive bool
 	// When the source first became inactive, to implement the optional offline-stop policy.
 	inactiveSince time.Time
@@ -213,7 +218,11 @@ type ProgramBus struct {
 	srcWidth, srcHeight int32
 	// The source's average frame rate as a rational (e.g. "60" or "1475589000/24728941"), used
 	// as the slate/base frame rate so the video's media clock tracks the source's real time.
-	srcRate       string
+	srcRate string
+	// srcCFR is true when the probed average frame rate matches the nominal one, i.e. the source
+	// already delivers constant frame rate. Transcoding such a source (CFR->CFR) only burns GPU and
+	// can make the program timeline drift, so the program relays it with -c copy instead.
+	srcCFR        bool
 	srcAudioKbps  int32
 	srcSampleRate int32
 
@@ -233,6 +242,7 @@ type ProgramStatus struct {
 	Failover     string
 	PID          int32
 	Switches     int
+	Generation   int
 	SourceActive bool
 	// The source's probed average frame rate, to compare with the output (normalize/CFR).
 	SourceRate   string
@@ -400,6 +410,7 @@ func (v *ProgramBus) queryStatus() ProgramStatus {
 		Failover:        v.failover,
 		PID:             v.pid,
 		Switches:        v.switches,
+		Generation:      v.generation,
 		SourceActive:    v.sourceActive,
 		SourceRate:      v.srcRate,
 		LastError:       v.lastError,
@@ -569,6 +580,9 @@ func (v *ProgramBus) switchPublisher(parent context.Context, mode string) error 
 	go func() {
 		defer cancel()
 		for ctx.Err() == nil {
+			v.lock.Lock()
+			v.generation++
+			v.lock.Unlock()
 			if err := v.runPublisherOnce(ctx, mode); err != nil {
 				v.setLastError(err)
 				logger.Wf(parent, "forward program publisher err %+v, retry in 2s", err)
@@ -609,7 +623,12 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		// relay. (Experiment C2 showed the republish, not the codec change, is the handoff root
 		// cause.)
 		conf := forwardSlateConfigLoad(ctx)
-		if conf.Normalize {
+		// Normalizing an already-CFR source is pure overhead (and forcing -r on it made the
+		// program timeline run ahead of wall clock). Only transcode genuinely variable-rate input.
+		if conf.Normalize && v.sourceCFR() {
+			logger.Tf(ctx, "forward program source is CFR, normalize skipped, source=%v/%v", v.sourceApp, v.sourceStream)
+			args = append(args, "-c", "copy")
+		} else if conf.Normalize {
 			_, _, rate := v.sourceSize()
 			gop := forwardGOPFrames(rate, conf.KeyframeSeconds)
 			// Pin the output rate explicitly. Without -r, ffmpeg derives CFR from its own guess
@@ -845,6 +864,49 @@ func (v *ProgramBus) sourceSize() (w, h int32, rate string) {
 	return v.srcWidth, v.srcHeight, v.srcRate
 }
 
+// sourceIsCFR reports whether the nominal and average frame rates agree, meaning the source is
+// already constant-rate and does not need the normalize transcode.
+func sourceIsCFR(nominal, avg string) bool {
+	aNum, aDen, ok := parseFPS(avg)
+	if !ok || aDen == 0 {
+		return false
+	}
+	a := float64(aNum) / float64(aDen)
+	if a <= 0 {
+		return false
+	}
+	// r_frame_rate is unreliable in practice: some muxers report placeholders such as 1000/1.
+	// When it is a sane value, compare against it; otherwise accept the average when it sits on a
+	// whole frame rate, which is what a constant-rate encoder produces (a VFR source averages to
+	// something like 4.4 or 36.7).
+	if nNum, nDen, okN := parseFPS(nominal); okN && nDen != 0 {
+		n := float64(nNum) / float64(nDen)
+		if n > 0 && n <= 240 {
+			return math.Abs(a-n)/n < 0.02
+		}
+	}
+	// Otherwise only accept the standard broadcast frame rates: a VFR source averages to an odd
+	// value (4.4, 29.04, 36.7), which must still be normalized.
+	for _, common := range []float64{23.976, 24, 25, 29.97, 30, 48, 50, 59.94, 60, 90, 100, 120, 144, 240} {
+		if math.Abs(a-common)/common < 0.01 {
+			return true
+		}
+	}
+	return false
+}
+
+func (v *ProgramBus) setSourceCFR(cfr bool) {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	v.srcCFR = cfr
+}
+
+func (v *ProgramBus) sourceCFR() bool {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	return v.srcCFR
+}
+
 func (v *ProgramBus) probeSourceSize(ctx context.Context) {
 	url := fmt.Sprintf("http://localhost:%v/%v/%v.flv", forwardProgramHTTPPort, v.sourceApp, v.sourceStream)
 	// The source may have just been published, so its header/metadata is not always ready on the
@@ -863,6 +925,7 @@ func (v *ProgramBus) probeSourceSize(ctx context.Context) {
 				const maxVideoDim = 16384
 				if w > 0 && h > 0 && w <= maxVideoDim && h <= maxVideoDim {
 					v.setSourceSize(int32(w), int32(h), rate)
+					v.setSourceCFR(sourceIsCFR(parts[2], parts[3]))
 					logger.Tf(ctx, "forward program probed source size %vx%v@%v (r=%v avg=%v)", w, h, rate, parts[2], parts[3])
 					return
 				}
