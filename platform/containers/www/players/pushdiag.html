@@ -5,6 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>SRS 推流診斷</title>
     <link rel="stylesheet" href="css/player.css">
+    <style>
+        /* Inline so it is not held back by the player.css long cache. */
+        .nav-back {
+            margin-left: auto;
+            padding: 8px 14px;
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            border-radius: var(--radius);
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .nav-back:hover { background: var(--accent-glow); text-decoration: none; }
+    </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1.8.2/dist/mpegts.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
@@ -30,8 +45,22 @@
             <li><a href="whep.html">WHEP</a></li>
             <li><a class="active" href="pushdiag.html">Push Diag</a></li>
         </ul>
+        <a class="nav-back" id="navBack" href="/mgmt/zh/routers-console">← 返回 Oryx 主控台</a>
     </div>
 </nav>
+
+<script>
+// The console route carries the locale (/:locale/routers-console); reuse the preference the web UI
+// stores so this link lands on the same language instead of always defaulting to zh.
+(function () {
+  try {
+    var saved = JSON.parse(localStorage.getItem('ORYX_LOCALE') || 'null');
+    var lang = (saved && saved.lang) || 'zh';
+    var el = document.getElementById('navBack');
+    if (el) el.href = '/mgmt/' + encodeURIComponent(lang) + '/routers-console';
+  } catch (e) { /* keep the default */ }
+})();
+</script>
 
 <div class="container diag-full">
     <div id="preview_banner" class="preview-banner hidden"></div>

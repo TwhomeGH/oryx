@@ -74,6 +74,7 @@ a:hover { color: var(--accent-hover); }
 .navbar-nav a:hover { color: var(--text-primary); background: var(--bg-hover); }
 .navbar-nav a.active { color: var(--accent); background: var(--accent-glow); }
 
+
 /* Container */
 .container {
     max-width: 1400px;
