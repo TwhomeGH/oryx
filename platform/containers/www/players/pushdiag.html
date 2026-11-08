@@ -1175,10 +1175,13 @@ function handleTag(type, ts, data) {
   state.pendingRows.push(row);
   if (state.pendingRows.length > 800) state.pendingRows.shift();
 
-  state.rawCache.set(state.seq, data.slice(0, 262144));
+  // The raw view only needs a prefix of each packet; copying up to 256KB per packet on the hot path
+  // (and keeping 300 of them) cost tens of MB and stalled the player.
+  var rawCap = 65536;
+  state.rawCache.set(state.seq, data.slice(0, rawCap));
   state.rawMeta.set(state.seq, { typeName: row.typeName, ts: ts });
-  state.rawCacheBytes += Math.min(data.length, 262144);
-  if (state.rawCache.size > 300) {
+  state.rawCacheBytes += Math.min(data.length, rawCap);
+  if (state.rawCache.size > 150) {
     var old = state.rawCache.keys().next().value;
     state.rawCacheBytes -= state.rawCache.get(old).length;
     state.rawCache.delete(old);
@@ -1823,14 +1826,17 @@ function flushPacketRows() {
   if (!state.pendingRows.length || state.paused) return;
   var tbody = document.getElementById('pktTable');
   var frag = document.createDocumentFragment();
-  for (var row of state.pendingRows) {
+  // Only the newest rows are appended (the table keeps the latest anyway); rendering every queued
+  // row competed with the MSE player for the main thread.
+  var pending = state.pendingRows.length > 120 ? state.pendingRows.slice(-120) : state.pendingRows;
+  for (var row of pending) {
     var tr = document.createElement('tr');
     tr.className = rowColor[row.typeName] || 'text-dim';
     tr.innerHTML = '<td>' + row.seq + '</td><td>' + row.typeName + '</td><td>' + row.size + '</td><td>' + (row.frame === 'KEY' ? '<span class="text-err">KEY</span>' : row.frame) + '</td><td>' + row.ts + '</td><td>' + (row.delta !== null ? row.delta : '') + '</td><td>' + esc(row.detail) + '</td><td><button data-seq="' + row.seq + '" class="btn btn-secondary btn-sm viewBtn">🔍</button></td>';
     frag.appendChild(tr);
   }
   tbody.appendChild(frag);
-  while (tbody.children.length > 500) tbody.removeChild(tbody.firstChild);
+  while (tbody.children.length > 300) tbody.removeChild(tbody.firstChild);
   tbody.parentElement.scrollTop = tbody.parentElement.scrollHeight;
   state.pendingRows = [];
 }
@@ -2110,7 +2116,16 @@ function startPreview(url) {
   video.classList.remove('hidden');
   try {
     if (typeof mpegts === 'undefined' || !mpegts.getFeatureList().mseLivePlayback) throw new Error('此環境不支援 FLV 預覽');
-    previewPlayer = mpegts.createPlayer({ type: 'flv', isLive: true, url: url }, { enableStashBuffer: false });
+    previewPlayer = mpegts.createPlayer({ type: 'flv', isLive: true, url: url }, {
+      // A stash buffer absorbs main-thread jitter; without it a single hiccup underruns the MSE
+      // buffer and the picture freezes. Latency chasing trims the backlog so it stays near live.
+      enableStashBuffer: true,
+      stashInitialSize: 384,
+      autoCleanupSourceBuffer: true,
+      liveBufferLatencyChasing: true,
+      liveBufferLatencyMaxLatency: 3.0,
+      liveBufferLatencyMinRemain: 0.5,
+    });
     var player = previewPlayer;
     previewPlayer.on(mpegts.Events.ERROR, function () {
       if (previewPlayer !== player) return;
@@ -2149,11 +2164,57 @@ function stopPreview() {
   document.getElementById('previewStatus').className = 'text-dim';
 }
 
+// The preview used to have no stall handling at all: a frozen picture stayed frozen until the user
+// pressed stop. Detect a non-advancing currentTime and first jump to the live edge, then rebuild
+// the player if that does not help.
+var previewStall = { at: 0, ct: -1, recoveredAt: 0 };
 function checkPreviewStall() {
   if (!previewPlayer || !state.running) return;
   var video = document.getElementById('previewVideo');
   if (!video) return;
   if (document.getElementById('hudEnabled').checked) updatePreviewHud();
+
+  var now = performance.now();
+  var ct = video.currentTime;
+  if (ct !== previewStall.ct) {
+    previewStall.ct = ct;
+    previewStall.at = now;
+    return;
+  }
+  if (video.paused || video.ended || !isFinite(ct)) return;
+  var stalledFor = (now - previewStall.at) / 1000;
+  if (stalledFor < 4) return;
+
+  // Jump to the newest buffered position (live edge) before paying for a full restart.
+  var b = video.buffered;
+  if (b && b.length > 0) {
+    var end = b.end(b.length - 1);
+    if (end - ct > 0.3) {
+      try { video.currentTime = Math.max(0, end - 0.3); } catch (e) { /* ignore */ }
+      previewStall.at = now;
+      previewStall.ct = video.currentTime;
+      setPreviewStatus('落後，已跳到最新畫面', 'warn');
+      return;
+    }
+  }
+  // Still stuck: rebuild the player (new connection) once per 15s.
+  if (now - previewStall.recoveredAt > 15000) {
+    previewStall.recoveredAt = now;
+    previewStall.at = now;
+    previewStall.ct = -1;
+    var url = document.getElementById('flvUrl').textContent;
+    if (url && url.indexOf('http') === 0) {
+      setPreviewStatus('預覽停住，重新連線', 'warn');
+      startPreview(url);
+    }
+  }
+}
+
+function setPreviewStatus(text, kind) {
+  var el = document.getElementById('previewStatus');
+  if (!el) return;
+  el.textContent = text;
+  el.className = kind === 'warn' ? 'text-warn' : 'text-dim fs-12';
 }
 
 function updatePreviewHud() {
