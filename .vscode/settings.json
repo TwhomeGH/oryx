@@ -11,5 +11,6 @@
   "go.toolsEnvVars": { "GOOS": "linux", "GOARCH": "amd64" },
   "gopls": {
     "build.directoryFilters": ["-platform/vendor", "-test/vendor", "-releases/vendor"]
-  }
+  },
+  "python.terminal.useEnvFile": true
 }
