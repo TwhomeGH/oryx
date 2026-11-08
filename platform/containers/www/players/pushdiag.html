@@ -561,6 +561,7 @@ var state = {
   audioBlocks: [],
   videoBlocks: [],
   videoTsHistory: [],
+  audioTsHistory: [],
   fpsSamples: [],
   offsetSamples: [],
   rawCache: new Map(),
@@ -1152,6 +1153,10 @@ function handleTag(type, ts, data) {
     if (state.audioLastTs !== null && state.audioLastTs !== undefined && ts <= state.audioLastTs) {
       state.audioRollbackCount = (state.audioRollbackCount || 0) + 1;
     }
+    if (aacPacketType !== 0) {
+      state.audioTsHistory.push({ ts: ts, wall: performance.now() });
+      if (state.audioTsHistory.length > 600) state.audioTsHistory.shift();
+    }
     state.audioLastTs = ts;
     state.audioWall = performance.now();
     state.audioBlocks = state.audioBlocks || [];
@@ -1247,8 +1252,16 @@ function recentFpsStats() {
   };
 }
 
+// Measure the media-tag rate of one stream over the last 3 seconds of media time. The previous
+// version ignored its `kind` argument and always read the VIDEO history, so the audio check was
+// comparing the video rate against the expected AAC frame rate (a 25 fps stream then looked like
+// "audio dropping frames").
 function recentMediaRates(kind) {
-  var h = state.videoTsHistory.filter(function (x) { return x.ts >= state.videoLastTs - 3000; });
+  var audio = kind === 'audio';
+  var hist = audio ? (state.audioTsHistory || []) : state.videoTsHistory;
+  var anchor = audio ? state.audioLastTs : state.videoLastTs;
+  if (anchor === null || anchor === undefined) return { rate: 0, sent: 0, ts: 0 };
+  var h = hist.filter(function (x) { return x.ts >= anchor - 3000; });
   if (h.length < 3) return { rate: 0, sent: 0, ts: 0 };
   var count = 0;
   var lastTs = null;
@@ -1365,9 +1378,12 @@ function renderHealth() {
       var ratio = fps / state.sps.fps;
       if (ratio < 0.9) flags.push(badge('badge-err', '影片疑似掉幀 (量測 ' + fps.toFixed(1) + '/' + state.sps.fps.toFixed(1) + ')'));
     }
-    if (recent.rate && state.aacCfg) {
+    if (state.aacCfg) {
+      var audioRate = recentMediaRates('audio').rate;
       var afr = audioFrameRate();
-      if (afr > 0 && recent.rate / afr < 0.9) flags.push(badge('badge-err', '音訊疑似掉幀'));
+      if (afr > 0 && audioRate > 0 && audioRate / afr < 0.9) {
+        flags.push(badge('badge-err', '音訊疑似掉幀 (量測 ' + audioRate.toFixed(1) + '/' + afr.toFixed(1) + ' 幀/秒)'));
+      }
     }
     if (state.offsetSamples.length > 40) {
       var offsets = state.offsetSamples.map(function (o) { return o.offset; });
@@ -2249,6 +2265,7 @@ function resetState() {
   state.audioBlocks = [];
   state.videoBlocks = [];
   state.videoTsHistory = [];
+    state.audioTsHistory = [];
   state.fpsSamples = [];
   state.offsetSamples = [];
   state._lastVct = null;
