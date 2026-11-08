@@ -21,16 +21,20 @@ const forwardSessionHistorySize = 10
 // ForwardSession is one completed run of a forward target, persisted so a failure can be
 // investigated after the process has restarted or the task has moved on.
 type ForwardSession struct {
-	ID           string         `json:"id"`
-	Running      bool           `json:"running,omitempty"`
-	StartedAt    string         `json:"startedAt"`
-	EndedAt      string         `json:"endedAt"`
-	DurationSec  float64        `json:"durationSec"`
-	FinalState   string         `json:"finalState"`
-	RestartCount int            `json:"restartCount"`
-	LastError    string         `json:"lastError,omitempty"`
-	Events       []ForwardEvent `json:"events"`
-	Logs         []string       `json:"logs"`
+	ID           string  `json:"id"`
+	Running      bool    `json:"running,omitempty"`
+	StartedAt    string  `json:"startedAt"`
+	EndedAt      string  `json:"endedAt"`
+	DurationSec  float64 `json:"durationSec"`
+	FinalState   string  `json:"finalState"`
+	RestartCount int     `json:"restartCount"`
+	LastError    string  `json:"lastError,omitempty"`
+	// UpdatedAt is refreshed by each checkpoint. A "running" record whose checkpoint stopped
+	// updating is stale (task disabled, crashed, or simply not forwarding), and must not be shown
+	// as an ever-growing live session.
+	UpdatedAt string         `json:"updatedAt,omitempty"`
+	Events    []ForwardEvent `json:"events"`
+	Logs      []string       `json:"logs"`
 }
 
 // forwardSessionKey returns the Redis list key holding a target's run history.
@@ -80,8 +84,20 @@ func queryForwardSessions(ctx context.Context, platform string) ([]ForwardSessio
 	if cur, err := rdb.Get(ctx, forwardSessionCurrentKey(platform)).Result(); err == nil && cur != "" {
 		var session ForwardSession
 		if json.Unmarshal([]byte(cur), &session) == nil {
-			session.Running = true
-			sessions = append(sessions, session)
+			// A checkpoint written before UpdatedAt existed cannot prove it is live, so treat it
+			// as stale rather than showing a session that claims to have run for hours.
+			stale := session.UpdatedAt == ""
+			if at, perr := time.Parse(time.RFC3339, session.UpdatedAt); perr == nil {
+				stale = time.Since(at) > 90*time.Second
+			}
+			if stale {
+				// Not forwarding any more: drop the live record instead of reporting a session
+				// that has been "running" for hours.
+				clearForwardSessionCurrent(ctx, platform)
+			} else {
+				session.Running = true
+				sessions = append(sessions, session)
+			}
 		}
 	} else if err != nil && err != redis.Nil {
 		return nil, errors.Wrapf(err, "get %v", forwardSessionCurrentKey(platform))
@@ -130,6 +146,7 @@ func (v *ForwardTask) buildForwardSession(startedAt time.Time) ForwardSession {
 		FinalState:   v.State,
 		RestartCount: v.RestartCount,
 		LastError:    v.LastError,
+		UpdatedAt:    ended.Format(time.RFC3339),
 	}
 	session.Events = append([]ForwardEvent(nil), v.events...)
 	session.Logs = append([]string(nil), v.logs...)

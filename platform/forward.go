@@ -1113,6 +1113,13 @@ func (v *ForwardTask) queryStatus() ForwardTaskStatus {
 	return status
 }
 
+// forwarding reports whether the task is currently pushing to its downstream targets.
+func (v *ForwardTask) forwarding() bool {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	return v.State == forwardStateRunning
+}
+
 // stoppedNoOutput returns the time since the last output, but 0 once the task is no longer
 // running, so a stopped target does not keep an ever-growing "no output" timer.
 func (v *ForwardTask) stoppedNoOutput() float64 {
@@ -1395,7 +1402,7 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 	// platform restarts. Only runs that actually did something are kept, so idle starts do not
 	// flush useful history.
 	startedAt := time.Now()
-	hadActivity := false
+	wasRunning := false
 	lastCheckpoint := time.Time{}
 	// A new run starts a new timeline: clear the previous run's samples so the chart reflects this
 	// run only. Otherwise the "last hour" view can mix samples from two unrelated runs (or from
@@ -1405,8 +1412,11 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 			logger.Wf(ctx, "ignore forward metrics clear err %+v", err)
 		}
 	}
+	// Only a run that actually forwarded is recorded. A session is finalised when the target
+	// leaves the running state (disabled, offline-stop, source gone), so the history reflects each
+	// forwarding burst instead of one never-ending "in progress" row.
 	defer func() {
-		if !hadActivity {
+		if !wasRunning {
 			return
 		}
 		saveForwardSession(ctx, v.Platform, v.buildForwardSession(startedAt))
@@ -1590,10 +1600,7 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 	for ctx.Err() == nil {
 		errPfn := pfn(ctx)
 		v.setLoopPhase("cycle-returned")
-		if err := errPfn; err == nil {
-			// A successful cycle means the task produced output, so this run is worth keeping.
-			hadActivity = true
-		}
+
 		if err := errPfn; err != nil {
 			if ctx.Err() != nil {
 				return nil
@@ -1618,11 +1625,21 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 			continue
 		}
 		v.markHealthy()
-		// Checkpoint the running session so the record survives a crash/restart and so the
-		// diagnostics page can show it while the target is still forwarding.
-		if time.Since(lastCheckpoint) >= 10*time.Second {
-			lastCheckpoint = time.Now()
-			saveForwardSessionCurrent(ctx, v.Platform, v.buildForwardSession(startedAt), 5*time.Minute)
+		if v.forwarding() {
+			// Checkpoint the running session so the record survives a crash/restart and so the
+			// diagnostics page can show it while the target is still forwarding.
+			wasRunning = true
+			if time.Since(lastCheckpoint) >= 10*time.Second {
+				lastCheckpoint = time.Now()
+				saveForwardSessionCurrent(ctx, v.Platform, v.buildForwardSession(startedAt), 5*time.Minute)
+			}
+		} else if wasRunning {
+			// The forwarding burst ended: record it and start a fresh session for the next one.
+			saveForwardSession(ctx, v.Platform, v.buildForwardSession(startedAt))
+			clearForwardSessionCurrent(ctx, v.Platform)
+			wasRunning = false
+			startedAt = time.Now()
+			lastCheckpoint = time.Time{}
 		}
 		v.setLoopPhase("poll-wait")
 
