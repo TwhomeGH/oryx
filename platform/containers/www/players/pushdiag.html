@@ -1580,14 +1580,22 @@ function buildLayerDiag() {
     expected: '單調遞增（VFR 來源允許間距不固定）', actual: l4actual,
   });
 
-  // Layer 5: AAC sequence header.
-  var l5status = d.aacSeqError ? 'err' : d.firstAudioKind === null ? 'pending'
-    : (d.firstAudioKind === 'seq' ? 'ok' : (d.firstAudioKind === 'frame' ? 'err' : 'ok'));
-  var l5actual;
-  if (d.firstAudioKind === null) l5actual = '尚未收到 audio tag';
-  else if (d.firstAudioKind === 'seq') l5actual = '首個 audio tag #' + d.firstAudioSeq + ' = ASC；ASC x' + d.aacSeqHeaders +
-    (state.aacCfg ? ('；AOT=' + state.aacCfg.aot + ' SR=' + state.aacCfg.sampleRate + ' ch=' + state.aacCfg.channels) : '');
-  else l5actual = '首個 audio tag #' + d.firstAudioSeq + ' = ' + d.firstAudioKind;
+  // Layer 5: AAC sequence header. Judged by whether an ASC has been parsed, not by the FIRST audio
+  // tag: a stream that started mid-GOP (or lost the cached header) used to stay "missing" forever
+  // even after the audio was fine again.
+  var l5status, l5actual;
+  if (state.aacCfg) {
+    l5status = 'ok';
+    l5actual = 'ASC x' + d.aacSeqHeaders + '；AOT=' + state.aacCfg.aot + ' SR=' + state.aacCfg.sampleRate +
+      ' ch=' + state.aacCfg.channels + (d.firstAudioSeq ? '；首個 audio tag #' + d.firstAudioSeq + ' = ' + kindName(d.firstAudioKind) : '');
+  } else if (state.audioTags > 0) {
+    // Audio is flowing but the header never arrived: it plays as data but a decoder cannot start.
+    l5status = 'warn';
+    l5actual = '已收到 ' + state.audioTags + ' 個音訊 tag，但未收到 ASC（播放器可能無聲）；若之後收到 ASC 會自動恢復';
+  } else {
+    l5status = 'pending';
+    l5actual = '尚未收到 audio tag';
+  }
   layers.push({
     name: 'AAC 序列標頭 (ASC)', status: l5status,
     expected: '首個 audio tag 為 aacPacketType=0 (ASC)', actual: l5actual,
@@ -1596,8 +1604,16 @@ function buildLayerDiag() {
   // Layer: audio stream health. Format alone is not health: the tag rate must match the AAC frame
   // duration implied by the sample rate, and the bitrate must be plausible. These checks used to
   // live only as a global flag with no layer to point at.
-  var lAudioStatus = 'pending', lAudioActual = '尚未收到 AAC 序列標頭';
-  if (state.aacCfg) {
+  var lAudioStatus = 'pending', lAudioActual = '尚未收到音訊封包';
+  if (!state.aacCfg && state.audioTags > 0) {
+    // Frames are arriving without a header: report what IS measurable (frame rate/bitrate) instead
+    // of a permanent "waiting for ASC" state.
+    var fallbackKbps = recentAudioKbps();
+    lAudioStatus = 'warn';
+    lAudioActual = '已收到 ' + state.audioTags + ' 個音訊 tag' +
+      (fallbackKbps > 0 ? '、約 ' + fallbackKbps + ' kbps' : '') +
+      '；缺 ASC，無法判定取樣率與目標幀率（收到 ASC 後會自動恢復）';
+  } else if (state.aacCfg) {
     var afr = audioFrameRate();
     var aRate = recentMediaRates('audio').rate;
     var aKbps = recentAudioKbps();
