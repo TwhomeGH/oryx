@@ -1282,6 +1282,19 @@ function audioFrameRate() {
   return state.aacCfg.sampleRate / divisor;
 }
 
+// Audio bitrate over the last 5 seconds, from the same per-second buckets the bitrate chart uses.
+function recentAudioKbps() {
+  if (!state.startTime) return 0;
+  var cur = Math.floor((performance.now() - state.startTime) / 1000);
+  var bytes = 0;
+  var win = 5;
+  for (var s = Math.max(0, cur - win + 1); s <= cur; s++) {
+    var b = state.perSec.get(s);
+    if (b) bytes += b.audio;
+  }
+  return bytes > 0 ? Math.round(bytes * 8 / 1024 / win) : 0;
+}
+
 // ── 資訊卡 ──
 function renderMetaCard() {
   var el = document.getElementById('metaInfo');
@@ -1378,13 +1391,7 @@ function renderHealth() {
       var ratio = fps / state.sps.fps;
       if (ratio < 0.9) flags.push(badge('badge-err', '影片疑似掉幀 (量測 ' + fps.toFixed(1) + '/' + state.sps.fps.toFixed(1) + ')'));
     }
-    if (state.aacCfg) {
-      var audioRate = recentMediaRates('audio').rate;
-      var afr = audioFrameRate();
-      if (afr > 0 && audioRate > 0 && audioRate / afr < 0.9) {
-        flags.push(badge('badge-err', '音訊疑似掉幀 (量測 ' + audioRate.toFixed(1) + '/' + afr.toFixed(1) + ' 幀/秒)'));
-      }
-    }
+
     if (state.offsetSamples.length > 40) {
       var offsets = state.offsetSamples.map(function (o) { return o.offset; });
       var start = median(offsets.slice(0, 20));
@@ -1581,6 +1588,40 @@ function buildLayerDiag() {
   layers.push({
     name: 'AAC 序列標頭 (ASC)', status: l5status,
     expected: '首個 audio tag 為 aacPacketType=0 (ASC)', actual: l5actual,
+  });
+
+  // Layer: audio stream health. Format alone is not health: the tag rate must match the AAC frame
+  // duration implied by the sample rate, and the bitrate must be plausible. These checks used to
+  // live only as a global flag with no layer to point at.
+  var lAudioStatus = 'pending', lAudioActual = '尚未收到 AAC 序列標頭';
+  if (state.aacCfg) {
+    var afr = audioFrameRate();
+    var aRate = recentMediaRates('audio').rate;
+    var aKbps = recentAudioKbps();
+    var notes = [];
+    var st = 'ok';
+    if (afr > 0 && aRate > 0 && aRate / afr < 0.9) {
+      st = 'warn';
+      notes.push('幀率偏低');
+    }
+    if (state.audioRollbackCount > 0) {
+      st = 'warn';
+      notes.push('PTS 回退 ' + state.audioRollbackCount + ' 次');
+    }
+    if (aKbps > 0 && (aKbps < 16 || aKbps > 512)) {
+      if (st === 'ok') st = 'warn';
+      notes.push('碼率異常');
+    }
+    lAudioStatus = st;
+    lAudioActual = (aRate > 0 ? aRate.toFixed(1) : '—') + ' 幀/秒（目標 ' + (afr > 0 ? afr.toFixed(1) : '—') + '）、' +
+      (aKbps > 0 ? aKbps + ' kbps' : '碼率 —') +
+      '、AOT=' + state.aacCfg.aot + ' ' + state.aacCfg.sampleRate + 'Hz ' + state.aacCfg.channels + 'ch' +
+      (notes.length ? '；⚠ ' + notes.join('、') : '');
+  }
+  layers.push({
+    name: '音訊串流', status: lAudioStatus,
+    expected: '音訊 tag 率 ≈ 取樣率/1024（48kHz → 46.9/秒），碼率穩定，PTS 單調遞增',
+    actual: lAudioActual,
   });
 
   // Layer 6: A/V sync, with the raw PTS of each stream and which side is ahead. "offset" is
