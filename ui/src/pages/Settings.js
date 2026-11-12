@@ -1316,13 +1316,26 @@ function SettingForwardSlate() {
       <Form.Text className="text-muted">{t('settings.outputBitrateHint')}</Form.Text>
     </Form.Group>
     <Form.Group className="mb-3">
-      <Form.Check type="checkbox" label={t('settings.globalNormalize')} checked={!!conf.normalize}
-        onChange={e => setConf({...conf, normalize: e.target.checked})} />
-      <Form.Text className="text-muted">{t('settings.globalNormalizeHint')}</Form.Text>
-      <div className="mt-2 small text-muted">{t('settings.normalizeArgsPreview')}</div>
-      <pre className="small bg-body-tertiary p-2 rounded mb-0" style={{whiteSpace: 'pre-wrap'}}>
+      <Form.Label>{t('settings.normalizeMode')}</Form.Label>
+      <Form.Select value={conf.normalizeMode || 'auto'}
+        onChange={e => setConf({...conf, normalizeMode: e.target.value, normalize: e.target.value !== 'off'})}>
+        <option value="auto">{t('settings.normalizeModeAuto')}</option>
+        <option value="passthrough">{t('settings.normalizeModePassthrough')}</option>
+        <option value="cfr">{t('settings.normalizeModeCfr')}</option>
+        <option value="off">{t('settings.normalizeModeOff')}</option>
+      </Form.Select>
+      <Form.Text className="text-muted">{t('settings.normalizeModeHint')}</Form.Text>
+      {(conf.normalizeMode || 'auto') === 'cfr' && (
+        <div className="mt-2 small text-warning">{t('settings.normalizeCfrWarning')}</div>
+      )}
+      {(conf.normalizeMode || 'auto') !== 'off' && (
+        <>
+          <div className="mt-2 small text-muted">{t('settings.normalizeArgsPreview')}</div>
+          <pre className="small bg-body-tertiary p-2 rounded mb-0" style={{whiteSpace: 'pre-wrap'}}>
 {`-fflags +genpts -fps_mode cfr -c:v h264_nvenc|libx264 -preset ${(conf.outputPresets || {}).nvenc || 'p4'} -tune hq -profile:v high -rc vbr -cq ${conf.outputCQ || 21} -b:v ${conf.outputBitrateMbps || 6}M -maxrate ${conf.outputBitrateMbps || 6}M -bufsize ${(conf.outputBitrateMbps || 6) * 2}M -g <keyframeSeconds × 來源 fps> -keyint_min <同 g> -sc_threshold 0 -c:a aac -b:a 128k -ar 44100`}
-      </pre>
+          </pre>
+        </>
+      )}
     </Form.Group>
     <Form.Group className="mb-3">
       <Form.Label>{t('settings.outputCQ')}</Form.Label>

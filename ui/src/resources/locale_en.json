@@ -794,7 +794,14 @@
       "gpuVramNote": "VRAM note",
       "gpuVramHint": "Includes host apps",
       "gpuWslHint": "WSL does not report encoder/decoder utilization; 0% means unknown, not idle.",
-      "tabGpu": "GPU"
+      "tabGpu": "GPU",
+      "normalizeMode": "Shared program timing",
+      "normalizeModeAuto": "Auto (recommended): copy a CFR source, preserve a VFR source",
+      "normalizeModePassthrough": "Preserve source cadence (fix timestamps only)",
+      "normalizeModeCfr": "Force constant frame rate (CFR)",
+      "normalizeModeOff": "Off (plain copy)",
+      "normalizeModeHint": "CFR inserts duplicate frames and the original VFR timing cannot be recovered downstream, so it is only for platforms that reject a variable frame rate. Auto and preserve keep the source cadence.",
+      "normalizeCfrWarning": "CFR is lossy: a variable-rate source is re-timed onto a fixed grid (judder + duplicated frames) and cannot be converted back."
     },
     "coms": {
       "srs4": "SRS(Stable)",

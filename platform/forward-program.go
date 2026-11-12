@@ -640,12 +640,15 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		// relay. (Experiment C2 showed the republish, not the codec change, is the handoff root
 		// cause.)
 		conf := forwardSlateConfigLoad(ctx)
-		// Normalizing an already-CFR source is pure overhead (and forcing -r on it made the
-		// program timeline run ahead of wall clock). Only transcode genuinely variable-rate input.
-		if conf.Normalize && v.sourceCFR() {
-			logger.Tf(ctx, "forward program source is CFR, normalize skipped, source=%v/%v", v.sourceApp, v.sourceStream)
+		// Decide between preserving the source cadence (copy) and forcing a constant frame rate.
+		// Forcing CFR inserts duplicate frames and destroys the original VFR timing, so it is opt-in
+		// (mode=cfr) or a fallback; "auto" preserves a variable-rate source as-is.
+		plan, why := v.normalizePlan(conf)
+		logger.Tf(ctx, "forward program normalize plan, plan=%v reason=%v mode=%v sourceCFR=%v",
+			plan, why, conf.NormalizeMode, v.sourceCFR())
+		if plan == "copy" {
 			args = append(args, "-c", "copy")
-		} else if conf.Normalize {
+		} else if plan == "cfr" {
 			_, _, rate := v.sourceSize()
 			gop := forwardGOPFrames(rate, conf.KeyframeSeconds)
 			// Pin the output rate explicitly. Without -r, ffmpeg derives CFR from its own guess
@@ -964,6 +967,37 @@ func sourceIsCFR(nominal, avg string) bool {
 		}
 	}
 	return false
+}
+
+// normalizePlan decides how the live program handles the source timeline.
+// "copy" preserves the source exactly (CFR source or a variable-rate source we choose to keep),
+// "cfr" transcodes onto a fixed grid. CFR is lossy (duplicate frames, VFR timing unrecoverable), so
+// "auto" only preserves; forcing CFR is an explicit operator choice.
+func (v *ProgramBus) normalizePlan(conf forwardSlateConfig) (plan string, why string) {
+	mode := conf.NormalizeMode
+	if mode == "" {
+		if conf.Normalize {
+			mode = "auto"
+		} else {
+			mode = "off"
+		}
+	}
+	switch mode {
+	case "off":
+		return "copy", "normalize off"
+	case "passthrough":
+		return "copy", "passthrough: preserve source cadence"
+	case "cfr":
+		if v.sourceCFR() {
+			return "copy", "forced CFR but source is already CFR"
+		}
+		return "cfr", "forced CFR"
+	default: // auto
+		if v.sourceCFR() {
+			return "copy", "auto: source is CFR"
+		}
+		return "copy", "auto: VFR preserved (select cfr if the platform needs constant rate)"
+	}
 }
 
 func (v *ProgramBus) sourceIsActive() bool {

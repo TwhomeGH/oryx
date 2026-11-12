@@ -364,3 +364,31 @@ func TestForwardEncoderFromArgs(t *testing.T) {
 		}
 	}
 }
+
+func TestNormalizePlan(t *testing.T) {
+	cases := []struct {
+		mode      string
+		normalize bool
+		cfr       bool
+		want      string
+	}{
+		{"auto", true, true, "copy"},         // CFR source: no transcode
+		{"auto", true, false, "copy"},        // VFR source: preserve cadence
+		{"passthrough", true, false, "copy"}, // explicit preserve
+		{"cfr", true, false, "cfr"},          // forced transcode for a VFR source
+		{"cfr", true, true, "copy"},          // forcing CFR on an already-CFR source is pointless
+		{"off", false, false, "copy"},        // normalize disabled
+		{"", false, false, "copy"},           // legacy boolean off
+		{"", true, false, "copy"},            // legacy boolean on -> auto
+	}
+	for _, c := range cases {
+		bus := &ProgramBus{}
+		bus.srcCFR = c.cfr
+		conf := forwardSlateConfig{Normalize: c.normalize, NormalizeMode: c.mode}
+		got, why := bus.normalizePlan(conf)
+		if got != c.want {
+			t.Errorf("normalizePlan(mode=%q normalize=%v cfr=%v)=%q want %q (%s)",
+				c.mode, c.normalize, c.cfr, got, c.want, why)
+		}
+	}
+}

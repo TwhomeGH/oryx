@@ -26,9 +26,15 @@ type forwardSlateConfig struct {
 	KeyframeSeconds int `json:"keyframeSeconds"`
 	// OutputBitrateMbps caps the transcoded output bitrate (normalize/composite), in Mbps.
 	OutputBitrateMbps int `json:"outputBitrateMbps"`
-	// Normalize transcodes the shared program once (CFR + timestamps) so every target gets the
-	// same stream with a single encode; targets then always -c copy.
-	Normalize bool `json:"normalize"`
+	// Normalize keeps the historical on/off switch; NormalizeMode is the finer control:
+	//   auto        - copy a CFR source, preserve a stable VFR source, CFR only when forced
+	//   cfr         - always transcode to constant frame rate (compatibility, duplicates frames)
+	//   passthrough - repair timestamps only, keep the source cadence (no -r, no re-encode)
+	//   off         - plain copy
+	// CFR is lossy: duplicate frames are inserted and the original VFR timing cannot be recovered
+	// downstream, so "preserve" is the default for VFR sources.
+	Normalize     bool   `json:"normalize"`
+	NormalizeMode string `json:"normalizeMode"`
 	// OutputCQ is the quality target (0-51, lower is better); used as -cq (NVENC) / -crf (x264).
 	OutputCQ int `json:"outputCQ"`
 	// OutputPresets maps an encoder kind (nvenc, x264, amf, qsv) to its preset, so switching
@@ -60,6 +66,7 @@ func defaultForwardSlateConfig() forwardSlateConfig {
 		KeyframeSeconds:    2,
 		OutputBitrateMbps:  6,
 		Normalize:          true,
+		NormalizeMode:      "auto",
 		OutputCQ:           21,
 		OutputPresets:      map[string]string{"nvenc": "p4", "x264": "veryfast"},
 		EndText:            forwardSlateDefaultEndText,
@@ -92,6 +99,17 @@ func forwardSlateConfigLoad(ctx context.Context) forwardSlateConfig {
 	if conf.OutputCQ <= 0 || conf.OutputCQ > 51 {
 		conf.OutputCQ = 21
 	}
+	// Backward compatibility: older configs only carry the boolean.
+	switch conf.NormalizeMode {
+	case "auto", "cfr", "passthrough", "off":
+	default:
+		if conf.Normalize {
+			conf.NormalizeMode = "auto"
+		} else {
+			conf.NormalizeMode = "off"
+		}
+	}
+	conf.Normalize = conf.NormalizeMode != "off"
 	if conf.OutputPresets == nil {
 		conf.OutputPresets = map[string]string{}
 	}
@@ -139,6 +157,15 @@ func forwardSlateConfigSave(ctx context.Context, conf forwardSlateConfig) error 
 	if conf.OutputCQ > 51 {
 		return errors.Errorf("invalid outputCQ=%v", conf.OutputCQ)
 	}
+	switch conf.NormalizeMode {
+	case "", "auto", "cfr", "passthrough", "off":
+	default:
+		return errors.Errorf("invalid normalizeMode=%v", conf.NormalizeMode)
+	}
+	if conf.NormalizeMode == "" {
+		conf.NormalizeMode = "auto"
+	}
+	conf.Normalize = conf.NormalizeMode != "off"
 	for k, v := range conf.OutputPresets {
 		switch k {
 		case "nvenc", "x264", "amf", "qsv":

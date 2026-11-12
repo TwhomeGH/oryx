@@ -235,7 +235,14 @@
       "gpuVramNote": "显存说明",
       "gpuVramHint": "含主機端程式",
       "gpuWslHint": "WSL 不回報編碼器/解碼器利用率，顯示 0% 代表「未知」而非「沒在跑」。",
-      "tabGpu": "GPU"
+      "tabGpu": "GPU",
+      "normalizeMode": "共享節目源時間軸",
+      "normalizeModeAuto": "自動（建議）：CFR 來源直接複製、VFR 來源保留原節奏",
+      "normalizeModePassthrough": "保留來源節奏（只修時間戳）",
+      "normalizeModeCfr": "強制固定幀率（CFR）",
+      "normalizeModeOff": "關閉（單純複製）",
+      "normalizeModeHint": "CFR 會插入重複幀，原始 VFR 時間軸無法在下游還原，只適用於不接受可變幀率的平台。自動與保留模式會維持來源節奏。",
+      "normalizeCfrWarning": "CFR 是不可逆的：可變幀率會被重畫到固定格線（judder＋重複幀），無法轉回。"
     },
     "coms": {
       "srs4": "SRS(稳定版)",
