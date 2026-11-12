@@ -2,6 +2,20 @@
 
 > 本檔由 changelogkit 管理（見 [變更歷史說明](changelog.md)）。新增請用 `changelogkit add`（或 `changelogkit serve` 的網頁 GUI）。
 
+## 2026.11.13 01:13 v5.22.7 轉播時間軸策略：新增 normalizeMode（auto/passthrough/cfr/off，預設保留 VFR 節奏）；來源時間戳損壞時改為重建時間軸（genpts+igndts、不補幀）而非擅自轉 CFR；留存每場來源原始 PTS/DTS（packets.csv.gz，每平台保留最近 5 場）並提供 action=timing 查詢
+
+**類型**: 發佈
+
+### 修改 - v5.22.7
+
+- 轉播：時間戳異常改為重建時間軸、保留來源節奏（不再自動升 CFR）
+- 轉播：auto 模式偵測來源時間戳損壞時自動升級為 CFR
+- 轉播：留存來源原始時間軸（每場 packets.csv.gz，保留最近 5 場）
+- 文件：補上 normalizeMode 模式表與 CFR 不可逆說明
+- 轉播：新增 normalizeMode（auto/cfr/passthrough/off），預設保留 VFR 節奏
+
+---
+
 ## 2026.11.12 08:58 v5.22.6 轉播穩定性：節目源讀取加上 5 秒逾時、發布器停滯 10 秒自動重建（program-stall 事件）、節目源與 fanout 關閉 muxer 交錯緩衝避免時間戳跳躍造成靜默、SRS 發布逾時放寬至 15 秒；文件補上來源缺席超過逾時的行為說明
 
 **類型**: 發佈
