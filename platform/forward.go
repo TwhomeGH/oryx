@@ -1800,7 +1800,9 @@ func forwardFanoutArgs(normalize bool, gop int, programInputURL, outputURL strin
 
 	// If RTMP use flv, if SRT use mpegts, otherwise do not set.
 	if strings.HasPrefix(outputURL, "rtmp://") || strings.HasPrefix(outputURL, "rtmps://") {
-		args = append(args, "-f", "flv")
+		// A timestamp jump on one stream must not make the muxer buffer for seconds waiting for
+		// the other to catch up; a silent RTMP connection is exactly what platforms drop.
+		args = append(args, "-max_interleave_delta", "0", "-f", "flv")
 	} else if strings.HasPrefix(outputURL, "srt://") {
 		args = append(args, "-pes_payload_size", "0", "-f", "mpegts")
 	}

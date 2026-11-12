@@ -667,7 +667,11 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		}
 		// Keep the muxer tolerant of the source's initial timestamp offset (audio can start ~2s before
 		// video); without this FLV/RTMP can reject the first packets with EINVAL.
-		args = append(args, "-avoid_negative_ts", "make_zero", "-f", "flv", output)
+		args = append(args, "-avoid_negative_ts", "make_zero",
+			// Do not buffer output waiting for the other stream to catch up: a source with a big
+			// PTS/DTS jump would otherwise keep ffmpeg silent for seconds and SRS then kills the
+			// publisher as dead.
+			"-max_interleave_delta", "0", "-f", "flv", output)
 	case programModeComposite:
 		// A single persistent publisher that renders the slate itself: a dark base with a
 		// ticking clock, the source overlaid end-on-EOF, and the audio mixed with silence (so
@@ -695,7 +699,7 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		args = append(args, "-r", rate)
 		args = append(args, forwardVideoEncodeArgs(slateConf.OutputBitrateMbps, slateConf.OutputCQ, slateConf.OutputPresets, slateConf.OutputTunes)...)
 		args = append(args, "-g", fmt.Sprintf("%d", gop), "-keyint_min", fmt.Sprintf("%d", gop),
-			"-sc_threshold", "0", "-c:a", "aac", "-b:a", fmt.Sprintf("%dk", v.audioKbps()), "-avoid_negative_ts", "make_zero", "-f", "flv", output)
+			"-sc_threshold", "0", "-c:a", "aac", "-b:a", fmt.Sprintf("%dk", v.audioKbps()), "-avoid_negative_ts", "make_zero", "-max_interleave_delta", "0", "-f", "flv", output)
 	default:
 		return errors.Errorf("invalid program mode %v", mode)
 	}
@@ -762,6 +766,9 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 				if time.Since(time.Unix(0, lastProgressAt.Load())) > 10*time.Second {
 					logger.Wf(ctx, "forward program publisher stalled 10s, restarting, mode=%v", mode)
 					v.setLastError(errors.Errorf("program publisher stalled (no output for 10s)"))
+					v.lock.Lock()
+					v.addEventLocked("program-stall", "no output for 10s, restarting publisher")
+					v.lock.Unlock()
 					_ = cmd.Process.Kill()
 					return
 				}
