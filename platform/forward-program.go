@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	// From ossrs.
@@ -613,7 +614,10 @@ func (v *ProgramBus) switchPublisher(parent context.Context, mode string) error 
 func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 	output := v.programPublishURL(ctx)
 
-	args := []string{}
+	// Report progress so a hung publisher (e.g. blocked writing to a socket SRS already closed) can
+	// be detected and restarted; without this the program stayed unpublished until the target was
+	// disabled by hand.
+	args := []string{"-progress", "pipe:1", "-stats_period", "1"}
 	switch mode {
 	case programModeLive:
 		// Read the source via HTTP-FLV with reconnect. HTTP is the only protocol FFmpeg can
@@ -625,6 +629,10 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 			"-reconnect", "1", "-reconnect_at_eof", "1", "-reconnect_streamed", "1",
 			"-reconnect_on_http_error", forwardReconnectHTTPError,
 			"-reconnect_delay_max", fmt.Sprintf("%v", forwardReconnectDelayMax),
+			// A stalled (not closed) HTTP body blocks av_read_frame forever: the publisher then
+			// writes nothing and SRS kills it after publish.normal_timeout (7s). Treat 5s of
+			// silence as an error so the reconnect path takes over instead of hanging.
+			"-rw_timeout", "5000000",
 			"-i", srcURL,
 		)
 		// With the global normalize option on, the program is transcoded ONCE here so every
@@ -676,6 +684,9 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 			"-re",
 			"-f", "lavfi", "-i", forwardSlateVideo(w, h, rate),
 			"-f", "lavfi", "-i", fmt.Sprintf("anullsrc=channel_layout=stereo:sample_rate=%d", v.sampleRate()),
+			// See the live branch: a silent socket must not block the whole graph, otherwise the
+			// composite stops emitting frames and SRS drops the publisher.
+			"-rw_timeout", "5000000",
 			"-i", srcURL,
 			"-filter_complex", filter,
 			"-map", "[v]", "-map", "[a]",
@@ -705,6 +716,10 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 	if err != nil {
 		return errors.Wrapf(err, "pipe process")
 	}
+	progress, err := cmd.StdoutPipe()
+	if err != nil {
+		return errors.Wrapf(err, "pipe progress")
+	}
 
 	if err := cmd.Start(); err != nil {
 		return errors.Wrapf(err, "execute ffmpeg %v", strings.Join(args, " "))
@@ -713,6 +728,46 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 	v.setPID(int32(cmd.Process.Pid))
 	defer v.setPID(0)
 	logger.Tf(ctx, "forward program publisher started, mode=%v, pid=%v", mode, cmd.Process.Pid)
+
+	// Watch the progress stream: if the publisher stops producing media for 10s, kill it so the
+	// retry loop republishes the program instead of leaving it silently dead.
+	var lastProgressAt atomic.Int64
+	lastProgressAt.Store(time.Now().UnixNano())
+	go func() {
+		scanner := bufio.NewScanner(progress)
+		for scanner.Scan() {
+			if strings.HasPrefix(scanner.Text(), "out_time_us=") || strings.HasPrefix(scanner.Text(), "frame=") {
+				lastProgressAt.Store(time.Now().UnixNano())
+			}
+		}
+	}()
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if !v.sourceIsActive() {
+					// No source: hold-mode relays legitimately emit nothing while reconnecting, and
+					// killing them here would republish the program on every retry.
+					lastProgressAt.Store(time.Now().UnixNano())
+					continue
+				}
+				if time.Since(time.Unix(0, lastProgressAt.Load())) > 10*time.Second {
+					logger.Wf(ctx, "forward program publisher stalled 10s, restarting, mode=%v", mode)
+					v.setLastError(errors.Errorf("program publisher stalled (no output for 10s)"))
+					_ = cmd.Process.Kill()
+					return
+				}
+			}
+		}
+	}()
 
 	// Drain the stderr (otherwise FFmpeg blocks when the pipe buffer is full) and count the
 	// reconnect attempts, the source-side evidence of a flaky upstream.
@@ -902,6 +957,12 @@ func sourceIsCFR(nominal, avg string) bool {
 		}
 	}
 	return false
+}
+
+func (v *ProgramBus) sourceIsActive() bool {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	return v.sourceActive
 }
 
 func (v *ProgramBus) setSourceCFR(cfr bool) {
