@@ -392,3 +392,29 @@ func TestNormalizePlan(t *testing.T) {
 		}
 	}
 }
+
+func TestForwardTimestampBroken(t *testing.T) {
+	if m := forwardTimestampBroken("[flv @ 0x1] Non-monotonous DTS in output stream"); m == "" {
+		t.Error("expected a non-monotonic DTS match")
+	}
+	if m := forwardTimestampBroken("frame= 100 fps=30 q=28.0 size=1kB"); m != "" {
+		t.Errorf("unexpected match %q", m)
+	}
+}
+
+func TestForwardEscalation(t *testing.T) {
+	bus := &ProgramBus{}
+	bus.mode = programModeLive
+	conf := forwardSlateConfig{Normalize: true, NormalizeMode: "auto"}
+
+	if plan, why := bus.normalizePlan(conf); plan != "copy" {
+		t.Fatalf("VFR auto should preserve, got %v (%v)", plan, why)
+	}
+	bus.maybeEscalate("Non-monotonous DTS")
+	if !bus.isEscalated() {
+		t.Fatal("expected escalation")
+	}
+	if plan, why := bus.normalizePlan(conf); plan != "cfr" {
+		t.Fatalf("after escalation expected cfr, got %v (%v)", plan, why)
+	}
+}

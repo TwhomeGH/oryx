@@ -210,6 +210,9 @@ type ProgramBus struct {
 	lastError     string
 	lastErrorAt   time.Time
 	attemptAt     time.Time
+	// escalation: a VFR source that turns out to have broken timestamps is promoted to CFR once.
+	escalated bool
+	pubCmd    *exec.Cmd
 
 	// Source reconnect evidence from the relay FFmpeg stderr.
 	reconnects      int
@@ -733,7 +736,17 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 	}
 
 	v.setPID(int32(cmd.Process.Pid))
-	defer v.setPID(0)
+	v.lock.Lock()
+	v.pubCmd = cmd
+	v.lock.Unlock()
+	defer func() {
+		v.setPID(0)
+		v.lock.Lock()
+		if v.pubCmd == cmd {
+			v.pubCmd = nil
+		}
+		v.lock.Unlock()
+	}()
 	logger.Tf(ctx, "forward program publisher started, mode=%v, pid=%v", mode, cmd.Process.Pid)
 
 	// Watch the progress stream: if the publisher stops producing media for 10s, kill it so the
@@ -785,7 +798,11 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		scanner := bufio.NewScanner(stderr)
 		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 		for scanner.Scan() {
-			v.onRelayLog(scanner.Text())
+			line := scanner.Text()
+			v.onRelayLog(line)
+			if m := forwardTimestampBroken(line); m != "" {
+				v.maybeEscalate(m)
+			}
 		}
 		if err := scanner.Err(); err != nil {
 			logger.Wf(context.Background(), "forward relay stderr scan err %+v", err)
@@ -969,6 +986,57 @@ func sourceIsCFR(nominal, avg string) bool {
 	return false
 }
 
+// forwardTimestampMarkers are the FFmpeg messages that mean the source timeline itself is broken
+// (not merely variable): non-monotonic DTS, invalid timestamps, corrupt packets.
+var forwardTimestampMarkers = []string{
+	"Non-monotonous DTS", "non monotonically increasing dts", "Invalid timestamps",
+	"Packet corrupt", "corrupt input packet", "PES packet size mismatch",
+	"Timestamp discontinuity", "Truncating packet",
+}
+
+func forwardTimestampBroken(line string) string {
+	for _, m := range forwardTimestampMarkers {
+		if strings.Contains(line, m) {
+			return m
+		}
+	}
+	return ""
+}
+
+func (v *ProgramBus) isEscalated() bool {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	return v.escalated
+}
+
+// maybeEscalate promotes the program to CFR when the source turns out to have broken timestamps
+// while "auto" chose to preserve its cadence. The current publisher is killed so the retry loop
+// restarts it with the new plan; the retry loop itself keeps running (unlike stopPublisher, which
+// ends it).
+func (v *ProgramBus) maybeEscalate(reason string) {
+	v.lock.Lock()
+	if v.escalated || v.mode != programModeLive {
+		v.lock.Unlock()
+		return
+	}
+	conf := forwardSlateConfigLoad(context.Background())
+	if mode := conf.NormalizeMode; mode != "" && mode != "auto" {
+		// passthrough/cfr/off are explicit operator choices; never override them.
+		v.lock.Unlock()
+		return
+	}
+	v.escalated = true
+	v.addEventLocked("normalize-escalated", fmt.Sprintf("source timestamps broken (%v), switching to CFR", reason))
+	pid := v.pid
+	cmd := v.pubCmd
+	v.lock.Unlock()
+
+	logger.Wf(context.Background(), "forward program escalating to CFR, reason=%v, pid=%v", reason, pid)
+	if cmd != nil && cmd.Process != nil {
+		_ = cmd.Process.Kill()
+	}
+}
+
 // normalizePlan decides how the live program handles the source timeline.
 // "copy" preserves the source exactly (CFR source or a variable-rate source we choose to keep),
 // "cfr" transcodes onto a fixed grid. CFR is lossy (duplicate frames, VFR timing unrecoverable), so
@@ -995,6 +1063,9 @@ func (v *ProgramBus) normalizePlan(conf forwardSlateConfig) (plan string, why st
 	default: // auto
 		if v.sourceCFR() {
 			return "copy", "auto: source is CFR"
+		}
+		if v.isEscalated() {
+			return "cfr", "auto: escalated to CFR after timestamp errors"
 		}
 		return "copy", "auto: VFR preserved (select cfr if the platform needs constant rate)"
 	}

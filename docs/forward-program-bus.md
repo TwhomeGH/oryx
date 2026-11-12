@@ -191,6 +191,10 @@ SRS:8080 也一樣。因此「靠 relay 的 HTTP-FLV 重連撐住 program」無�
 | `cfr` | 強制固定幀率（插入重複幀） | 平台不接受可變幀率 |
 | `off` | 純 copy | 不需要任何處理 |
 
+`auto` 另外會在偵測到**來源時間戳本身就是壞的**（FFmpeg 回報 `Non-monotonous DTS`、
+`Invalid timestamps`、`Packet corrupt` 等）時，自動把該次節目源升級為 CFR，並記錄
+`normalize-escalated` 事件（只升一次；`passthrough`/`cfr`/`off` 為明確選擇，不會被覆蓋）。
+
 CFR 是**不可逆**的：重複幀插入後，原始 VFR 時間軸無法在下游還原。需要保留原始節奏
 時請用 `auto`/`passthrough`，或改用錄影（DVR 以 `-c copy` 保存，不改變時間軸）。
 
