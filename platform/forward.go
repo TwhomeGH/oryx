@@ -126,7 +126,7 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 				return errors.Wrapf(err, "parse body")
 			}
 
-			allowedActions := []string{"update", "delete", "toggle", "end", "cancel-end", "metrics", "sessions"}
+			allowedActions := []string{"update", "delete", "toggle", "end", "cancel-end", "metrics", "sessions", "timing"}
 			allowedPlatforms := []string{"wx", "bilibili", "kuaishou"}
 			if action != "" {
 				if !slicesContains(allowedActions, action) {
@@ -290,6 +290,18 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 					return err
 				}
 				ohttp.WriteData(ctx, w, r, sessions)
+				return nil
+			case "timing":
+				// List the retained source-timing captures (original PTS/DTS per packet) for one
+				// target. These are written to the data volume and pruned to the newest runs.
+				if userConf.Platform == "" {
+					return errors.Errorf("invalid platform=%v", userConf.Platform)
+				}
+				runs, err := queryForwardTiming(ctx, userConf.Platform)
+				if err != nil {
+					return err
+				}
+				ohttp.WriteData(ctx, w, r, runs)
 				return nil
 			case "delete":
 				// Only custom forwarding configs are removable, built-in platforms are protected.
@@ -1404,6 +1416,9 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 	startedAt := time.Now()
 	wasRunning := false
 	lastCheckpoint := time.Time{}
+	// Capture the ORIGINAL source timestamps for every publishing burst. A CFR transcode destroys
+	// them, so these files are how the source's real cadence can still be traced afterwards.
+	go v.superviseTimingCapture(ctx)
 	// A new run starts a new timeline: clear the previous run's samples so the chart reflects this
 	// run only. Otherwise the "last hour" view can mix samples from two unrelated runs (or from
 	// before a restart) and the drift/fps range looks wrong.

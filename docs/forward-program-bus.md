@@ -193,3 +193,24 @@ SRS:8080 也一樣。因此「靠 relay 的 HTTP-FLV 重連撐住 program」無�
 
 CFR 是**不可逆**的：重複幀插入後，原始 VFR 時間軸無法在下游還原。需要保留原始節奏
 時請用 `auto`/`passthrough`，或改用錄影（DVR 以 `-c copy` 保存，不改變時間軸）。
+
+### 原始時間軸留存（timing capture）
+
+每次轉播都會把**來源封包的原始 PTS/DTS** 寫成壓縮檔，即使節目源走 CFR 轉碼也保留：
+
+```
+/data/forward-timing/<platform>/<YYYYMMDD-HHMMSS>/
+  ├── packets.csv.gz   # stream_index,pts_time,dts_time,duration_time,flags
+  └── meta.json        # 起訖時間、行數、大小、來源 app/stream
+```
+
+- 每個平台保留**最近 5 場**（新的一場開始時自動刪除更舊的）
+- 只解封裝（ffprobe），不解碼，成本約一個額外 FLV 消費者
+- 用途：CFR 轉碼後仍可追查來源原本的節奏、掉幀、時間戳跳變
+- 查詢：`POST /terraform/v1/ffmpeg/forward/secret {"action":"timing","platform":"<name>"}`
+- 匯出：`docker cp oryx:/data/forward-timing/<platform>/<run>/packets.csv.gz .` 後
+  `zcat packets.csv.gz | head`
+
+> 這份紀錄是「來源」的時間軸，不是送出去的時間軸；`auto`/`passthrough` 下兩者相同，
+> `cfr` 下可据此比對「原始節奏 vs 固定格線」的差異。
+
