@@ -1987,21 +1987,27 @@ func handleMgmtStreamsQuery(ctx context.Context, handler *http.ServeMux) {
 
 			// Recent publish/unpublish events, so the UI can show when a source dropped
 			// without reading container logs.
-			var events []map[string]string
-			if raw, err := rdb.LRange(ctx, SRS_STREAM_EVENTS, 0, 199).Result(); err == nil {
-				for _, item := range raw {
-					var ev map[string]string
-					if json.Unmarshal([]byte(item), &ev) == nil {
-						events = append(events, ev)
+			decodeEvents := func(key string) []map[string]string {
+				var list []map[string]string
+				if raw, err := rdb.LRange(ctx, key, 0, 199).Result(); err == nil {
+					for _, item := range raw {
+						var ev map[string]string
+						if json.Unmarshal([]byte(item), &ev) == nil {
+							list = append(list, ev)
+						}
 					}
 				}
+				return list
 			}
+			events := decodeEvents(SRS_STREAM_EVENTS)
+			viewerEvents := decodeEvents(SRS_STREAM_VIEWER_EVENTS)
 
 			ohttp.WriteData(ctx, w, r, &struct {
-				Streams []*SrsStream        `json:"streams"`
-				Events  []map[string]string `json:"events"`
+				Streams      []*SrsStream        `json:"streams"`
+				Events       []map[string]string `json:"events"`
+				ViewerEvents []map[string]string `json:"viewerEvents"`
 			}{
-				streamObjects, events,
+				streamObjects, events, viewerEvents,
 			})
 			logger.Tf(ctx, "query streams ok, streams=%v", len(streamObjects))
 			return nil
@@ -2382,6 +2388,9 @@ func handleMgmtStreamsEventsClear(ctx context.Context, handler *http.ServeMux) {
 			}
 			if err := rdb.Del(ctx, SRS_STREAM_EVENTS).Err(); err != nil && err != redis.Nil {
 				return errors.Wrapf(err, "del %v", SRS_STREAM_EVENTS)
+			}
+			if err := rdb.Del(ctx, SRS_STREAM_VIEWER_EVENTS).Err(); err != nil && err != redis.Nil {
+				return errors.Wrapf(err, "del %v", SRS_STREAM_VIEWER_EVENTS)
 			}
 			ohttp.WriteData(ctx, w, r, nil)
 			return nil

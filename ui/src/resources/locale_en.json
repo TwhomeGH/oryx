@@ -1083,7 +1083,13 @@
       "diagRedisUsec": "total µs",
       "diagRedisFamilies": "By command + key family",
       "diagRedisDelta": "since last refresh",
-      "diagRedisTotal": "total"
+      "diagRedisTotal": "total",
+      "diagSessionSec": "lasted {{count}}s",
+      "diagFrom": "from",
+      "diagAffected": "affected",
+      "diagShowViewers": "show viewer events ({{count}})",
+      "diagNotePublish": "publisher connected",
+      "diagNoteViewer": "viewer started"
     }
   },
   "meta": {

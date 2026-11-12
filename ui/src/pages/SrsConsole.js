@@ -12,7 +12,7 @@ import React from "react";
 import {Token} from "../utils";
 import {InfoCircle, StopCircle, ArrowCounterclockwise, PlayFill, PauseFill, CameraVideo} from 'react-bootstrap-icons';
 import axios from "axios";
-import {Row, Col, Card, Table, Tab, Tabs, Button, Badge, Alert, Accordion} from "react-bootstrap";
+import {Row, Col, Card, Table, Tab, Tabs, Button, Badge, Alert, Accordion, Form} from "react-bootstrap";
 import moment from "moment";
 import {useTranslation} from "react-i18next";
 import {SrsErrorBoundary} from "../components/SrsErrorBoundary";
@@ -1147,10 +1147,21 @@ function SrsDiagnostics({handleError}) {
     return () => clearInterval(timer);
   }, []);
   const [events, setEvents] = React.useState([]);
+  // Viewer play/stop churn is kept apart: it would otherwise push the publish/unpublish history out.
+  const [viewerEvents, setViewerEvents] = React.useState([]);
+  // Notes come from the backend as stable English keys; localise them for display.
+  const noteText = (n) => ({
+    'publisher connected': t('console.diagNotePublish'),
+    'viewer started': t('console.diagNoteViewer'),
+  }[n] || n);
+  const [showViewers, setShowViewers] = React.useState(false);
   React.useEffect(() => {
     const refreshEvents = () => {
       axios.post('/terraform/v1/mgmt/streams/query', {}, {headers: Token.loadBearerHeader()})
-        .then(res => setEvents((res.data.data && res.data.data.events) || [])).catch(() => {});
+        .then(res => {
+          setEvents((res.data.data && res.data.data.events) || []);
+          setViewerEvents((res.data.data && res.data.data.viewerEvents) || []);
+        }).catch(() => {});
     };
     refreshEvents();
     const timer = setInterval(refreshEvents, 10000);
@@ -1266,9 +1277,13 @@ function SrsDiagnostics({handleError}) {
       <Accordion.Item eventKey="events">
         <Accordion.Header>{t('console.diagEvents')}</Accordion.Header>
         <Accordion.Body>
-          {events.length === 0 && <div className="text-center text-muted small py-3">{t('console.diagNoEvents')}</div>}
+          {events.length === 0 && !showViewers && <div className="text-center text-muted small py-3">{t('console.diagNoEvents')}</div>}
           {events.length > 0 && <div className="d-flex justify-content-between align-items-center mb-1">
-            <span className="text-muted small">{t('console.diagEventsNote')}</span>
+            <span className="text-muted small">
+              {t('console.diagEventsNote')}
+              <Form.Check inline type="checkbox" className="ms-2 small" label={t('console.diagShowViewers', {count: viewerEvents.length})}
+                checked={showViewers} onChange={(ev) => setShowViewers(ev.target.checked)} />
+            </span>
             <Button size="sm" variant="outline-secondary"
               onClick={() => axios.post('/terraform/v1/mgmt/streams/events/clear', {}, {headers: Token.loadBearerHeader()})
                 .then(() => setEvents([])).catch(() => {})}>
@@ -1278,15 +1293,28 @@ function SrsDiagnostics({handleError}) {
           <div style={{maxHeight: 240, overflowY: 'auto'}}>
             <Table size="sm" borderless className="mb-0">
               <tbody>
-                {events.slice(0, 50).map((e, i) => (
+                {(showViewers ? [...events, ...viewerEvents].sort((a, b) => (a.time < b.time ? 1 : -1)) : events).slice(0, 50).map((e, i) => (
                   <tr key={`${e.time}-${e.stream}-${i}`}>
                     <td className="small text-muted" style={{whiteSpace: 'nowrap'}}>
                       {(() => { const d = new Date(e.time); return isNaN(d) ? e.time : d.toLocaleString(); })()}
                     </td>
                     <td className="small">
-                      <Badge bg={e.event === 'on_publish' ? 'success' : 'secondary'}>{e.event}</Badge>
+                      <Badge bg={e.event === 'on_publish' ? 'success' : (e.event === 'on_unpublish' || e.event === 'kick' ? 'warning' : 'secondary')}>{e.event}</Badge>
                     </td>
-                    <td className="small text-truncate" style={{maxWidth: 320}}>{e.stream}</td>
+                    <td className="small text-truncate" style={{maxWidth: 320}}>
+                      {e.stream}
+                      {(e.reason || e.durationSec || e.ip || e.affected || e.note) && (
+                        <div className="text-muted" style={{fontSize: '0.85em'}}>
+                          {[
+                            e.reason,
+                            e.durationSec ? t('console.diagSessionSec', {count: e.durationSec}) : '',
+                            e.ip ? `${t('console.diagFrom')} ${e.ip}` : '',
+                            e.affected ? `${t('console.diagAffected')}: ${e.affected}` : '',
+                            noteText(e.note),
+                          ].filter(Boolean).join(' · ')}
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

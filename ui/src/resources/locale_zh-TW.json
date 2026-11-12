@@ -1083,7 +1083,13 @@
       "diagRedisUsec": "總耗時 µs",
       "diagRedisFamilies": "按命令＋key 類別",
       "diagRedisDelta": "本次增量",
-      "diagRedisTotal": "累計"
+      "diagRedisTotal": "累計",
+      "diagSessionSec": "持續 {{count}} 秒",
+      "diagFrom": "來自",
+      "diagAffected": "影響",
+      "diagShowViewers": "顯示播放事件（{{count}}）",
+      "diagNotePublish": "發布者已連線",
+      "diagNoteViewer": "開始觀看"
     }
   },
   "meta": {

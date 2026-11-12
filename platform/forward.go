@@ -2175,6 +2175,9 @@ func kickForwardStreams(ctx context.Context, app, stream string) {
 	}
 	base := fmt.Sprintf("http://%v:1985/api/v1/clients/", host)
 
+	// Mark the intent before deleting: the following on_unpublish can then report why.
+	markForwardKick(ctx, fmt.Sprintf("%v/%v", app, stream))
+
 	client := &http.Client{Timeout: 3 * time.Second}
 	res, err := client.Get(base)
 	if err != nil {
@@ -2212,4 +2215,42 @@ func kickForwardStreams(ctx context.Context, app, stream string) {
 			logger.Tf(ctx, "forward kick client=%v app=%v stream=%v", cl.ID, app, stream)
 		}
 	}
+}
+
+// forwardTargetsUsingSource lists enabled forward targets bound to a source stream, so an
+// unpublish event can say who it affected. Targets with an empty stream use auto-selection and
+// cannot be attributed reliably, so they are skipped rather than guessed.
+func forwardTargetsUsingSource(ctx context.Context, streamURL string) string {
+	if rdb == nil {
+		return ""
+	}
+	stream := streamURL
+	if i := strings.LastIndex(streamURL, "/"); i >= 0 {
+		stream = streamURL[i+1:]
+	}
+	all, err := rdb.HGetAll(ctx, SRS_FORWARD_CONFIG).Result()
+	if err != nil {
+		return ""
+	}
+	var names []string
+	for platform, raw := range all {
+		var conf ForwardConfigure
+		if json.Unmarshal([]byte(raw), &conf) != nil || !conf.Enabled || conf.Stream == "" || conf.Stream != stream {
+			continue
+		}
+		names = append(names, platform)
+	}
+	if len(names) > 5 {
+		names = append(names[:5], "…")
+	}
+	return strings.Join(names, ", ")
+}
+
+// markForwardKick records that the platform dropped a publisher, so the following unpublish event
+// can report the reason instead of leaving it unknown.
+func markForwardKick(ctx context.Context, streamURL string) {
+	if rdb == nil || streamURL == "" {
+		return
+	}
+	rdb.HSet(ctx, SRS_STREAM_KICKS, streamURL, fmt.Sprintf("%d", time.Now().Unix()))
 }

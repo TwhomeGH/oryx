@@ -871,7 +871,13 @@
       "diagRedisUsec": "合計 µs",
       "diagRedisFamilies": "コマンド＋キー種別",
       "diagRedisDelta": "前回更新から",
-      "diagRedisTotal": "累計"
+      "diagRedisTotal": "累計",
+      "diagSessionSec": "継続 {{count}} 秒",
+      "diagFrom": "送信元",
+      "diagAffected": "影響",
+      "diagShowViewers": "視聴イベントを表示（{{count}}）",
+      "diagNotePublish": "配信者が接続",
+      "diagNoteViewer": "視聴開始"
     },
     "openapi": {
       "title": "プラットフォーム API キー（OpenAPI）",

@@ -194,14 +194,10 @@ func handleHooksService(ctx context.Context, handler *http.ServeMux) error {
 			}
 
 			// Keep a bounded stream lifecycle log so the UI can show when a source
-			// published/unpublished without digging into container logs.
-			if ev, err := json.Marshal(map[string]string{
-				"time": time.Now().Format(time.RFC3339), "event": string(action), "stream": streamURL,
-			}); err == nil {
-				if err := rdb.LPush(ctx, SRS_STREAM_EVENTS, string(ev)).Err(); err == nil {
-					rdb.LTrim(ctx, SRS_STREAM_EVENTS, 0, 499)
-				}
-			}
+			// published/unpublished without digging into container logs. Beyond the bare event we
+			// record what is knowable: who published, how long the session lasted, which forwarding
+			// targets lose their source, and whether the platform itself kicked the client.
+			recordStreamLifecycle(ctx, string(action), streamURL, &streamObj)
 
 			// For some events, hook after all other hooks are done.
 			if !preAllHook {
@@ -832,4 +828,65 @@ func handleOnHls(ctx context.Context, handler *http.ServeMux) error {
 	}
 
 	return nil
+}
+
+// recordStreamLifecycle appends one bounded lifecycle event. All values are strings because the
+// diagnostics API returns map[string]string.
+func recordStreamLifecycle(ctx context.Context, event, streamURL string, obj *SrsStream) {
+	ev := map[string]string{
+		"time": time.Now().Format(time.RFC3339), "event": event, "stream": streamURL,
+	}
+	if obj != nil {
+		if obj.IP != "" {
+			ev["ip"] = obj.IP
+		}
+		if obj.Client != "" {
+			ev["client"] = obj.Client
+		}
+	}
+
+	switch event {
+	case string(SrsActionOnPublish):
+		// Remember when this stream appeared so an unpublish can report its duration.
+		if rdb != nil {
+			rdb.HSet(ctx, SRS_STREAM_PUBLISH_AT, streamURL, fmt.Sprintf("%d", time.Now().Unix()))
+			rdb.HDel(ctx, SRS_STREAM_KICKS, streamURL)
+		}
+		ev["note"] = "publisher connected"
+	case string(SrsActionOnUnpublish):
+		if rdb != nil {
+			if v, err := rdb.HGet(ctx, SRS_STREAM_PUBLISH_AT, streamURL).Result(); err == nil {
+				if started, e := strconv.ParseInt(v, 10, 64); e == nil {
+					ev["durationSec"] = fmt.Sprintf("%d", time.Now().Unix()-started)
+				}
+			}
+			rdb.HDel(ctx, SRS_STREAM_PUBLISH_AT, streamURL)
+
+			// A kick marker means the platform dropped the client (e.g. a forward target was
+			// deleted); otherwise SRS does not tell us why the publisher went away.
+			if v, err := rdb.HGet(ctx, SRS_STREAM_KICKS, streamURL).Result(); err == nil {
+				if kicked, e := strconv.ParseInt(v, 10, 64); e == nil && time.Now().Unix()-kicked < 15 {
+					ev["reason"] = "kicked by platform"
+				}
+				rdb.HDel(ctx, SRS_STREAM_KICKS, streamURL)
+			}
+		}
+		if affected := forwardTargetsUsingSource(ctx, streamURL); affected != "" {
+			ev["affected"] = affected
+		}
+	case "on_play":
+		ev["note"] = "viewer started"
+	case "kick":
+		ev["reason"] = "kicked by platform"
+	}
+
+	key := SRS_STREAM_EVENTS
+	if event == "on_play" || event == "on_stop" {
+		key = SRS_STREAM_VIEWER_EVENTS
+	}
+	if b, err := json.Marshal(ev); err == nil {
+		if err := rdb.LPush(ctx, key, string(b)).Err(); err == nil {
+			rdb.LTrim(ctx, key, 0, 499)
+		}
+	}
 }

@@ -318,9 +318,14 @@ const (
 	// For SRS stream status.
 	// A bounded list of publish/unpublish events for UI diagnostics.
 	SRS_STREAM_EVENTS     = "SRS_STREAM_EVENTS"
-	SRS_STREAM_ACTIVE     = "SRS_STREAM_ACTIVE"
-	SRS_STREAM_SRT_ACTIVE = "SRS_STREAM_SRT_ACTIVE"
-	SRS_STREAM_RTC_ACTIVE = "SRS_STREAM_RTC_ACTIVE"
+	SRS_STREAM_PUBLISH_AT = "SRS_STREAM_PUBLISH_AT"
+	// Viewer play/stop events are kept apart from publish/unpublish: viewer churn would otherwise
+	// evict the lifecycle history the diagnostics page is actually about.
+	SRS_STREAM_VIEWER_EVENTS = "SRS_STREAM_VIEWER_EVENTS"
+	SRS_STREAM_KICKS         = "SRS_STREAM_KICKS"
+	SRS_STREAM_ACTIVE        = "SRS_STREAM_ACTIVE"
+	SRS_STREAM_SRT_ACTIVE    = "SRS_STREAM_SRT_ACTIVE"
+	SRS_STREAM_RTC_ACTIVE    = "SRS_STREAM_RTC_ACTIVE"
 	// For feature statistics.
 	SRS_STAT_COUNTER = "SRS_STAT_COUNTER"
 	// For container and images.
@@ -1474,6 +1479,7 @@ type SrsStream struct {
 
 	Server string `json:"server_id,omitempty"`
 	Client string `json:"client_id,omitempty"`
+	IP     string `json:"ip,omitempty"`
 
 	Update string `json:"update,omitempty"`
 }
