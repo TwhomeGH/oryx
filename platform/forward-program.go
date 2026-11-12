@@ -210,9 +210,10 @@ type ProgramBus struct {
 	lastError     string
 	lastErrorAt   time.Time
 	attemptAt     time.Time
-	// escalation: a VFR source that turns out to have broken timestamps is promoted to CFR once.
-	escalated bool
-	pubCmd    *exec.Cmd
+	// repair: the source turned out to have broken timestamps, so the publisher switches to
+	// timestamp regeneration. The cadence (VFR or CFR) is deliberately NOT changed.
+	repaired bool
+	pubCmd   *exec.Cmd
 
 	// Source reconnect evidence from the relay FFmpeg stderr.
 	reconnects      int
@@ -649,7 +650,12 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		plan, why := v.normalizePlan(conf)
 		logger.Tf(ctx, "forward program normalize plan, plan=%v reason=%v mode=%v sourceCFR=%v",
 			plan, why, conf.NormalizeMode, v.sourceCFR())
-		if plan == "copy" {
+		if plan == "repair" {
+			// Broken source timeline: regenerate timestamps and keep the cadence. igndts makes the
+			// demuxer rebuild DTS from PTS (broken DTS is the common failure), genpts fills gaps,
+			// passthrough prevents the encoder-side frame duplication that CFR would introduce.
+			args = append(args, "-fflags", "+genpts+igndts", "-fps_mode", "passthrough", "-c", "copy")
+		} else if plan == "copy" {
 			args = append(args, "-c", "copy")
 		} else if plan == "cfr" {
 			_, _, rate := v.sourceSize()
@@ -801,7 +807,7 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 			line := scanner.Text()
 			v.onRelayLog(line)
 			if m := forwardTimestampBroken(line); m != "" {
-				v.maybeEscalate(m)
+				v.maybeRepair(m)
 			}
 		}
 		if err := scanner.Err(); err != nil {
@@ -1003,35 +1009,36 @@ func forwardTimestampBroken(line string) string {
 	return ""
 }
 
-func (v *ProgramBus) isEscalated() bool {
+func (v *ProgramBus) isRepairing() bool {
 	v.lock.Lock()
 	defer v.lock.Unlock()
-	return v.escalated
+	return v.repaired
 }
 
-// maybeEscalate promotes the program to CFR when the source turns out to have broken timestamps
-// while "auto" chose to preserve its cadence. The current publisher is killed so the retry loop
-// restarts it with the new plan; the retry loop itself keeps running (unlike stopPublisher, which
-// ends it).
-func (v *ProgramBus) maybeEscalate(reason string) {
+// maybeRepair switches the publisher to timestamp regeneration when the source turns out to have
+// broken timestamps. It deliberately does NOT change the frame cadence: a variable-rate source
+// stays variable-rate, the broken timeline is just regenerated. CFR remains an explicit operator
+// choice. The current publisher is killed so the retry loop restarts it with the repair plan; the
+// retry loop itself keeps running (unlike stopPublisher, which ends it).
+func (v *ProgramBus) maybeRepair(reason string) {
 	v.lock.Lock()
-	if v.escalated || v.mode != programModeLive {
+	if v.repaired || v.mode != programModeLive {
 		v.lock.Unlock()
 		return
 	}
 	conf := forwardSlateConfigLoad(context.Background())
-	if mode := conf.NormalizeMode; mode != "" && mode != "auto" {
-		// passthrough/cfr/off are explicit operator choices; never override them.
+	if mode := conf.NormalizeMode; mode == "off" || mode == "cfr" {
+		// "off" means no processing at all; "cfr" already re-times everything.
 		v.lock.Unlock()
 		return
 	}
-	v.escalated = true
-	v.addEventLocked("normalize-escalated", fmt.Sprintf("source timestamps broken (%v), switching to CFR", reason))
+	v.repaired = true
+	v.addEventLocked("normalize-repair", fmt.Sprintf("source timestamps broken (%v), regenerating timestamps, cadence preserved", reason))
 	pid := v.pid
 	cmd := v.pubCmd
 	v.lock.Unlock()
 
-	logger.Wf(context.Background(), "forward program escalating to CFR, reason=%v, pid=%v", reason, pid)
+	logger.Wf(context.Background(), "forward program repairing timestamps, reason=%v, pid=%v", reason, pid)
 	if cmd != nil && cmd.Process != nil {
 		_ = cmd.Process.Kill()
 	}
@@ -1064,8 +1071,8 @@ func (v *ProgramBus) normalizePlan(conf forwardSlateConfig) (plan string, why st
 		if v.sourceCFR() {
 			return "copy", "auto: source is CFR"
 		}
-		if v.isEscalated() {
-			return "cfr", "auto: escalated to CFR after timestamp errors"
+		if v.isRepairing() {
+			return "repair", "auto: regenerating timestamps (cadence preserved)"
 		}
 		return "copy", "auto: VFR preserved (select cfr if the platform needs constant rate)"
 	}

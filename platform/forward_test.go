@@ -410,11 +410,12 @@ func TestForwardEscalation(t *testing.T) {
 	if plan, why := bus.normalizePlan(conf); plan != "copy" {
 		t.Fatalf("VFR auto should preserve, got %v (%v)", plan, why)
 	}
-	bus.maybeEscalate("Non-monotonous DTS")
-	if !bus.isEscalated() {
-		t.Fatal("expected escalation")
+	bus.maybeRepair("Non-monotonous DTS")
+	if !bus.isRepairing() {
+		t.Fatal("expected timestamp repair")
 	}
-	if plan, why := bus.normalizePlan(conf); plan != "cfr" {
-		t.Fatalf("after escalation expected cfr, got %v (%v)", plan, why)
+	// Repair must NOT change the cadence: a VFR source stays variable-rate.
+	if plan, why := bus.normalizePlan(conf); plan != "repair" {
+		t.Fatalf("after repair expected repair (not cfr), got %v (%v)", plan, why)
 	}
 }
