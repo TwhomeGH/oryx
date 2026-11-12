@@ -829,7 +829,8 @@
         "empty": "尚無指標（目標可能未在執行）。",
         "ffmpegArgsIdle": "尚未啟動；目標開始轉推後會顯示實際命令。",
         "ffmpegArgsProgram": "節目源（補強/CFR，只編碼一次）",
-        "ffmpegArgsFanout": "各目標輸出（-c copy）"
+        "ffmpegArgsFanout": "各目標輸出（-c copy）",
+        "plan": "節目源時間軸計畫"
       },
       "statusTitle": "轉播狀態",
       "statusShort": "轉播",
@@ -861,6 +862,14 @@
         "logs": "近期日誌",
         "running": "進行中",
         "inProgress": "進行中"
+      },
+      "timing": {
+        "title": "來源時間軸紀錄（最近 5 場）",
+        "empty": "尚無時間軸紀錄",
+        "lines": "{{count}} 個封包",
+        "done": "已結束",
+        "live": "錄影中",
+        "hint": "即使節目源轉成 CFR 仍保留的來源封包 PTS/DTS。匯出：docker cp oryx:/data/forward-timing/<platform>/<run>/packets.csv.gz ."
       }
     },
     "vle": {

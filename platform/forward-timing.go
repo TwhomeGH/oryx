@@ -155,6 +155,12 @@ func (r *forwardTimingRun) Close() {
 	if b, err := json.MarshalIndent(r.meta, "", "  "); err == nil {
 		_ = os.WriteFile(path.Join(r.dir, "meta.json"), b, 0644)
 	}
+	// A capture that never received a single packet (the source was already gone) is noise: drop it
+	// instead of leaving an empty run in the list.
+	if r.meta.Lines == 0 {
+		_ = os.RemoveAll(r.dir)
+		return
+	}
 	logger.Tf(context.Background(), "forward timing capture done, platform=%v lines=%v bytes=%v",
 		r.meta.Platform, r.meta.Lines, r.meta.Bytes)
 }

@@ -214,6 +214,9 @@ type ProgramBus struct {
 	// timestamp regeneration. The cadence (VFR or CFR) is deliberately NOT changed.
 	repaired bool
 	pubCmd   *exec.Cmd
+	// plan/planReason: what the live publisher currently does with the source timeline, and why.
+	plan       string
+	planReason string
 
 	// Source reconnect evidence from the relay FFmpeg stderr.
 	reconnects      int
@@ -255,6 +258,9 @@ type ProgramStatus struct {
 	SourceRate   string
 	LastSwitchAt string
 	LastError    string
+	// Plan is the resolved timeline plan (copy/repair/cfr) and PlanReason why it was chosen.
+	Plan       string
+	PlanReason string
 	// StaleErrorAt/AttemptAt let the caller ignore an error that predates the current publisher
 	// attempt: after a restart the old message stayed on screen and looked like a live fault.
 	LastErrorAt time.Time
@@ -425,6 +431,8 @@ func (v *ProgramBus) queryStatus() ProgramStatus {
 		SourceActive:    v.sourceActive,
 		SourceRate:      v.srcRate,
 		LastError:       v.lastError,
+		Plan:            v.plan,
+		PlanReason:      v.planReason,
 		LastErrorAt:     v.lastErrorAt,
 		AttemptAt:       v.attemptAt,
 		Reconnects:      v.reconnects,
@@ -648,6 +656,9 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		// Forcing CFR inserts duplicate frames and destroys the original VFR timing, so it is opt-in
 		// (mode=cfr) or a fallback; "auto" preserves a variable-rate source as-is.
 		plan, why := v.normalizePlan(conf)
+		v.lock.Lock()
+		v.plan, v.planReason = plan, why
+		v.lock.Unlock()
 		logger.Tf(ctx, "forward program normalize plan, plan=%v reason=%v mode=%v sourceCFR=%v",
 			plan, why, conf.NormalizeMode, v.sourceCFR())
 		if plan == "repair" {

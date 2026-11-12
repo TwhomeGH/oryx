@@ -128,7 +128,8 @@
         "empty": "No metrics yet (the target may not be running).",
         "ffmpegArgsIdle": "Not running yet; the actual command appears once this target starts forwarding.",
         "ffmpegArgsProgram": "Program source (normalize/CFR, encoded once)",
-        "ffmpegArgsFanout": "Target output (each target, -c copy)"
+        "ffmpegArgsFanout": "Target output (each target, -c copy)",
+        "plan": "Program timeline plan"
       },
       "statusTitle": "Forward status",
       "statusShort": "Forward",
@@ -160,6 +161,14 @@
         "logs": "Recent logs",
         "running": "live",
         "inProgress": "in progress"
+      },
+      "timing": {
+        "title": "Source timing captures (newest 5)",
+        "empty": "No timing capture yet",
+        "lines": "{{count}} packets",
+        "done": "finished",
+        "live": "recording",
+        "hint": "Original source PTS/DTS per packet, kept even when the program transcodes to CFR. Export with: docker cp oryx:/data/forward-timing/<platform>/<run>/packets.csv.gz ."
       }
     },
     "camera": {

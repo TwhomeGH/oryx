@@ -45,7 +45,7 @@ function Sparkline({data}) {
  *   log, the metrics object, and the diagnostics timeline / recent logs of the target.
  * @returns {React.ReactElement} Local progress summary and raw diagnostics.
  */
-export default function ForwardProgress({log, metrics, events, logs, encoder, ffmpegArgs, programSourceRate, programLastError, programLogs, programArgs}) {
+export default function ForwardProgress({log, metrics, events, logs, encoder, ffmpegArgs, programSourceRate, programPlan, programPlanReason, programLastError, programLogs, programArgs}) {
   const {t} = useTranslation();
   const progress = parseForwardProgress(log);
   // Hardware encoders (NVENC/VAAPI/QSV/AMF/VideoToolbox) vs software (libx264).
@@ -62,7 +62,7 @@ export default function ForwardProgress({log, metrics, events, logs, encoder, ff
     }
   }
 
-  if (!log && !metrics && !events?.length && !logs?.length && !ffmpegArgs && !programLastError && !(programLogs?.length) && !programArgs) {
+  if (!log && !metrics && !events?.length && !logs?.length && !ffmpegArgs && !programLastError && !(programLogs?.length) && !programArgs && !programPlan) {
     return <div className="small text-muted">{t('forward.progress.empty')}</div>;
   }
 
@@ -79,6 +79,7 @@ export default function ForwardProgress({log, metrics, events, logs, encoder, ff
       <div>{t('forward.progress.drift')}: {fmt(metrics.mediaClockDriftSec)}s</div>
       {metrics.relayReconnects > 0 && <div>{t('forward.progress.reconnects')}: {metrics.relayReconnects}</div>}
       {encoder && <div>{t('forward.progress.encoder')}: {encoder}{encHardware ? ` ${t('forward.progress.gpu')}` : ''}</div>}
+      {programPlan && <div>{t('forward.progress.plan')}: <b>{programPlan}</b>{programPlanReason ? `（${programPlanReason}）` : ''}</div>}
     </>}
     <Sparkline data={history.current} />
     {log && <details className="mt-1">

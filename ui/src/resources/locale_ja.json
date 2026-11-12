@@ -568,7 +568,8 @@
         "empty": "まだ指標がありません（ターゲットが実行中でない可能性）。",
         "ffmpegArgsIdle": "まだ実行していません。転送開始後に実際のコマンドが表示されます。",
         "ffmpegArgsProgram": "番組ソース（normalize/CFR、1回エンコード）",
-        "ffmpegArgsFanout": "各ターゲット出力（-c copy）"
+        "ffmpegArgsFanout": "各ターゲット出力（-c copy）",
+        "plan": "番組タイムラインの計画"
       },
       "statusTitle": "転送ステータス",
       "statusShort": "転送",
@@ -600,6 +601,14 @@
         "logs": "最近のログ",
         "running": "実行中",
         "inProgress": "実行中"
+      },
+      "timing": {
+        "title": "入力タイミング記録（最新 5 件）",
+        "empty": "まだ記録がありません",
+        "lines": "{{count}} パケット",
+        "done": "完了",
+        "live": "記録中",
+        "hint": "CFR 変換後も残る、入力のパケット単位 PTS/DTS。書き出し: docker cp oryx:/data/forward-timing/<platform>/<run>/packets.csv.gz ."
       }
     },
     "fp": {

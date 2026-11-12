@@ -485,6 +485,10 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 						elem["fallback"] = status.State == forwardStateRunning && !status.ProgramSourceActive
 					}
 					elem["programSwitches"] = status.ProgramSwitches
+					if status.ProgramPlan != "" {
+						elem["programPlan"] = status.ProgramPlan
+						elem["programPlanReason"] = status.ProgramPlanReason
+					}
 					if status.ProgramLastError != "" {
 						elem["programLastError"] = status.ProgramLastError
 					}
@@ -853,6 +857,8 @@ type ForwardTaskStatus struct {
 	ProgramSourceActive bool
 	ProgramSourceRate   string
 	ProgramLastError    string
+	ProgramPlan         string
+	ProgramPlanReason   string
 	ProgramArgs         string
 	ProgramLogs         []string
 	ProgramSwitches     int
@@ -1075,6 +1081,7 @@ func (v *ForwardTask) queryStatus() ForwardTaskStatus {
 			if ps.LastError != "" && (ps.AttemptAt.IsZero() || ps.LastErrorAt.After(ps.AttemptAt)) {
 				status.ProgramLastError = ps.LastError
 			}
+			status.ProgramPlan, status.ProgramPlanReason = ps.Plan, ps.PlanReason
 			status.ProgramSourceRate = ps.SourceRate
 			status.ProgramArgs = ps.Args
 			status.ProgramLogs = ps.Logs
