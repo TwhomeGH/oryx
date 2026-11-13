@@ -1089,7 +1089,20 @@
       "diagAffected": "affected",
       "diagShowViewers": "show viewer events ({{count}})",
       "diagNotePublish": "publisher connected",
-      "diagNoteViewer": "viewer started"
+      "diagNoteViewer": "viewer started",
+      "detail": "Details",
+      "noFrameFor": "no frames {{count}}s",
+      "noFrameHint": "The publisher is connected but no video frame has arrived for a while (paused encoder, stalled app, or a broken source).",
+      "publisher": "Publisher",
+      "publishFor": "publishing for",
+      "totalFrames": "Frames",
+      "traffic": "Traffic",
+      "sourceUrl": "Source",
+      "consumers": "Consumers",
+      "noConsumers": "No consumer",
+      "noDataFor": "no data {{count}}s",
+      "noDataHint": "The publisher is connected but nothing has arrived for a while; SRS will drop it shortly.",
+      "stalledAlert": "{{count}} stream(s) are connected but stalled (no video frames or no data)."
     }
   },
   "meta": {

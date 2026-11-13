@@ -164,11 +164,18 @@ function fmtPercent(n, digits = 2) {
   return `${(value * 100).toFixed(digits)}%`;
 }
 
+// Precise, language-neutral duration (e.g. 132s -> 2m12s). A humanized "2 minutes" loses the
+// precision that matters when judging whether a publisher is still alive.
 function fmtSec(sec) {
   const value = finiteNumber(sec);
   if (value === null) return '-';
-  if (value < 60) return `${value}s`;
-  return moment.duration(value, 'seconds').humanize();
+  const total = Math.max(0, Math.round(value));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (h > 0) return `${h}h${m}m`;
+  if (m > 0) return `${m}m${s}s`;
+  return `${s}s`;
 }
 
 function fmtFixed(n, digits = 1) {
@@ -433,8 +440,14 @@ function SrsVhosts({handleError}) {
 function SrsStreams({handleError, initialFps, active}) {
   const {t} = useTranslation();
   const [streams, setStreams] = React.useState();
+  const [clients, setClients] = React.useState([]);
   const [fps, setFps] = React.useState(initialFps || {});
+  const [openId, setOpenId] = React.useState('');
   const streamsRef = React.useRef([]);
+  // Tracks the last time each stream's video_frames counter advanced. A publisher can stay
+  // connected while producing no frames at all (paused encoder, stalled app), which looks
+  // identical to "publishing" in the table unless we watch the counter.
+  const frameRef = React.useRef({});
 
   React.useEffect(() => {
     let cancelled = false;
@@ -446,7 +459,9 @@ function SrsStreams({handleError, initialFps, active}) {
       srsApi('/vhosts/').then((vd) => {
         vhosts = vd.vhosts || [];
         return srsApi('/streams/');
-      }).then((sd) => {
+      }).then((sd) => srsApi('/clients/').then((cd) => ({sd, cd}))
+        .catch(() => ({sd, cd: {clients: []}}))
+      ).then(({sd, cd}) => {
         if (cancelled) return;
         const ownerOf = (vhostId) => {
           const v = vhosts.find(x => x.id === vhostId);
@@ -455,6 +470,29 @@ function SrsStreams({handleError, initialFps, active}) {
         const mapped = (sd.streams || []).map(s => ({...s, ownerName: ownerOf(s.vhost)}));
         streamsRef.current = mapped;
         setStreams(mapped);
+        setClients(cd.clients || []);
+
+        const now = Date.now();
+        const seen = new Set();
+        mapped.forEach(s => {
+          seen.add(s.id);
+          const frames = Number(s.video_frames || 0);
+          const bytes = Number(s.recv_bytes || 0);
+          const prev = frameRef.current[s.id];
+          if (!prev || !s.publish?.active) {
+            frameRef.current[s.id] = {frames, bytes, since: now, bytesSince: now};
+            return;
+          }
+          // Keep the timestamp of the last advance; a frozen counter means that quantity stalled.
+          frameRef.current[s.id] = {
+            frames,
+            bytes,
+            since: frames > prev.frames ? now : prev.since,
+            bytesSince: bytes > prev.bytes ? now : prev.bytesSince,
+          };
+        });
+        Object.keys(frameRef.current).forEach(id => { if (!seen.has(id)) delete frameRef.current[id]; });
+
         timer = setTimeout(refresh, 3000);
       }).catch((e) => {
         if (!cancelled) handleError(e);
@@ -506,6 +544,26 @@ function SrsStreams({handleError, initialFps, active}) {
   }, [handleError, active]);
 
   const abnormalCount = Object.values(fps).filter(f => f?.variable ?? f?.abnormal).length;
+  const stalledCount = (streams || []).filter(s => {
+    const {noVideo, noData} = stallOf(s);
+    return noVideo >= 30 || noData >= 10;
+  }).length;
+
+  // Stall state per stream. "noVideo" means data is still arriving but no video frame has been
+  // seen for a while (audio-only or a broken video track); "noData" means nothing arrives at all
+  // (SRS will unpublish it shortly). Both are 0 while healthy.
+  // Declared as a function so the derived counts above can use it without a TDZ error.
+  function stallOf(s) {
+    const e = frameRef.current[s.id];
+    if (!s.publish?.active || !e) return {noVideo: 0, noData: 0};
+    const now = Date.now();
+    const noVideo = Math.floor((now - e.since) / 1000);
+    const noData = Math.floor((now - e.bytesSince) / 1000);
+    return {noVideo: noData < 5 ? noVideo : 0, noData};
+  }
+  const publisherOf = (s) => (clients || []).find(x => x.id === s.publish?.cid);
+  const consumersOf = (s) => (clients || []).filter(x => !x.publish && x.stream === s.id);
+  const maskUrl = (u) => String(u || '').replace(/([?&]secret=)[^&]*/i, '$1***');
 
   const preview = React.useCallback((s) => {
     const schema = window.location.protocol.replace(':', '');
@@ -519,6 +577,9 @@ function SrsStreams({handleError, initialFps, active}) {
   return (
     <>
       {streams.length === 0 && <Alert variant="info">{t('console.noStreams')}</Alert>}
+      {stalledCount > 0 && (
+        <Alert variant="warning">{t('console.stalledAlert', {count: stalledCount})}</Alert>
+      )}
       {abnormalCount > 0 && (
         <Alert variant="warning">
           {t('console.fpsAbnormalAlert', {count: abnormalCount})}
@@ -556,12 +617,25 @@ function SrsStreams({handleError, initialFps, active}) {
             });
             const fpsVariable = fpsInfo?.variable ?? fpsInfo?.abnormal;
             return (
+            <>
             <tr key={s.id} className={fpsVariable ? 'table-warning' : ''}>
               <td><code>{s.id}</code></td>
               <td>{streamName.length > 15 ? `${streamName.slice(0, 15)}…` : streamName}</td>
               <td style={{wordBreak: 'break-all'}}><code>{buildStreamUrl(s.ownerName, s)}</code></td>
               <td>{s.ownerName}</td>
-              <td>{s.publish?.active ? <Badge bg="success">{t('console.publishing')}</Badge> : <Badge bg="secondary">{t('console.no')}</Badge>}</td>
+              <td>
+                {(() => {
+                  if (!s.publish?.active) return <Badge bg="secondary">{t('console.no')}</Badge>;
+                  const {noVideo, noData} = stallOf(s);
+                  if (noData >= 10) {
+                    return <Badge bg="danger" title={t('console.noDataHint')}>{t('console.noDataFor', {count: noData})}</Badge>;
+                  }
+                  if (noVideo >= 30) {
+                    return <Badge bg="warning" text="dark" title={t('console.noFrameHint')}>{t('console.noFrameFor', {count: noVideo})}</Badge>;
+                  }
+                  return <Badge bg="success">{t('console.publishing')}</Badge>;
+                })()}
+              </td>
               <td>{s.clients}</td>
               <td>{fmtSrsKbps(s.kbps?.recv_30s)}</td>
               <td>{fmtSrsKbps(s.kbps?.send_30s)}</td>
@@ -584,10 +658,48 @@ function SrsStreams({handleError, initialFps, active}) {
                 ) : '-'}
               </td>
               <td>
+                <Button size="sm" variant="outline-secondary" className="me-1"
+                  onClick={() => setOpenId(openId === s.id ? '' : s.id)}>{t('console.detail')}</Button>
                 <Button size="sm" variant="outline-primary" className="me-1" onClick={() => preview(s)}>{t('console.preview')}</Button>
                 <Button size="sm" variant="outline-danger" onClick={() => kickoff(s.publish?.cid)}>{t('console.kickoff')}</Button>
               </td>
             </tr>
+            {openId === s.id && (() => {
+              const pub = publisherOf(s);
+              const consumers = consumersOf(s);
+              return (
+                <tr>
+                  <td colSpan={12} className="small">
+                    <div className="d-flex flex-wrap gap-3 mb-2">
+                      <span>{t('console.publisher')}: <b>{pub ? `${pub.ip} / ${pub.id}` : (s.publish?.cid || '—')}</b></span>
+                      <span>{t('console.publishFor')}: {pub ? fmtSec(pub.alive) : '—'}</span>
+                      <span>{t('console.totalFrames')}: {s.frames ?? 0}（V {s.video_frames ?? 0} / A {s.audio_frames ?? 0}）</span>
+                      <span>{t('console.traffic')}: ↓ {fmtBytes(s.recv_bytes)} / ↑ {fmtBytes(s.send_bytes)}</span>
+                      {stallOf(s).noVideo >= 30 && <span className="text-warning">{t('console.noFrameFor', {count: stallOf(s).noVideo})}</span>}
+                      {stallOf(s).noData >= 10 && <span className="text-danger">{t('console.noDataFor', {count: stallOf(s).noData})}</span>}
+                    </div>
+                    <div className="text-muted mb-2" style={{wordBreak: 'break-all'}}>{t('console.sourceUrl')}: <code>{maskUrl(s.tcUrl)}</code></div>
+                    <div className="text-muted mb-1">{t('console.consumers')}（{consumers.length}）</div>
+                    {consumers.length === 0
+                      ? <div className="text-muted">{t('console.noConsumers')}</div>
+                      : <table className="w-100">
+                          <tbody>
+                            {consumers.map((cu) => (
+                              <tr key={cu.id}>
+                                <td className="text-nowrap">{cu.type}</td>
+                                <td className="text-nowrap">{cu.ip}</td>
+                                <td className="text-nowrap">{fmtSec(cu.alive)}</td>
+                                <td className="text-nowrap text-end">{fmtSrsKbps(cu.kbps?.send_30s)}</td>
+                                <td className="text-truncate text-muted" style={{maxWidth: 280}}>{cu.pageUrl || '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>}
+                  </td>
+                </tr>
+              );
+            })()}
+            </>
             );
           })}
         </tbody>

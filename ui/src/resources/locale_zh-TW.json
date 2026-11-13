@@ -1089,7 +1089,20 @@
       "diagAffected": "影響",
       "diagShowViewers": "顯示播放事件（{{count}}）",
       "diagNotePublish": "發布者已連線",
-      "diagNoteViewer": "開始觀看"
+      "diagNoteViewer": "開始觀看",
+      "detail": "詳情",
+      "noFrameFor": "無影格 {{count}} 秒",
+      "noFrameHint": "發布者仍連線，但已有一段時間沒有收到視訊影格（編碼器暫停、應用程式卡住或來源異常）。",
+      "publisher": "發布者",
+      "publishFor": "已推流",
+      "totalFrames": "累計影格",
+      "traffic": "累計流量",
+      "sourceUrl": "來源",
+      "consumers": "消費者",
+      "noConsumers": "目前沒有消費者",
+      "noDataFor": "無資料 {{count}} 秒",
+      "noDataHint": "發布者仍連線，但已沒有資料送達；SRS 很快就會判定逾時並斷線。",
+      "stalledAlert": "有 {{count}} 條流連線中但已停止（沒有視訊影格或沒有資料）。"
     }
   },
   "meta": {

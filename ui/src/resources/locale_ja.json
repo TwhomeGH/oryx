@@ -877,7 +877,20 @@
       "diagAffected": "影響",
       "diagShowViewers": "視聴イベントを表示（{{count}}）",
       "diagNotePublish": "配信者が接続",
-      "diagNoteViewer": "視聴開始"
+      "diagNoteViewer": "視聴開始",
+      "detail": "詳細",
+      "noFrameFor": "{{count}} 秒フレームなし",
+      "noFrameHint": "配信者は接続していますが、映像フレームが届いていません（エンコーダ停止・アプリ停止・入力不良など）。",
+      "publisher": "配信者",
+      "publishFor": "配信時間",
+      "totalFrames": "フレーム数",
+      "traffic": "通信量",
+      "sourceUrl": "入力元",
+      "consumers": "視聴者",
+      "noConsumers": "視聴者なし",
+      "noDataFor": "{{count}} 秒データなし",
+      "noDataHint": "配信者は接続していますが、データが届いていません。まもなく SRS が切断します。",
+      "stalledAlert": "{{count}} 本のストリームが接続したまま停止しています（映像フレームなし／データなし）。"
     },
     "openapi": {
       "title": "プラットフォーム API キー（OpenAPI）",
