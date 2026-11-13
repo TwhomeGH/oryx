@@ -151,6 +151,13 @@ function fmtBitrate(bps) {
   return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
+// SRS API reports bitrates in kbps (e.g. recv_30s=1934), while fmtBitrate() takes bps.
+function fmtSrsKbps(kbps) {
+  const value = finiteNumber(kbps);
+  if (value === null) return '-';
+  return fmtBitrate(value * 1000);
+}
+
 function fmtPercent(n, digits = 2) {
   const value = finiteNumber(n);
   if (value === null) return '-';
@@ -412,8 +419,8 @@ function SrsVhosts({handleError}) {
             <td>{v.enabled ? <Badge bg="success">{t('console.yes')}</Badge> : <Badge bg="secondary">{t('console.no')}</Badge>}</td>
             <td>{v.streams}</td>
             <td>{v.clients}</td>
-            <td>{fmtBitrate(v.kbps?.recv_30s)}</td>
-            <td>{fmtBitrate(v.kbps?.send_30s)}</td>
+            <td>{fmtSrsKbps(v.kbps?.recv_30s)}</td>
+            <td>{fmtSrsKbps(v.kbps?.send_30s)}</td>
             <td>{v.hls?.enabled ? <Badge bg="success">{t('console.yes')}</Badge> : <Badge bg="secondary">{t('console.no')}</Badge>}</td>
           </tr>
         ))}
@@ -556,8 +563,8 @@ function SrsStreams({handleError, initialFps, active}) {
               <td>{s.ownerName}</td>
               <td>{s.publish?.active ? <Badge bg="success">{t('console.publishing')}</Badge> : <Badge bg="secondary">{t('console.no')}</Badge>}</td>
               <td>{s.clients}</td>
-              <td>{fmtBitrate(s.kbps?.recv_30s)}</td>
-              <td>{fmtBitrate(s.kbps?.send_30s)}</td>
+              <td>{fmtSrsKbps(s.kbps?.recv_30s)}</td>
+              <td>{fmtSrsKbps(s.kbps?.send_30s)}</td>
               <td style={{fontSize: '0.8em'}}>{fmtVideo(s.video)}</td>
               <td style={{fontSize: '0.8em'}}>{fmtAudio(s.audio)}</td>
               <td>
