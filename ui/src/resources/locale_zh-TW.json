@@ -1136,7 +1136,25 @@
       "diagRecordReason_stalled": "已停止",
       "diagRecordFinalizing": "等待收尾（距最後分段 {{count}} 秒）",
       "diagRecordState_finalizing": "等待收尾",
-      "diagRecordOff": "未啟用"
+      "diagRecordOff": "未啟用",
+      "diagRtc": "WebRTC",
+      "diagRtcError": "WebRTC 狀態查詢失敗",
+      "diagRtcState": "WebRTC",
+      "diagRtcOn": "已啟用",
+      "diagRtcOff": "未啟用",
+      "diagRtcCandidate": "ICE 候選位址",
+      "diagRtcRequestHost": "你連線的位址",
+      "diagRtcEnabled": "開",
+      "diagRtcDisabled": "關",
+      "diagRtcRtmpToRtc": "RTMP→WebRTC {{state}}",
+      "diagRtcRtcToRtmp": "WebRTC→RTMP {{state}}",
+      "diagRtcNoClients": "目前沒有 WebRTC 連線。",
+      "diagRtcOpenPlayer": "開啟 WebRTC 播放器測試",
+      "diagRtcWarn_candidate-auto": "SRS 自動偵測 ICE 候選位址，在容器內會公告內部位址。該網路之外的瀏覽器永遠連不上，請設定觀眾可達的位址。",
+      "diagRtcWarn_candidate-not-local": "ICE 候選位址 {{candidate}} 不是本機位址，對端無法連上。",
+      "diagRtcWarn_candidate-hostname": "ICE 候選位址是主機名稱（{{candidate}}），無法在本機驗證。",
+      "diagRtcWarn_candidate-mismatch": "ICE 候選位址 {{candidate}} 與你連線的位址 {{host}} 不同，外部可能連不上。",
+      "diagRtcWarn_clients-unavailable": "目前無法從 SRS 取得 WebRTC 連線清單。"
     }
   },
   "meta": {

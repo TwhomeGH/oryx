@@ -1136,7 +1136,25 @@
       "diagRecordReason_stalled": "stalled",
       "diagRecordFinalizing": "waiting to finalize ({{count}}s since last segment)",
       "diagRecordState_finalizing": "finalizing",
-      "diagRecordOff": "off"
+      "diagRecordOff": "off",
+      "diagRtc": "WebRTC",
+      "diagRtcError": "WebRTC query failed",
+      "diagRtcState": "WebRTC",
+      "diagRtcOn": "enabled",
+      "diagRtcOff": "disabled",
+      "diagRtcCandidate": "ICE candidate",
+      "diagRtcRequestHost": "you connected via",
+      "diagRtcEnabled": "on",
+      "diagRtcDisabled": "off",
+      "diagRtcRtmpToRtc": "RTMP→WebRTC {{state}}",
+      "diagRtcRtcToRtmp": "WebRTC→RTMP {{state}}",
+      "diagRtcNoClients": "No WebRTC peer right now.",
+      "diagRtcOpenPlayer": "Open the WebRTC player to test",
+      "diagRtcWarn_candidate-auto": "SRS auto-detects the ICE candidate, so in a container it advertises its internal address. Browsers outside that network will never connect; set an address reachable by viewers.",
+      "diagRtcWarn_candidate-not-local": "The ICE candidate {{candidate}} is not an address of this host; peers will not reach it.",
+      "diagRtcWarn_candidate-hostname": "The ICE candidate is a hostname ({{candidate}}); it cannot be verified locally.",
+      "diagRtcWarn_candidate-mismatch": "The ICE candidate {{candidate}} differs from the address you connected to ({{host}}); remote peers may not reach it.",
+      "diagRtcWarn_clients-unavailable": "Cannot read the live WebRTC peers from SRS right now."
     }
   },
   "meta": {

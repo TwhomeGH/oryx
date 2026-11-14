@@ -1345,6 +1345,21 @@ function SrsDiagnostics({handleError}) {
   // indistinguishable from "the endpoint is broken".
   const [record, setRecord] = React.useState();
   const [recordErr, setRecordErr] = React.useState('');
+  // WebRTC state. The interesting failure is an unreachable ICE candidate, which the browser
+  // reports only as "connecting forever", so it has to be diagnosed server-side.
+  const [rtc, setRtc] = React.useState();
+  const [rtcErr, setRtcErr] = React.useState('');
+  React.useEffect(() => {
+    const refresh = () => {
+      axios.post('/terraform/v1/mgmt/rtc/query', {}, {headers: Token.loadBearerHeader()})
+        .then(res => { setRtc(res.data.data); setRtcErr(''); })
+        .catch((e) => setRtcErr(e?.message || String(e)));
+    };
+    refresh();
+    const timer = setInterval(refresh, 10000);
+    return () => clearInterval(timer);
+  }, []);
+
   React.useEffect(() => {
     const refresh = () => {
       axios.post('/terraform/v1/mgmt/record/query', {}, {headers: Token.loadBearerHeader()})
@@ -1499,6 +1514,49 @@ function SrsDiagnostics({handleError}) {
               </tbody>
             </Table>
           </div>
+        </Accordion.Body>
+      </Accordion.Item>
+      <Accordion.Item eventKey="rtc">
+        <Accordion.Header>{t('console.diagRtc')}</Accordion.Header>
+        <Accordion.Body>
+          {rtcErr && <Alert variant="warning">{t('console.diagRtcError')}: {rtcErr}</Alert>}
+          {!rtc && !rtcErr && <div className="text-muted small">{t('console.loading')}</div>}
+          {rtc && <>
+            <div className="d-flex flex-wrap gap-3 mb-2 small">
+              <span>{t('console.diagRtcState')}: <b>{rtc.enabled ? t('console.diagRtcOn') : t('console.diagRtcOff')}</b></span>
+              {rtc.enabled && <span className="text-muted">UDP {rtc.udpPort}</span>}
+              <span>{t('console.diagRtcCandidate')}: <code>{rtc.effectiveCandidate || '—'}</code></span>
+              <span className="text-muted">{t('console.diagRtcRequestHost')}: <code>{rtc.requestHost || '—'}</code></span>
+              {rtc.enabled && <span className="text-muted">
+                {t('console.diagRtcRtmpToRtc', {state: rtc.rtmpToRtc ? t('console.diagRtcEnabled') : t('console.diagRtcDisabled')})}
+                {' · '}
+                {t('console.diagRtcRtcToRtmp', {state: rtc.rtcToRtmp ? t('console.diagRtcEnabled') : t('console.diagRtcDisabled')})}
+              </span>}
+            </div>
+            {(rtc.warnings || []).map((w) => <Alert key={w} variant={w === 'candidate-mismatch' || w === 'candidate-auto' ? 'warning' : 'secondary'} className="small py-2 mb-2">
+              {t(`console.diagRtcWarn_${w}`, {candidate: rtc.effectiveCandidate, host: rtc.requestHost, port: rtc.udpPort})}
+            </Alert>)}
+            {(rtc.clients || []).length === 0
+              ? <div className="text-muted small py-2">{t('console.diagRtcNoClients')}</div>
+              : <Table size="sm" borderless className="mb-0">
+                  <tbody>
+                    {(rtc.clients || []).map((cl) => (
+                      <tr key={cl.id}>
+                        <td className="small text-nowrap"><Badge bg={cl.type === 'rtc-publish' ? 'success' : 'secondary'}>{cl.type}</Badge></td>
+                        <td className="small text-nowrap">{cl.ip}</td>
+                        <td className="small text-truncate" style={{maxWidth: 200}}>{cl.app ? `${cl.app}/${cl.stream}` : '—'}</td>
+                        <td className="small text-nowrap text-muted">{fmtSec(cl.aliveSec)}</td>
+                        <td className="small text-nowrap text-muted text-end">{fmtSrsKbps(cl.recvKbps)} ↓ / {fmtSrsKbps(cl.sendKbps)} ↑</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>}
+            <div className="small mt-2">
+              <a href={`/players/rtc_player.html?stream=${encodeURIComponent(((rtc.clients || [])[0]?.stream) || 'livestream')}.flv`} target="_blank" rel="noreferrer">
+                {t('console.diagRtcOpenPlayer')}
+              </a>
+            </div>
+          </>}
         </Accordion.Body>
       </Accordion.Item>
       <Accordion.Item eventKey="record">

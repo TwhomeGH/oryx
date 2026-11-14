@@ -371,6 +371,7 @@ func handleHTTPService(ctx context.Context, handler *http.ServeMux) error {
 	handleMgmtDiskQuery(ctx, handler)
 	handleMgmtGPUQuery(ctx, handler)
 	handleMgmtRecordQuery(ctx, handler)
+	handleMgmtRtcQuery(ctx, handler)
 	handleMgmtRedisQuery(ctx, handler)
 	handleMgmtAutoSelfSignedCertificate(ctx, handler)
 	handleMgmtSsl(ctx, handler)
