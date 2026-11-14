@@ -125,30 +125,40 @@ if ($Release) {
     $relFiles = @($changes | ForEach-Object { $_.File })
 
     # Add a changelog entry: the title plus the commits since the previous release, so the entry
-    # is never just a bare title. Newest entry goes right after the header.
+    # is never just a bare title. Always written — a release without notes still needs a history
+    # record, otherwise the entry silently goes missing (which is how v5.22.8 shipped without one).
     $changelogFile = Join-Path $repoRoot 'docs\change-history.md'
-    if ($Notes) {
-        $prevTag = (git -C $repoRoot describe --tags --abbrev=0 2>$null)
-        $range = if ($prevTag) { "$prevTag..HEAD" } else { 'HEAD' }
-        $subjects = @(git -C $repoRoot log $range --no-merges --format='- %s' 2>$null)
+    $prevTag = (git -C $repoRoot describe --tags --abbrev=0 2>$null)
+    $range = if ($prevTag) { "$prevTag..HEAD" } else { 'HEAD' }
+    $subjects = @(git -C $repoRoot log $range --no-merges --format='- %s' 2>$null)
 
-        $entry = @("## $(Get-Date -Format 'yyyy.MM.dd HH:mm') $newVersion $Notes", '', '**類型**: 發佈', '')
-        if ($subjects.Count -gt 0) { $entry += "### 修改 - $newVersion", ''; $entry += $subjects; $entry += '' }
-        $entry += '---'
-
-        if (Test-Path $changelogFile) {
-            $lines = Get-Content $changelogFile
-            $first = ($lines | Select-String -Pattern '^## ' | Select-Object -First 1)
-            if ($first) {
-                $head = $lines[0..($first.LineNumber - 2)]
-                $body = $lines[($first.LineNumber - 1)..($lines.Count - 1)]
-            } else { $head = $lines; $body = @() }
-        } else { $head = @('# Oryx 變更歷史', ''); $body = @() }
-
-        $out = @($head) + @($entry) + @('') + @($body)
-        [IO.File]::WriteAllText($changelogFile, (($out -join "`n") + "`n"), (New-Object System.Text.UTF8Encoding $false))
-        Write-Host "已新增變更歷史：$Notes（含 $($subjects.Count) 筆提交）" -ForegroundColor Cyan
+    $entryTitle = $Notes
+    if (-not $entryTitle) {
+        # Derive a title from the batch so the entry still reads like a summary, not a bare version.
+        $titles = @(git -C $repoRoot log $range --no-merges --format='%s' 2>$null | Where-Object { $_ -notmatch '^Release ' })
+        if ($titles.Count -gt 0) {
+            $entryTitle = "$($titles[0])" + $(if ($titles.Count -gt 1) { "（共 $($titles.Count) 筆）" } else { '' })
+        } else {
+            $entryTitle = "發佈 $newVersion"
+        }
     }
+
+    $entry = @("## $(Get-Date -Format 'yyyy.MM.dd HH:mm') $newVersion $entryTitle", '', '**類型**: 發佈', '')
+    if ($subjects.Count -gt 0) { $entry += "### 修改 - $newVersion", ''; $entry += $subjects; $entry += '' }
+    $entry += '---'
+
+    if (Test-Path $changelogFile) {
+        $lines = Get-Content $changelogFile
+        $first = ($lines | Select-String -Pattern '^## ' | Select-Object -First 1)
+        if ($first) {
+            $head = $lines[0..($first.LineNumber - 2)]
+            $body = $lines[($first.LineNumber - 1)..($lines.Count - 1)]
+        } else { $head = $lines; $body = @() }
+    } else { $head = @('# Oryx 變更歷史', ''); $body = @() }
+
+    $out = @($head) + @($entry) + @('') + @($body)
+    [IO.File]::WriteAllText($changelogFile, (($out -join "`n") + "`n"), (New-Object System.Text.UTF8Encoding $false))
+    Write-Host "已新增變更歷史：$entryTitle（含 $($subjects.Count) 筆提交）" -ForegroundColor Cyan
 
     $addFiles = @($relFiles)
     if (Test-Path $changelogFile) { $addFiles += $changelogFile }
