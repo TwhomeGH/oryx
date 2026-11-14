@@ -1332,6 +1332,30 @@ function SrsDiagnostics({handleError}) {
     return () => clearInterval(timer);
   }, [handleError]);
 
+  // Recording states come from the backend as codes plus an age; compose the sentence here so the
+  // card reads consistently in every locale instead of echoing backend English.
+  const recordReason = (r) => {
+    if (r.state === 'stalled') return t('console.diagRecordStalledFor', {count: r.ageSec || 0});
+    if (r.state === 'finalizing') return t('console.diagRecordFinalizing', {count: r.ageSec || 0});
+    if (r.state === 'recording' && r.ageSec) return t('console.diagRecordLastSeg', {count: r.ageSec});
+    return t(`console.diagRecordReason_${r.state}`);
+  };
+
+  // Recording (DVR) state. A failed query is surfaced, not hidden: an empty list must never be
+  // indistinguishable from "the endpoint is broken".
+  const [record, setRecord] = React.useState();
+  const [recordErr, setRecordErr] = React.useState('');
+  React.useEffect(() => {
+    const refresh = () => {
+      axios.post('/terraform/v1/mgmt/record/query', {}, {headers: Token.loadBearerHeader()})
+        .then(res => { setRecord(res.data.data); setRecordErr(''); })
+        .catch((e) => setRecordErr(e?.message || String(e)));
+    };
+    refresh();
+    const timer = setInterval(refresh, 10000);
+    return () => clearInterval(timer);
+  }, []);
+
   const gpuVariant = (u) => (u >= 90 ? 'danger' : u >= 70 ? 'warning' : 'success');
 
   return (<>
@@ -1475,6 +1499,71 @@ function SrsDiagnostics({handleError}) {
               </tbody>
             </Table>
           </div>
+        </Accordion.Body>
+      </Accordion.Item>
+      <Accordion.Item eventKey="record">
+        <Accordion.Header>{t('console.diagRecord')}</Accordion.Header>
+        <Accordion.Body>
+          {recordErr && <Alert variant="warning">{t('console.diagRecordError')}: {recordErr}</Alert>}
+          {!record && !recordErr && <div className="text-muted small">{t('console.loading')}</div>}
+          {record && <>
+            {record.blocked === 'hls-disabled' && (
+              <Alert variant="danger" className="small py-2">{t('console.diagRecordHlsOff')}</Alert>
+            )}
+            <div className="d-flex flex-wrap gap-3 mb-2 small">
+              <span>{t('console.diagRecordEnabled')}: <b>{
+                record.config?.all ? t('console.diagRecordAll')
+                  : ((record.config?.globs || []).length > 0 ? t('console.diagRecordGlobs') : t('console.diagRecordOff'))
+              }</b></span>
+              {(record.config?.globs || []).length > 0 && <span className="text-muted">{record.config.globs.join(', ')}</span>}
+              <span className="text-muted">{record.home}</span>
+            </div>
+            {(record.working || []).length === 0 && (record.finished || []).length === 0 && (
+              <div className="text-center text-muted small py-2">{t('console.diagRecordEmpty')}</div>
+            )}
+            <Table size="sm" borderless className="mb-0">
+              <tbody>
+                {(record.working || []).map((r) => (
+                  <tr key={`w-${r.uuid}`}>
+                    <td className="small text-nowrap">
+                      {r.state === 'recording'
+                        ? <Badge bg="success">{t('console.diagRecordRecording')}</Badge>
+                        : <Badge bg={r.state === 'stalled' || r.state === 'missing' ? 'danger' : (r.state === 'finalizing' ? 'secondary' : 'warning')} text={r.state === 'stalled' || r.state === 'missing' ? undefined : 'dark'}>
+                            {t(`console.diagRecordState_${r.state}`)}
+                          </Badge>}
+                    </td>
+                    <td className="small text-truncate" style={{maxWidth: 260}}>{r.m3u8Url}</td>
+                    <td className="small text-nowrap text-muted">
+                      {t('console.diagRecordSegments', {count: r.segments})}
+                      {r.sizeBytes > 0 ? ` · ${fmtBytes(r.sizeBytes)}` : ''}
+                    </td>
+                    <td className="small text-muted">{recordReason(r)}</td>
+                  </tr>
+                ))}
+                {(record.finished || []).map((r) => (
+                  <tr key={`f-${r.uuid}`}>
+                    <td className="small text-nowrap">
+                      <Badge bg={r.state === 'missing' ? 'danger' : 'secondary'}>{t(`console.diagRecordState_${r.state}`)}</Badge>
+                    </td>
+                    <td className="small text-truncate" style={{maxWidth: 260}}>
+                      {r.app ? `${r.app}/${r.stream}` : r.m3u8Url}
+                    </td>
+                    <td className="small text-nowrap text-muted">
+                      {r.durationSec > 0 ? fmtSec(r.durationSec) : ''}
+                      {r.sizeBytes > 0 ? ` · ${fmtBytes(r.sizeBytes)}` : ''}
+                      {r.state === 'missing' ? ` · ${t('console.diagRecordMissingFile')}` : ''}
+                    </td>
+                    <td className="small text-muted text-nowrap">
+                      {r.done ? (new Date(r.done).toLocaleString()) : ''}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+            {(record.config?.processCpDir || '') !== '' && (
+              <div className="small text-muted mt-1">{t('console.diagRecordCopyTo')}: <code>{record.config.processCpDir}</code></div>
+            )}
+          </>}
         </Accordion.Body>
       </Accordion.Item>
       <Accordion.Item eventKey="forwards">
