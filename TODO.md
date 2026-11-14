@@ -2,8 +2,8 @@
 
 本專案的待辦與已完成事項。**單一入口**：計畫中的工作與已完成的工作都記在這裡，避免散落在 issue、對話或 commit 訊息裡。
 
-- 目前版本：`v5.22.2`（`platform/version.go`）
-- 發版方式：`pwsh scripts/bump-version.ps1 -Release -Patch -Notes "..."`
+- 目前版本：`v5.22.8`（`platform/version.go`）
+- 發版方式：`pwsh scripts/bump-version.ps1 -Release`（未給 `-Notes` 時自動以本批提交產生條目）
 - 本地建置／部署：`pwsh scripts/tools/local-deploy.ps1 -Deploy`（見 [docs/local-build.md](docs/local-build.md)）
 
 ## 圖例
@@ -46,8 +46,18 @@
 |---|---|---|
 | `[ ]` | 磁碟 I/O 壓力 | cgroup `io.stat` 可取得，屬第二線指標 |
 | `[ ]` | Redis 慢查詢面板 | 已有 SLOWLOG 摘要，尚未逐筆展開 |
+| `[ ]` | WebRTC 連線診斷 | 目前只有播放器頁；ICE／DTLS 失敗與連線數無從觀察 |
+| `[ ]` | 平台回呼（callback）驗證診斷 | 驗證失敗、拒絕發布的原因只能翻 container log |
+| `[ ]` | `streams/fps` 探測結果持久化 | 目前只在前端保存，重整頁面即失去上一筆成功值與失敗時間 |
+| `[x]` | 串流生命週期「事件→原因→影響」 | 發布者 IP／client、session 時長、受影響的轉播目標、平台踢除原因；播放事件分開存放 |
+| `[x]` | 影片流無資料／無影格警示 | `video_frames` 與 `recv_bytes` 雙軌判定，區分「有資料沒畫面」與「完全沒資料」 |
+| `[x]` | 影片流每流詳情 | 發布者、累計影格／流量、來源 tcUrl（遮蔽 secret）、消費者清單 |
+| `[x]` | 錄影（DVR）狀態卡 | 錄影中／等待收尾／疑似中斷／已完成／檔案不存在，含分段數、大小、時長 |
+| `[x]` | 幀率探測失敗回報 | 改為 200 + reason（timeout/no-frames/failed），介面顯示原因並保留舊值標記 |
 | `[x]` | 轉播執行紀錄持久化 | 最近 10 場寫入 `SRS_FORWARD_SESSIONS:<platform>` |
 | `[!]` | WSL GPU 編碼器利用率 | WSL 不回報 `utilization.encoder`，介面已標註 0% 代表未知 |
+| `[!]` | 錄影必須開啟 HLS | 錄影由 SRS `on_hls` 分段驅動；HLS 關閉時不會產生任何檔案，診斷卡會明示 |
+| `[!]` | 錄影收尾有延遲 | worker 在最後分段後仍保留 30s（正式 300s）才收尾，期間顯示「等待收尾」屬正常 |
 
 ### 設定頁
 
@@ -75,6 +85,8 @@
 | unreleased | `/players`、`/tools` 的 HTML 改為 `no-cache`；導覽列推流診斷連結加快取破壞參數（`ed0ec7b`） |
 | unreleased | 推流診斷：GOP 分布統計 p50/p90/p99 + 分桶（`10e7393`） |
 | unreleased | 推流診斷：連線摘要列、畫面落後、時鐘漂移 ppm（`c4da62f`） |
+| v5.22.8 | **修正錄影完全無法運作**（DVR 路徑相對 cwd，on_hls 全 500）；串流生命週期原因/影響、影片流無資料/無影格警示與每流詳情、錄影狀態卡、幀率探測失敗回報、位元率單位修正 |
+| v5.22.7 | 轉播時間軸策略 `normalizeMode`（預設保留 VFR）、時間戳損壞改為重建時間軸、來源原始 PTS/DTS 留存 |
 | v5.22.2 | 轉播執行紀錄持久化、診斷日誌擴充（PTS/DTS 樣式）、管線歷史只反映本次執行 |
 | v5.22.1 | GPU 診斷擴充（編碼器／解碼器／溫度／功耗）、WSL 提示、GPU 獨立分頁、啟動清空幽靈流 |
 | v5.22.0 | 管線歷史圖表、結束直播立即停止、來源時間戳跳躍自動重啟、測試工具安全防護 |
