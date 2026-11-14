@@ -2080,12 +2080,15 @@ type fpsCacheObj struct {
 	Update string     `json:"update"`
 	Res    *StreamFPS `json:"res"`
 	Err    string     `json:"err"`
+	// Reason preserves why the sample failed, so a cached failure still reports a specific
+	// cause (timeout / no-frames / failed) instead of a bare message.
+	Reason string `json:"reason"`
 }
 
 // saveFpsCache stores the fps sample (or a failure) to redis, so concurrent and
 // repeated requests do not probe the stream again while the value is fresh.
-func saveFpsCache(ctx context.Context, key string, fps *StreamFPS, errMsg string) {
-	obj := fpsCacheObj{Update: time.Now().Format(time.RFC3339), Res: fps, Err: errMsg}
+func saveFpsCache(ctx context.Context, key string, fps *StreamFPS, errMsg, reason string) {
+	obj := fpsCacheObj{Update: time.Now().Format(time.RFC3339), Res: fps, Err: errMsg, Reason: reason}
 	if b, err := json.Marshal(obj); err != nil {
 		logger.Wf(ctx, "fps marshal cache %v, err=%v", key, err)
 	} else if err = rdb.HSet(ctx, SRS_CACHE_STREAM_FPS, key, string(b)).Err(); err != nil && err != redis.Nil {
@@ -2122,6 +2125,22 @@ func fpsCacheFresh(obj *fpsCacheObj) bool {
 	}
 }
 
+// asProbeError extracts the typed probe failure from a wrapped error chain. It unwraps by hand
+// because the vendored errors package does not provide errors.As.
+func asProbeError(err error) (*FpsProbeError, bool) {
+	for err != nil {
+		if pe, ok := err.(*FpsProbeError); ok {
+			return pe, true
+		}
+		u, ok := err.(interface{ Unwrap() error })
+		if !ok {
+			return nil, false
+		}
+		err = u.Unwrap()
+	}
+	return nil, false
+}
+
 // queryStreamFPS returns the measured fps of a stream with three layers of
 // throttling: a redis cache (fpsCacheTTL), a singleflight merging concurrent
 // requests of the same stream, and a global limiter serializing the actual ffprobe
@@ -2137,7 +2156,11 @@ func queryStreamFPS(ctx context.Context, app, stream string) (*StreamFPS, error)
 		return nil, err
 	} else if fpsCacheFresh(obj) {
 		if obj.Err != "" {
-			return nil, errors.New(obj.Err)
+			reason := obj.Reason
+			if reason == "" {
+				reason = FpsProbeReasonFailed
+			}
+			return nil, &FpsProbeError{Reason: reason, Err: errors.New(obj.Err)}
 		}
 		logger.Tf(ctx, "fps cache hit key=%v, update=%v", key, obj.Update)
 		return obj.Res, nil
@@ -2151,7 +2174,11 @@ func queryStreamFPS(ctx context.Context, app, stream string) (*StreamFPS, error)
 			return nil, rerr
 		} else if fpsCacheFresh(obj) {
 			if obj.Err != "" {
-				return nil, errors.New(obj.Err)
+				reason := obj.Reason
+				if reason == "" {
+					reason = FpsProbeReasonFailed
+				}
+				return nil, &FpsProbeError{Reason: reason, Err: errors.New(obj.Err)}
 			}
 			return obj.Res, nil
 		}
@@ -2166,7 +2193,11 @@ func queryStreamFPS(ctx context.Context, app, stream string) (*StreamFPS, error)
 			if obj, rerr := loadFpsCache(ctx, key); rerr == nil && obj != nil {
 				logger.Tf(ctx, "fps limiter busy, serve stale key=%v, update=%v", key, obj.Update)
 				if obj.Err != "" {
-					return nil, errors.New(obj.Err)
+					reason := obj.Reason
+					if reason == "" {
+						reason = FpsProbeReasonFailed
+					}
+					return nil, &FpsProbeError{Reason: reason, Err: errors.New(obj.Err)}
 				}
 				return obj.Res, nil
 			}
@@ -2178,11 +2209,18 @@ func queryStreamFPS(ctx context.Context, app, stream string) (*StreamFPS, error)
 
 		fps, err := ProbeStreamFPS(ctx, app, stream)
 		if err != nil {
-			r0 := errors.Wrapf(err, "probe fps %v/%v", app, stream)
-			saveFpsCache(ctx, key, nil, r0.Error())
+			// fmt.Errorf keeps the error chain intact (%w). The vendored errors.Wrapf does not
+			// implement Unwrap, which silently downgraded a typed reason (timeout) to a generic
+			// failure by the time the handler classified it.
+			r0 := fmt.Errorf("probe fps %v/%v: %w", app, stream, err)
+			reason := FpsProbeReasonFailed
+			if pe, ok := asProbeError(err); ok {
+				reason = pe.Reason
+			}
+			saveFpsCache(ctx, key, nil, r0.Error(), reason)
 			return nil, r0
 		}
-		saveFpsCache(ctx, key, fps, "")
+		saveFpsCache(ctx, key, fps, "", "")
 		return fps, nil
 	})
 	return res, err
@@ -2210,10 +2248,35 @@ func handleMgmtStreamsFPS(ctx context.Context, handler *http.ServeMux) {
 				return errors.New("no stream")
 			}
 
+			// A failed sample is a normal outcome of the probe, not a server fault: report it
+			// as data (available=false + reason) so the console can show why, instead of a 500
+			// that the UI can only swallow.
+			type fpsProbeResult struct {
+				Available   bool    `json:"available"`
+				FPS         float64 `json:"fps"`
+				JitterMS    float64 `json:"jitter_ms"`
+				Abnormal    bool    `json:"abnormal"`
+				Reason      string  `json:"reason,omitempty"`
+				Error       string  `json:"error,omitempty"`
+				AttemptedAt string  `json:"attemptedAt"`
+			}
+			attemptedAt := time.Now().Format(time.RFC3339)
+
 			if fps, err := queryStreamFPS(ctx, app, stream); err != nil {
-				return errors.Wrapf(err, "query fps %v/%v", app, stream)
+				reason := FpsProbeReasonFailed
+				if pe, ok := asProbeError(err); ok {
+					reason = pe.Reason
+				}
+				logger.Wf(ctx, "stream fps failed, app=%v, stream=%v, reason=%v, err=%v", app, stream, reason, err)
+				ohttp.WriteData(ctx, w, r, &fpsProbeResult{
+					Available: false, Reason: reason, Error: err.Error(), AttemptedAt: attemptedAt,
+				})
+				return nil
 			} else {
-				ohttp.WriteData(ctx, w, r, fps)
+				ohttp.WriteData(ctx, w, r, &fpsProbeResult{
+					Available: true, FPS: fps.FPS, JitterMS: fps.JitterMS, Abnormal: fps.Abnormal,
+					AttemptedAt: attemptedAt,
+				})
 				logger.Tf(ctx, "stream fps ok, app=%v, stream=%v, fps=%v, jitter=%vms, abnormal=%v",
 					app, stream, fps.FPS, fps.JitterMS, fps.Abnormal)
 				return nil

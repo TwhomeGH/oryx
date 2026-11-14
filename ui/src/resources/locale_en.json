@@ -1102,7 +1102,13 @@
       "noConsumers": "No consumer",
       "noDataFor": "no data {{count}}s",
       "noDataHint": "The publisher is connected but nothing has arrived for a while; SRS will drop it shortly.",
-      "stalledAlert": "{{count}} stream(s) are connected but stalled (no video frames or no data)."
+      "stalledAlert": "{{count}} stream(s) are connected but stalled (no video frames or no data).",
+      "fpsProbeFailed": "probe failed",
+      "fpsProbeStale": "stale",
+      "fpsProbeTimeout": "probe timed out",
+      "fpsProbeNoFrames": "no usable frames",
+      "fpsProbeFailedReason": "probe error",
+      "fpsProbeRequest": "request failed"
     }
   },
   "meta": {

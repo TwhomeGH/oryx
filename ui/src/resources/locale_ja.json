@@ -890,7 +890,13 @@
       "noConsumers": "視聴者なし",
       "noDataFor": "{{count}} 秒データなし",
       "noDataHint": "配信者は接続していますが、データが届いていません。まもなく SRS が切断します。",
-      "stalledAlert": "{{count}} 本のストリームが接続したまま停止しています（映像フレームなし／データなし）。"
+      "stalledAlert": "{{count}} 本のストリームが接続したまま停止しています（映像フレームなし／データなし）。",
+      "fpsProbeFailed": "計測失敗",
+      "fpsProbeStale": "古い値",
+      "fpsProbeTimeout": "計測がタイムアウト",
+      "fpsProbeNoFrames": "有効なフレームなし",
+      "fpsProbeFailedReason": "計測エラー",
+      "fpsProbeRequest": "リクエスト失敗"
     },
     "openapi": {
       "title": "プラットフォーム API キー（OpenAPI）",

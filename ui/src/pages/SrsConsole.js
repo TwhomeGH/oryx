@@ -207,8 +207,21 @@ function fmtClock(ms) {
   return moment(value).format('HH:mm:ss');
 }
 
+// mergeFPSProbe folds one probe answer into the per-stream state. A failed sample is stored, not
+// dropped: the column shows the failure with its reason while the last good value stays visible
+// and marked as stale, so a probe problem is never mistaken for "no data".
 function mergeFPSProbe(prev, next, now = Date.now()) {
   if (!next) return prev;
+  if (next.available === false) {
+    return {
+      ...prev,
+      probeError: {
+        reason: next.reason || 'failed',
+        error: next.error || '',
+        at: next.attemptedAt || new Date(now).toISOString(),
+      },
+    };
+  }
   const fps = finiteNumber(next.fps);
   const jitterMs = finiteNumber(next.jitter_ms ?? next.jitterMs);
   const prevBaseline = finiteNumber(prev?.baselineFps);
@@ -219,6 +232,8 @@ function mergeFPSProbe(prev, next, now = Date.now()) {
     baselineFps: fps === null ? prevBaseline : prevBaseline === null ? fps : prevBaseline * (1 - fpsBaselineAlpha) + fps * fpsBaselineAlpha,
     baselineDrift,
     updatedAt: now,
+    fpsAt: now,
+    probeError: undefined,
     variable: !!next.abnormal || baselineDrift > fpsBaselineDriftRatio,
   };
 }
@@ -535,8 +550,13 @@ function SrsStreams({handleError, initialFps, active}) {
         }).then(res => {
           if (cancelled) return;
           setFps(prev => ({...prev, [s.id]: mergeFPSProbe(prev[s.id], res.data.data)}));
-        }).catch(() => {
-          // Keep the previous result, the stream may just have stopped.
+        }).catch((e) => {
+          // A request-level failure is also a probe failure; record it with its reason instead
+          // of silently keeping the previous value.
+          if (cancelled) return;
+          setFps(prev => ({...prev, [s.id]: mergeFPSProbe(prev[s.id], {
+            available: false, reason: 'request', error: e?.message || String(e),
+          })}));
         });
       });
     }, 3000);
@@ -564,6 +584,14 @@ function SrsStreams({handleError, initialFps, active}) {
   const publisherOf = (s) => (clients || []).find(x => x.id === s.publish?.cid);
   const consumersOf = (s) => (clients || []).filter(x => !x.publish && x.stream === s.id);
   const maskUrl = (u) => String(u || '').replace(/([?&]secret=)[^&]*/i, '$1***');
+
+  // Probe failures are reported with a machine reason; map it to copy that says what happened.
+  const probeReasonText = (probeError) => ({
+    timeout: t('console.fpsProbeTimeout'),
+    'no-frames': t('console.fpsProbeNoFrames'),
+    failed: t('console.fpsProbeFailedReason'),
+    request: t('console.fpsProbeRequest'),
+  }[probeError?.reason] || t('console.fpsProbeFailedReason'));
 
   const preview = React.useCallback((s) => {
     const schema = window.location.protocol.replace(':', '');
@@ -642,7 +670,15 @@ function SrsStreams({handleError, initialFps, active}) {
               <td style={{fontSize: '0.8em'}}>{fmtVideo(s.video)}</td>
               <td style={{fontSize: '0.8em'}}>{fmtAudio(s.audio)}</td>
               <td>
-                {fpsInfo ? (
+                {fpsInfo?.probeError ? (
+                  <span title={`${probeReasonText(fpsInfo.probeError)}${fpsInfo.probeError.error ? ` — ${fpsInfo.probeError.error}` : ''}`}>
+                    {fpsValue !== '-' && (
+                      <span className="text-muted me-1">{fpsValue} fps（{t('console.fpsProbeStale')}）</span>
+                    )}
+                    <Badge bg="warning" text="dark">{t('console.fpsProbeFailed')}</Badge>
+                    <span className="text-muted ms-1">{probeReasonText(fpsInfo.probeError)}</span>
+                  </span>
+                ) : fpsInfo ? (
                   fpsValue !== '-' ? (
                     <span title={fpsTitle}>
                       {fpsValue} fps

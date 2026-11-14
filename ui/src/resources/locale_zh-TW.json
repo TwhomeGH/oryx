@@ -1102,7 +1102,13 @@
       "noConsumers": "目前沒有消費者",
       "noDataFor": "無資料 {{count}} 秒",
       "noDataHint": "發布者仍連線，但已沒有資料送達；SRS 很快就會判定逾時並斷線。",
-      "stalledAlert": "有 {{count}} 條流連線中但已停止（沒有視訊影格或沒有資料）。"
+      "stalledAlert": "有 {{count}} 條流連線中但已停止（沒有視訊影格或沒有資料）。",
+      "fpsProbeFailed": "探測失敗",
+      "fpsProbeStale": "舊值",
+      "fpsProbeTimeout": "探測逾時",
+      "fpsProbeNoFrames": "沒有可用影格",
+      "fpsProbeFailedReason": "探測錯誤",
+      "fpsProbeRequest": "請求失敗"
     }
   },
   "meta": {

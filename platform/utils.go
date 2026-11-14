@@ -2303,6 +2303,27 @@ type StreamFPS struct {
 	Abnormal bool    `json:"abnormal"`
 }
 
+// Reasons a frame-rate sample can fail. They are reported to the caller instead of being
+// collapsed into a generic 500, so the UI can say what actually went wrong.
+const (
+	// FpsProbeReasonTimeout: ffprobe could not finish the sample window in time.
+	FpsProbeReasonTimeout = "timeout"
+	// FpsProbeReasonNoFrames: the stream produced no usable frame timestamps.
+	FpsProbeReasonNoFrames = "no-frames"
+	// FpsProbeReasonFailed: any other probe failure (stream gone, unsupported input, ...).
+	FpsProbeReasonFailed = "failed"
+)
+
+// FpsProbeError carries why a sample failed, so the failure survives the cache and the
+// HTTP layer instead of degrading into an opaque error string.
+type FpsProbeError struct {
+	Reason string
+	Err    error
+}
+
+func (v *FpsProbeError) Error() string { return v.Err.Error() }
+func (v *FpsProbeError) Unwrap() error { return v.Err }
+
 // abnormalFPSJitterCV is the coefficient of variation of the frame intervals above which
 // a stream is considered abnormal. A clean CFR source has near-zero variation (only the
 // millisecond rounding of ffprobe), while a VFR source has a large one.
@@ -2344,7 +2365,45 @@ const fpsProbeSampleSeconds = 3
 // fpsProbeTimeout bounds the whole probe: the sample window plus the time to open the
 // RTMP player and decode the frames. A stalled stream (no frames arriving) is killed
 // here instead of hanging the API request forever.
-const fpsProbeTimeout = 6 * time.Second
+const fpsProbeTimeout = 7 * time.Second
+
+// fpsProbeReadTimeout bounds a single blocking read inside ffprobe. A publisher that stays
+// connected but sends nothing would otherwise block forever, forcing us to SIGKILL the process
+// and lose the reason for the failure.
+const fpsProbeReadTimeout = 4 * time.Second
+
+// fpsProbeFailureReason turns ffprobe's own message into a stable reason code. Classifying from
+// the process output (rather than the context state) is deterministic: it does not depend on
+// whether the timeout goroutine set Err() before or after the process died.
+func fpsProbeFailureReason(detail string, runErr error, probeCtx context.Context) string {
+	msg := strings.ToLower(detail)
+	switch {
+	case strings.Contains(msg, "timed out"), strings.Contains(msg, "timeout"):
+		return FpsProbeReasonTimeout
+	case strings.Contains(msg, "end of file"), strings.Contains(msg, "server error"):
+		return FpsProbeReasonFailed
+	}
+	// A SIGKILL here can only come from our own deadline: ffprobe reports its own failures with
+	// an exit status. This is deterministic and does not depend on clock comparison.
+	if runErr != nil && strings.Contains(strings.ToLower(runErr.Error()), "signal: killed") {
+		return FpsProbeReasonTimeout
+	}
+	if deadline, ok := probeCtx.Deadline(); ok && !time.Now().Before(deadline) {
+		return FpsProbeReasonTimeout
+	}
+	return FpsProbeReasonFailed
+}
+
+// firstNonEmptyLine returns the first non-blank line, keeping ffprobe's error readable in one
+// log line and in the API payload.
+func firstNonEmptyLine(s string) string {
+	for _, line := range strings.Split(s, "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			return line
+		}
+	}
+	return ""
+}
 
 // ProbeStreamFPS samples the frames of a live stream via ffprobe and computes the
 // frame-rate statistics. The abnormal flag is set when the frame intervals vary too much
@@ -2358,16 +2417,36 @@ func ProbeStreamFPS(ctx context.Context, app, stream string) (*StreamFPS, error)
 	args := []string{
 		"-v", "error", "-select_streams", "v:0",
 		"-show_entries", "frame=pts_time", "-of", "csv=p=0",
+		// Let ffprobe itself give up on a silent connection instead of being SIGKILLed: a killed
+		// process loses its error message, which is why every failure used to look identical.
+		"-rw_timeout", fmt.Sprintf("%d", int(fpsProbeReadTimeout/time.Microsecond)),
 		"-read_intervals", fmt.Sprintf("%%+%d", fpsProbeSampleSeconds),
 		url,
 	}
 
-	probeCtx, cancel := context.WithTimeout(ctx, fpsProbeTimeout)
+	// The sample is shared by whoever asked for it (singleflight) and is expensive, so it must
+	// not be tied to one client's request lifetime: a closed console tab used to kill ffprobe
+	// and surface as "signal: killed". Detach it and bound it with its own timeout only.
+	probeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), fpsProbeTimeout)
 	defer cancel()
 
-	stdout, err := exec.CommandContext(probeCtx, "ffprobe", args...).Output()
+	cmd := exec.CommandContext(probeCtx, "ffprobe", args...)
+	var probeErr bytes.Buffer
+	cmd.Stderr = &probeErr
+
+	startedAt := time.Now()
+	stdout, err := cmd.Output()
 	if err != nil {
-		return nil, errors.Wrapf(err, "probe %v", url)
+		elapsed := time.Since(startedAt).Round(time.Millisecond)
+		detail := firstNonEmptyLine(probeErr.String())
+		reason := fpsProbeFailureReason(detail, err, probeCtx)
+		// The elapsed time and context state make a killed probe diagnosable: a timeout must
+		// reach the deadline, anything faster was stopped for another reason.
+		msg := fmt.Sprintf("probe %v: %v after %v (ctx=%v)", url, err, elapsed, probeCtx.Err())
+		if detail != "" {
+			msg = fmt.Sprintf("%v (%v)", msg, detail)
+		}
+		return nil, &FpsProbeError{Reason: reason, Err: errors.New(msg)}
 	}
 
 	// Compute the deltas of consecutive frame timestamps, skip the sync jump of the
@@ -2389,7 +2468,7 @@ func ProbeStreamFPS(ctx context.Context, app, stream string) (*StreamFPS, error)
 
 	fps, err := computeStreamFPS(deltas)
 	if err != nil {
-		return nil, errors.Wrapf(err, "for %v", url)
+		return nil, &FpsProbeError{Reason: FpsProbeReasonNoFrames, Err: errors.Wrapf(err, "for %v", url)}
 	}
 	return fps, nil
 }
