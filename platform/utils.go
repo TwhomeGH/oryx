@@ -388,6 +388,12 @@ var dirDubbingPath = path.Join(".", "dub")
 // For Oryx to use the files.
 const serverDataDirectory = "/data"
 
+// recordHome is the single source of truth for DVR storage. Every DVR path must be built from it:
+// the worker used to join the relative "record" against the process cwd, which wrote outside the
+// data volume and failed outright when a stray file named "record" existed in the working
+// directory (every on_hls hook then returned 500 "not a directory", silently disabling recording).
+const recordHome = serverDataDirectory + "/record"
+
 // The video files allowed to use by Oryx.
 var serverAllowVideoFiles []string = []string{".mp4", ".flv", ".ts", ".mkv", ".mov"}
 

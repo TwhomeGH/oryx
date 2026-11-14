@@ -264,19 +264,19 @@ func (v *RecordWorker) Handle(ctx context.Context, handler *http.ServeMux) error
 			}
 
 			// Remove m3u8 file.
-			m3u8File := path.Join("record", uuid, "index.m3u8")
+			m3u8File := path.Join(recordHome, uuid, "index.m3u8")
 			if _, err := os.Stat(m3u8File); err == nil {
 				os.Remove(m3u8File)
 			}
 
 			// Remove mp4 file.
-			mp4File := path.Join("record", uuid, "index.mp4")
+			mp4File := path.Join(recordHome, uuid, "index.mp4")
 			if _, err := os.Stat(mp4File); err == nil {
 				os.Remove(mp4File)
 			}
 
 			// Remove ts directory.
-			m3u8Directory := path.Join("record", uuid)
+			m3u8Directory := path.Join(recordHome, uuid)
 			if _, err := os.Stat(m3u8Directory); err == nil {
 				os.RemoveAll(m3u8Directory)
 			}
@@ -438,7 +438,7 @@ func (v *RecordWorker) Handle(ctx context.Context, handler *http.ServeMux) error
 			return errors.Errorf("invalid m3u8 %v from %v of %v", m3u8, fileDir, r.URL.Path)
 		}
 
-		tsFilePath := path.Join(dir, m3u8, fmt.Sprintf("%v.ts", uuid))
+		tsFilePath := path.Join(recordHome, m3u8, fmt.Sprintf("%v.ts", uuid))
 		if _, err := os.Stat(tsFilePath); err != nil {
 			return errors.Wrapf(err, "no ts file %v", tsFilePath)
 		}
@@ -472,7 +472,7 @@ func (v *RecordWorker) Handle(ctx context.Context, handler *http.ServeMux) error
 			return errors.Wrapf(err, "parse %v", m3u8Metadata)
 		}
 
-		mp4FilePath := path.Join("record", uuid, "index.mp4")
+		mp4FilePath := path.Join(recordHome, uuid, "index.mp4")
 		stats, err := os.Stat(mp4FilePath)
 		if err != nil {
 			return errors.Wrapf(err, "no mp4 file %v", mp4FilePath)
@@ -540,7 +540,7 @@ func (v *RecordWorker) Handle(ctx context.Context, handler *http.ServeMux) error
 func (v *RecordWorker) OnHlsTsMessage(ctx context.Context, msg *SrsOnHlsMessage, data []byte) error {
 	// Copy the ts file to temporary cache dir.
 	tsid := uuid.NewString()
-	tsfile := path.Join("record", fmt.Sprintf("%v.ts", tsid))
+	tsfile := path.Join(recordHome, fmt.Sprintf("%v.ts", tsid))
 
 	if file, err := os.Create(tsfile); err != nil {
 		return errors.Wrapf(err, "create file %v error", tsfile)
@@ -1000,16 +1000,18 @@ func (v *RecordM3u8Stream) serveMessage(ctx context.Context, msg *SrsOnHlsObject
 		return err
 	}
 
-	tsDir := path.Join("record", v.UUID)
-	key := path.Join(tsDir, fmt.Sprintf("%v.ts", msg.TsFile.TsID))
+	// The key is a URL key kept relative to recordHome (it is embedded in the m3u8), while the
+	// filesystem path is absolute: the cwd must never influence where a recording is stored.
+	tsDir := path.Join(recordHome, v.UUID)
+	key := path.Join("record", v.UUID, fmt.Sprintf("%v.ts", msg.TsFile.TsID))
 	msg.TsFile.Key = key
 
 	if err := os.MkdirAll(tsDir, 0755); err != nil {
 		return errors.Wrapf(err, "mkdir %v", tsDir)
 	}
 
-	if err := os.Rename(msg.TsFile.File, key); err != nil {
-		return errors.Wrapf(err, "rename %v to %v", msg.TsFile.File, key)
+	if err := os.Rename(msg.TsFile.File, path.Join(tsDir, fmt.Sprintf("%v.ts", msg.TsFile.TsID))); err != nil {
+		return errors.Wrapf(err, "rename %v to %v", msg.TsFile.File, tsDir)
 	}
 
 	// Update the metadata for m3u8.
@@ -1028,7 +1030,7 @@ func (v *RecordM3u8Stream) finishM3u8(ctx context.Context) (ret error) {
 		return errors.Wrapf(err, "build vod")
 	}
 
-	hls := path.Join("record", v.UUID, "index.m3u8")
+	hls := path.Join(recordHome, v.UUID, "index.m3u8")
 	if f, err := os.OpenFile(hls, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644); err != nil {
 		return errors.Wrapf(err, "open file %v", hls)
 	} else {
@@ -1043,7 +1045,7 @@ func (v *RecordM3u8Stream) finishM3u8(ctx context.Context) (ret error) {
 	}
 	logger.Tf(ctx, "record to %v ok, type=%v, duration=%v", hls, contentType, duration)
 
-	mp4 := path.Join("record", v.UUID, "index.mp4")
+	mp4 := path.Join(recordHome, v.UUID, "index.mp4")
 	if b, err := exec.CommandContext(ctx, "ffmpeg", "-i", hls, "-c", "copy", "-y", mp4).Output(); err != nil {
 		return errors.Wrapf(err, "covert to mp4 %v err %v", mp4, string(b))
 	}
@@ -1078,7 +1080,7 @@ func (v *RecordM3u8Stream) postProcessing(ctx context.Context) error {
 		return nil
 	}
 
-	artifactPath := path.Join("record", v.UUID, "index.mp4")
+	artifactPath := path.Join(recordHome, v.UUID, "index.mp4")
 	targetPath := path.Join(processCpDir, fmt.Sprintf("%v.mp4", v.artifact.UUID))
 	if err = exec.CommandContext(ctx, "cp", "-f", artifactPath, targetPath).Run(); err != nil {
 		return errors.Wrapf(err, "cp %v to %v", artifactPath, targetPath)
