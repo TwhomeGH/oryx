@@ -1,6 +1,14 @@
 ARG ARCH
 ARG VALKEY_IMAGE=valkey/valkey:8.1.10@sha256:3fbd2e3e4b6e85e046c1e7c215e8f79087bc0357789184305806664e320996f3
 
+# The SRS core is an *image* input, not a source tree: a fork only has to publish an image with the
+# same layout (/usr/local/srs/objs/srs plus its conf dir). It must be declared here, in the global
+# scope, because it is used in a FROM; a stage-local ARG is invisible to FROM and makes BuildKit
+# fail with an empty base name. The release path never overrides it. The contract a fork must
+# satisfy is exercised by scripts/tools/srs-contract.sh.
+ARG SRS_IMAGE=ossrs/srs:7
+ARG SRS_SOURCE=upstream
+
 # Carry a private runtime so the focal system libraries remain unchanged.
 FROM ${VALKEY_IMAGE} AS valkey-runtime
 COPY scripts/tools/prepare-valkey-runtime.sh /prepare-valkey-runtime.sh
@@ -17,7 +25,10 @@ RUN chmod 755 /usr/local/bin/redis-server /usr/local/bin/redis-cli /usr/local/bi
     redis-server --version && redis-cli --version && valkey-server --version && valkey-cli --version
 
 FROM ${ARCH}node:22 AS node
-FROM ${ARCH}ossrs/srs:7 AS srs
+
+# Keeping the core an image means there is no conditional COPY, the release path is untouched (CI
+# never passes SRS_IMAGE), and swapping it is one flag plus a rollback flag.
+FROM ${SRS_IMAGE} AS srs
 
 RUN mv /usr/local/srs/objs/ffmpeg/bin/ffmpeg /usr/local/bin/ffmpeg && \
     ln -sf /usr/local/bin/ffmpeg /usr/local/srs/objs/ffmpeg/bin/ffmpeg
@@ -107,6 +118,18 @@ FROM valkey-base AS dist
 
 # Expose ports @see https://github.com/ossrs/oryx/blob/main/DEVELOPER.md#docker-allocated-ports
 EXPOSE 2022 2443 1935 8080 5060 9000 8000/udp 10080/udp
+
+# Record which SRS core this image carries. The value cannot be an ENV from the srs stage (ARG
+# scope), so the platform reads the running SRS version at query time; this label pins the build
+# input for `docker inspect` and for the deploy tooling.
+ARG SRS_IMAGE
+ARG SRS_SOURCE
+LABEL org.opencontainers.image.srs.image="${SRS_IMAGE}"
+LABEL org.opencontainers.image.srs.source="${SRS_SOURCE}"
+# Runtime visibility: the platform reports these next to its own version, so a screenshot or a log
+# says which core produced it.
+ENV ORYX_SRS_IMAGE="${SRS_IMAGE}"
+ENV ORYX_SRS_SOURCE="${SRS_SOURCE}"
 
 # Copy files from build.
 COPY --from=build /usr/local/oryx /usr/local/oryx

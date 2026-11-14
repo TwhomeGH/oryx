@@ -573,12 +573,66 @@ func handleMgmtVersions(ctx context.Context, handler *http.ServeMux) {
 	ep := "/terraform/v1/mgmt/versions"
 	logger.Tf(ctx, "Handle %v", ep)
 	handler.HandleFunc(ep, func(w http.ResponseWriter, r *http.Request) {
+		// The SRS core is a swappable image (ARG SRS_IMAGE), so a version number alone is
+		// ambiguous: the same page and the same metrics can come from a different core. Report the
+		// running SRS version and where the core came from, and never fail the whole endpoint
+		// because SRS is briefly unavailable.
+		srsVersion, srsErr := querySrsVersion(ctx)
 		ohttp.WriteData(ctx, w, r, &struct {
-			Version string `json:"version"`
+			Version    string `json:"version"`
+			SrsVersion string `json:"srsVersion,omitempty"`
+			SrsSource  string `json:"srsSource"`
+			SrsImage   string `json:"srsImage,omitempty"`
+			SrsError   string `json:"srsError,omitempty"`
 		}{
-			Version: strings.TrimPrefix(version, "v"),
+			Version:    strings.TrimPrefix(version, "v"),
+			SrsVersion: srsVersion,
+			SrsSource:  envSrsSource(),
+			SrsImage:   os.Getenv("ORYX_SRS_IMAGE"),
+			SrsError:   srsErr,
 		})
 	})
+}
+
+// querySrsVersion reads the running core's version from its own API, so the value describes the
+// binary that is actually serving streams rather than what the image was built against.
+func querySrsVersion(ctx context.Context) (string, string) {
+	host := os.Getenv("SRS_HOST")
+	if host == "" {
+		host = "127.0.0.1"
+	}
+
+	client := &http.Client{Timeout: 2 * time.Second}
+	res, err := client.Get(fmt.Sprintf("http://%v:1985/api/v1/versions", host))
+	if err != nil {
+		return "", fmt.Sprintf("query srs version: %v", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return "", fmt.Sprintf("read srs version: %v", err)
+	}
+
+	var parsed struct {
+		Data struct {
+			Version string `json:"version"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		return "", fmt.Sprintf("parse srs version: %v", err)
+	}
+	return parsed.Data.Version, ""
+}
+
+// envSrsSource names where the SRS core came from: "upstream" for the official image, "local" for
+// a fork built locally or in CI. It is stamped by the image build so it cannot drift from the
+// binary actually shipped.
+func envSrsSource() string {
+	if v := os.Getenv("ORYX_SRS_SOURCE"); v != "" {
+		return v
+	}
+	return "upstream"
 }
 
 func handleFFmpegVersions(ctx context.Context, handler *http.ServeMux) {

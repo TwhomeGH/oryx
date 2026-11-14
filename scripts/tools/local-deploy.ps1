@@ -38,6 +38,11 @@ param(
     [string]$Image,
     [string]$Container,
     [string]$ComposeDir,
+    # Build against an alternative SRS core image (e.g. a locally built fork). Defaults to the
+    # upstream image baked into the Dockerfile; passing this also switches the default image tag so
+    # a local-core build never overwrites the plain oryx:local.
+    [string]$SrsImage,
+    [string]$SrsSource,
     [switch]$Check,
     [switch]$Deploy,
     [switch]$Save,
@@ -57,13 +62,24 @@ if (Test-Path $iniPath) {
         if ($line -match '^\s*([^#=]+?)\s*=\s*(.*?)\s*$') { $saved[$Matches[1]] = $Matches[2] }
     }
 }
-if (-not $Image) { $Image = if ($saved['image']) { $saved['image'] } else { 'oryx:local' } }
+if (-not $SrsImage -and $saved['srsImage']) { $SrsImage = $saved['srsImage'] }
+if (-not $SrsSource -and $saved['srsSource']) { $SrsSource = $saved['srsSource'] }
+if (-not $SrsSource) { $SrsSource = if ($SrsImage) { 'local' } else { 'upstream' } }
+
+# A local SRS core gets its own tag so it can never overwrite the upstream-core build. An explicit
+# -Image still wins, and a previously saved image is only reused when no core was requested.
+$imageExplicit = $PSBoundParameters.ContainsKey('Image')
+if (-not $imageExplicit -and $SrsImage) {
+    $Image = 'oryx:local-srs'
+} elseif (-not $Image) {
+    $Image = if ($saved['image']) { $saved['image'] } else { 'oryx:local' }
+}
 if (-not $Container) { $Container = if ($saved['container']) { $saved['container'] } else { 'oryx' } }
 if (-not $ComposeDir -and $saved['composeDir']) { $ComposeDir = $saved['composeDir'] }
 
 # Persist when ComposeDir is explicitly provided, or on -Save.
 if ($Save -or $PSBoundParameters.ContainsKey('ComposeDir')) {
-    $ini = "# local-deploy 設定（自動產生，已 gitignore）。`ncomposeDir=$ComposeDir`ncontainer=$Container`nimage=$Image`n"
+    $ini = "# local-deploy 設定（自動產生，已 gitignore）。`ncomposeDir=$ComposeDir`ncontainer=$Container`nimage=$Image`nsrsImage=$SrsImage`nsrsSource=$SrsSource`n"
     [IO.File]::WriteAllText($iniPath, $ini, (New-Object System.Text.UTF8Encoding $false))
     Write-Host "已儲存設定到 $iniPath（composeDir=$ComposeDir）" -ForegroundColor Green
     if ($Save) { exit 0 }
@@ -82,13 +98,21 @@ Write-Host "source: version=$version revision=$($revision.Substring(0, [Math]::M
 # --- Build the local image with build labels ---
 if (-not $Check) {
     Step "建置 $Image（含 revision/version 標籤）"
+    if ($SrsImage) {
+        Write-Host "SRS 核心：$SrsImage（source=$SrsSource）" -ForegroundColor Yellow
+    }
+    $buildArgs = @('build', '-t', $Image,
+        '--label', "oryx.revision=$revision",
+        '--label', "oryx.version=$version")
+    if ($SrsImage) {
+        $buildArgs += @('--build-arg', "SRS_IMAGE=$SrsImage", '--build-arg', "SRS_SOURCE=$SrsSource")
+    }
+    $buildArgs += $repoRoot
+
     if ($DryRun) {
-        Write-Host "[DryRun] docker build -t $Image --label oryx.revision=$revision ... ."
+        Write-Host "[DryRun] docker $($buildArgs -join ' ')"
     } else {
-        docker build -t $Image `
-            --label "oryx.revision=$revision" `
-            --label "oryx.version=$version" `
-            $repoRoot
+        & docker @buildArgs
         if ($LASTEXITCODE -ne 0) { Write-Host '[失敗] docker build 失敗' -ForegroundColor Red; exit 1 }
     }
 }
@@ -142,13 +166,42 @@ if ($Deploy) {
     $composeFile = Join-Path $ComposeDir 'docker-compose.yml'
     if (-not (Test-Path $composeFile)) { Write-Host "[失敗] 找不到 $composeFile（用 -ComposeDir 指定）" -ForegroundColor Red; exit 1 }
 
+    # The compose file pins an image name. When we built something else (e.g. a core-swapped
+    # oryx:local-srs), deploy through a tiny override file rather than editing the user's compose:
+    # without this the build exists but the container keeps running the old image.
+    $composeOverride = Join-Path $ComposeDir '.oryx-image-override.yml'
+    $service = $null
+    $pinnedImage = $null
+    $composeLines = Get-Content $composeFile
+    for ($i = 0; $i -lt $composeLines.Count; $i++) {
+        if ($composeLines[$i] -match '^\s*image:\s*(\S+)\s*$') {
+            $pinnedImage = $Matches[1]
+            for ($j = $i - 1; $j -ge 0; $j--) {
+                if ($composeLines[$j] -match '^  ([A-Za-z0-9_.-]+):\s*$') { $service = $Matches[1]; break }
+            }
+            break
+        }
+    }
+    $useOverride = $service -and $pinnedImage -and ($pinnedImage -ne $Image)
+    if ($useOverride -and -not $DryRun) {
+        $body = "services:`n  ${service}:`n    image: $Image`n"
+        [IO.File]::WriteAllText($composeOverride, $body, (New-Object System.Text.UTF8Encoding $false))
+        Write-Host "compose 固定 image=$pinnedImage，改用覆寫檔部署 $Image（服務 $service）" -ForegroundColor Yellow
+    } elseif (-not $useOverride -and -not $DryRun -and (Test-Path $composeOverride)) {
+        Remove-Item $composeOverride -Force
+    }
+
     Step "docker compose up -d --force-recreate（重建容器，/data 不動）: $ComposeDir"
+    $composeArgs = @('compose')
+    if ($useOverride) { $composeArgs += @('-f', 'docker-compose.yml', '-f', (Split-Path $composeOverride -Leaf)) }
+    $composeArgs += @('up', '-d', '--force-recreate')
+
     if ($DryRun) {
-        Write-Host "[DryRun] cd $ComposeDir && docker compose up -d --force-recreate"
+        Write-Host "[DryRun] cd $ComposeDir && docker $($composeArgs -join ' ')"
     } else {
         Push-Location $ComposeDir
         try {
-            docker compose up -d --force-recreate
+            & docker @composeArgs
             if ($LASTEXITCODE -ne 0) { Write-Host '[失敗] docker compose 失敗' -ForegroundColor Red; exit 1 }
         } finally { Pop-Location }
         $ok = Describe-Image (docker inspect $Container --format '{{.Image}}' 2>$null)

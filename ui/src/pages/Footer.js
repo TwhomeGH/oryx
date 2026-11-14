@@ -43,6 +43,14 @@ function FooterImpl() {
         <a href='https://github.com/ossrs/oryx' target='_blank' rel='noreferrer'>
           &copy;Oryx/v{versions?.data?.version}
         </a>
+        {versions?.data?.srsVersion && (
+          <span className="text-muted" title={versions?.data?.srsImage || ''}>
+            &nbsp;·&nbsp;SRS {versions.data.srsVersion}
+            {versions.data.srsSource && versions.data.srsSource !== 'upstream'
+              ? ` (${versions.data.srsSource})`
+              : ''}
+          </span>
+        )}
         &nbsp; <a href='https://beian.miit.gov.cn' target='_blank' rel='noreferrer'>{beian?.icp}</a>
       </p>
     </Container>
