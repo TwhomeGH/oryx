@@ -2,7 +2,7 @@
 
 本專案的待辦與已完成事項。**單一入口**：計畫中的工作與已完成的工作都記在這裡，避免散落在 issue、對話或 commit 訊息裡。
 
-- 目前版本：`v5.22.8`（`platform/version.go`）
+- 目前版本：`v5.22.10`（`platform/version.go`）
 - 發版方式：`pwsh scripts/bump-version.ps1 -Release`（未給 `-Notes` 時自動以本批提交產生條目）
 - 本地建置／部署：`pwsh scripts/tools/local-deploy.ps1 -Deploy`（見 [docs/local-build.md](docs/local-build.md)）
 
@@ -39,6 +39,10 @@
 | `[!]` | slate 與 hold 的取捨 | `hold` 零空窗但凍結畫面；`slate` 有 2–5 秒換手空窗。見 [docs/forward-program-bus.md](docs/forward-program-bus.md) |
 | `[ ]` | 評估單一目標時略過節目源 | 目前每個目標都經節目源轉一手（copy 模式實測約 0.4% CPU／43MB），換取來源中斷時下游不受影響 |
 | `[ ]` | 節目源遮蔽下游監測的補償 | hold 模式讓來源短暫中斷在下游「看不出來」，只能靠本地事件時間線與漂移指標判斷 |
+| `[x]` | 節目源時間軸計畫可見 | 顯示 copy／repair／cfr／composite 與原因代碼，並揭露來源 CFR/VFR 判定 |
+| `[x]` | 輸出幀率可選 | 只影響會重新編碼的路徑（備援畫面、強制 CFR）；跟隨來源或固定 23.976–120／自訂，高於來源會夾回 |
+| `[x]` | CFR/VFR 判定改實測 | 取樣 3 秒幀間隔判定，不再信任 `r_frame_rate`／`avg_frame_rate`；介面附抖動或最大間隔作為依據 |
+| `[x]` | 備援模式的節奏代價提示 | 選 `slate` 時當場說明會固定幀率重新編碼、VFR 會變 CFR |
 
 ### 診斷與監控
 
@@ -47,7 +51,8 @@
 | `[ ]` | 磁碟 I/O 壓力 | cgroup `io.stat` 可取得，屬第二線指標 |
 | `[ ]` | Redis 慢查詢面板 | 已有 SLOWLOG 摘要，尚未逐筆展開 |
 | `[ ]` | WebRTC 連線診斷 | 目前只有播放器頁；ICE／DTLS 失敗與連線數無從觀察 |
-| `[ ]` | 平台回呼（callback）驗證診斷 | 驗證失敗、拒絕發布的原因只能翻 container log |
+| `[~]` | SRS 健康計數（publish timeout／kickoff／queue overflow） | `/api/v1/summaries` 只有即時資源、沒有錯誤計數；要有真實原因得把 SRS 主控輸出留存成檔案（待決策） |
+| `[~]` | 平台回呼（callback）驗證診斷 | 送出端在我們手上：記錄每次回呼的目標、action、HTTP 狀態、延遲、失敗原因與最近 N 筆，並提供一鍵測試 |
 | `[ ]` | `streams/fps` 探測結果持久化 | 目前只在前端保存，重整頁面即失去上一筆成功值與失敗時間 |
 | `[x]` | 串流生命週期「事件→原因→影響」 | 發布者 IP／client、session 時長、受影響的轉播目標、平台踢除原因；播放事件分開存放 |
 | `[x]` | 影片流無資料／無影格警示 | `video_frames` 與 `recv_bytes` 雙軌判定，區分「有資料沒畫面」與「完全沒資料」 |
