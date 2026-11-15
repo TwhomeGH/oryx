@@ -45,8 +45,27 @@ function Sparkline({data}) {
  *   log, the metrics object, and the diagnostics timeline / recent logs of the target.
  * @returns {React.ReactElement} Local progress summary and raw diagnostics.
  */
-export default function ForwardProgress({log, metrics, events, logs, encoder, ffmpegArgs, programSourceRate, programPlan, programPlanReason, programLastError, programLogs, programArgs}) {
+export default function ForwardProgress({log, metrics, events, logs, encoder, ffmpegArgs, programSourceRate, programSourceCFR, programPlan, programPlanReason, programLastError, programLogs, programArgs}) {
   const {t} = useTranslation();
+
+  // The program timeline plan is a code (copy/repair/cfr/composite) with a reason code; translate
+  // both so "why is it copying / why is it CFR" is answerable without reading the ffmpeg command.
+  const planText = (p) => ({
+    copy: t('forward.progress.planCopy'),
+    repair: t('forward.progress.planRepair'),
+    cfr: t('forward.progress.planCfr'),
+    composite: t('forward.progress.planComposite'),
+  }[p] || p || '—');
+  const planNoteText = (n) => ({
+    'normalize-off': t('forward.progress.noteNormalizeOff'),
+    passthrough: t('forward.progress.notePassthrough'),
+    'cfr-but-source-cfr': t('forward.progress.noteCfrButSourceCfr'),
+    'cfr-forced': t('forward.progress.noteCfrForced'),
+    'auto-cfr': t('forward.progress.noteAutoCfr'),
+    'auto-repair': t('forward.progress.noteAutoRepair'),
+    'auto-vfr': t('forward.progress.noteAutoVfr'),
+    composite: t('forward.progress.noteComposite'),
+  }[n] || n || '');
   const progress = parseForwardProgress(log);
   // Hardware encoders (NVENC/VAAPI/QSV/AMF/VideoToolbox) vs software (libx264).
   const encHardware = /nvenc|vaapi|qsv|amf|videotoolbox/.test(encoder || '');
@@ -79,7 +98,11 @@ export default function ForwardProgress({log, metrics, events, logs, encoder, ff
       <div>{t('forward.progress.drift')}: {fmt(metrics.mediaClockDriftSec)}s</div>
       {metrics.relayReconnects > 0 && <div>{t('forward.progress.reconnects')}: {metrics.relayReconnects}</div>}
       {encoder && <div>{t('forward.progress.encoder')}: {encoder}{encHardware ? ` ${t('forward.progress.gpu')}` : ''}</div>}
-      {programPlan && <div>{t('forward.progress.plan')}: <b>{programPlan}</b>{programPlanReason ? `（${programPlanReason}）` : ''}</div>}
+      {(programPlan || programSourceRate) && <div>
+        {t('forward.progress.plan')}: <b>{planText(programPlan)}</b>
+        {programPlanReason ? `（${planNoteText(programPlanReason)}）` : ''}
+        {programSourceRate ? ` · ${t('forward.progress.sourceKind')}: ${programSourceCFR ? t('forward.progress.sourceCFR') : t('forward.progress.sourceVFR')} ${programSourceRate}fps` : ''}
+      </div>}
     </>}
     <Sparkline data={history.current} />
     {log && <details className="mt-1">

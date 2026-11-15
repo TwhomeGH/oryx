@@ -1222,7 +1222,7 @@ function SrsForwards({handleError}) {
             </tr>
             {expanded === e.platform && (
               <tr><td colSpan="5" className="p-4 border-top">
-                <ForwardProgress log={''} metrics={e.metrics} events={e.events} logs={e.logs} encoder={e.encoder} ffmpegArgs={e.ffmpegArgs} programSourceRate={e.programSourceRate} programPlan={e.programPlan} programPlanReason={e.programPlanReason} programLastError={e.programLastError} programLogs={e.programLogs} programArgs={e.programArgs} /><ForwardHistory platform={e.platform} /><ForwardSessions platform={e.platform} /><ForwardTiming platform={e.platform} />
+                <ForwardProgress log={''} metrics={e.metrics} events={e.events} logs={e.logs} encoder={e.encoder} ffmpegArgs={e.ffmpegArgs} programSourceRate={e.programSourceRate} programSourceCFR={e.programSourceCFR} programPlan={e.programPlan} programPlanReason={e.programPlanReason} programLastError={e.programLastError} programLogs={e.programLogs} programArgs={e.programArgs} /><ForwardHistory platform={e.platform} /><ForwardSessions platform={e.platform} /><ForwardTiming platform={e.platform} />
               </td></tr>
             )}
           </React.Fragment>

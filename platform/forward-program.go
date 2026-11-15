@@ -255,7 +255,10 @@ type ProgramStatus struct {
 	Generation   int
 	SourceActive bool
 	// The source's probed average frame rate, to compare with the output (normalize/CFR).
-	SourceRate   string
+	SourceRate string
+	// SourceCFR reports whether the source cadence was classified as constant, which is what
+	// "auto" acts on; without it the plan is not explainable from the UI.
+	SourceCFR    bool
 	LastSwitchAt string
 	LastError    string
 	// Plan is the resolved timeline plan (copy/repair/cfr) and PlanReason why it was chosen.
@@ -430,6 +433,7 @@ func (v *ProgramBus) queryStatus() ProgramStatus {
 		Generation:      v.generation,
 		SourceActive:    v.sourceActive,
 		SourceRate:      v.srcRate,
+		SourceCFR:       v.srcCFR,
 		LastError:       v.lastError,
 		Plan:            v.plan,
 		PlanReason:      v.planReason,
@@ -531,6 +535,13 @@ func (v *ProgramBus) runHold(ctx context.Context) {
 // recovery the composite is restarted to read the source again (a source that ended cannot be
 // re-added to a running filtergraph), which is the only remaining (brief) reconnect.
 func (v *ProgramBus) runComposite(ctx context.Context) {
+	// The composite path is not governed by normalizePlan: it always encodes onto a fixed frame
+	// rate (the base is generated at the source's nominal rate), so the source cadence is not
+	// preserved. Leaving plan empty made the console show nothing for slate targets.
+	v.lock.Lock()
+	v.plan, v.planReason = "composite", "composite"
+	v.lock.Unlock()
+
 	// Learn the source size/fps while it is live, so the slate base matches it.
 	v.probeSourceSize(ctx)
 	v.probeSourceAudio(ctx)
@@ -1068,24 +1079,26 @@ func (v *ProgramBus) normalizePlan(conf forwardSlateConfig) (plan string, why st
 			mode = "off"
 		}
 	}
+	// The second value is a stable code, not prose: the console shows it next to the plan and
+	// translates it, so the reason is readable in every locale.
 	switch mode {
 	case "off":
-		return "copy", "normalize off"
+		return "copy", "normalize-off"
 	case "passthrough":
-		return "copy", "passthrough: preserve source cadence"
+		return "copy", "passthrough"
 	case "cfr":
 		if v.sourceCFR() {
-			return "copy", "forced CFR but source is already CFR"
+			return "copy", "cfr-but-source-cfr"
 		}
-		return "cfr", "forced CFR"
+		return "cfr", "cfr-forced"
 	default: // auto
 		if v.sourceCFR() {
-			return "copy", "auto: source is CFR"
+			return "copy", "auto-cfr"
 		}
 		if v.isRepairing() {
-			return "repair", "auto: regenerating timestamps (cadence preserved)"
+			return "repair", "auto-repair"
 		}
-		return "copy", "auto: VFR preserved (select cfr if the platform needs constant rate)"
+		return "copy", "auto-vfr"
 	}
 }
 
