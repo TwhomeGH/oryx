@@ -49,6 +49,10 @@ export default [
       // import is falsely reported as unused.
       'react/jsx-uses-vars': 'error',
       'react/jsx-uses-react': 'error',
+      // no-undef does NOT catch an undefined component used as JSX (<Foo/>): jsx-uses-vars marks it
+      // as a use, so a missing import only fails at runtime with "Foo is not defined". This rule
+      // catches it at lint time, which is how a missing ForwardTiming import reached production.
+      'react/jsx-no-undef': 'error',
       'no-unused-vars': ['error', {args: 'none', varsIgnorePattern: '^_'}],
       // Legacy style allowances, matching the previous react-app preset.
       'no-empty': ['error', {allowEmptyCatch: true}],

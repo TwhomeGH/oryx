@@ -19,6 +19,7 @@ import {SrsErrorBoundary} from "../components/SrsErrorBoundary";
 import ForwardProgress from "../components/ForwardProgress";
 import ForwardHistory from "../components/ForwardHistory";
 import ForwardSessions from "../components/ForwardSessions";
+import ForwardTiming from "../components/ForwardTiming";
 import {LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer} from "recharts";
 import { useApiErrorHandler } from "../useApiErrorHandler.js";
 
