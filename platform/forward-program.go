@@ -11,6 +11,7 @@ import (
 	"math"
 	"os"
 	"os/exec"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -232,7 +233,11 @@ type ProgramBus struct {
 	// srcCFR is true when the probed average frame rate matches the nominal one, i.e. the source
 	// already delivers constant frame rate. Transcoding such a source (CFR->CFR) only burns GPU and
 	// can make the program timeline drift, so the program relays it with -c copy instead.
-	srcCFR        bool
+	srcCFR bool
+	// Measured cadence evidence: the header rates can claim CFR for a source that visibly
+	// drops frames, so the verdict is backed by the actual frame spacing.
+	srcJitterMS   float64
+	srcMaxGapMS   float64
 	srcAudioKbps  int32
 	srcSampleRate int32
 
@@ -258,9 +263,12 @@ type ProgramStatus struct {
 	SourceRate string
 	// SourceCFR reports whether the source cadence was classified as constant, which is what
 	// "auto" acts on; without it the plan is not explainable from the UI.
-	SourceCFR    bool
-	LastSwitchAt string
-	LastError    string
+	SourceCFR bool
+	// Measured frame spacing, so the UI can show the evidence behind the verdict.
+	SourceJitterMS float64
+	SourceMaxGapMS float64
+	LastSwitchAt   string
+	LastError      string
 	// Plan is the resolved timeline plan (copy/repair/cfr) and PlanReason why it was chosen.
 	Plan       string
 	PlanReason string
@@ -434,6 +442,8 @@ func (v *ProgramBus) queryStatus() ProgramStatus {
 		SourceActive:    v.sourceActive,
 		SourceRate:      v.srcRate,
 		SourceCFR:       v.srcCFR,
+		SourceJitterMS:  v.srcJitterMS,
+		SourceMaxGapMS:  v.srcMaxGapMS,
 		LastError:       v.lastError,
 		Plan:            v.plan,
 		PlanReason:      v.planReason,
@@ -1139,6 +1149,94 @@ func (v *ProgramBus) sourceCFR() bool {
 	return v.srcCFR
 }
 
+// cadenceVerdict is the measured frame-spacing classification of a source.
+type cadenceVerdict struct {
+	CFR      bool
+	Frames   int
+	JitterMS float64
+	MaxGapMS float64
+	OK       bool
+}
+
+// classifyCadence decides CFR vs VFR from the actual frame intervals. Header rates cannot be
+// trusted for this: a source that drops frames irregularly still reports r_frame_rate == average
+// == 60, so only the spacing tells the truth. Uniform means every interval is within
+// max(3ms, 10%) of the median and no gap exceeds 1.5x the median.
+func classifyCadence(intervals []float64) cadenceVerdict {
+	v := cadenceVerdict{Frames: len(intervals) + 1}
+	if len(intervals) < 20 {
+		return v
+	}
+
+	sorted := append([]float64(nil), intervals...)
+	sort.Float64s(sorted)
+	median := sorted[len(sorted)/2]
+	if median <= 0 {
+		return v
+	}
+
+	tolerance := median * 0.10
+	if tolerance < 0.003 {
+		tolerance = 0.003
+	}
+
+	uniform := true
+	var maxGap float64
+	for _, d := range intervals {
+		if dev := math.Abs(d - median); dev > tolerance {
+			uniform = false
+		}
+		if d > maxGap {
+			maxGap = d
+		}
+		if d > median*1.5 {
+			uniform = false
+		}
+	}
+
+	v.CFR = uniform
+	v.MaxGapMS = math.Round(maxGap*1000*10) / 10
+	v.JitterMS = math.Round((maxGap-median)*1000*10) / 10
+	v.OK = true
+	return v
+}
+
+// probeSourceCadence samples the source's frame timestamps and measures their spacing.
+func (v *ProgramBus) probeSourceCadence(ctx context.Context) (cadenceVerdict, error) {
+	url := fmt.Sprintf("http://localhost:%v/%v/%v.flv", forwardProgramHTTPPort, v.sourceApp, v.sourceStream)
+	probeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+
+	out, err := exec.CommandContext(probeCtx, "ffprobe", "-v", "error", "-select_streams", "v:0",
+		"-show_entries", "frame=pts_time", "-of", "csv=p=0",
+		"-read_intervals", "%+3", url).Output()
+	if err != nil {
+		return cadenceVerdict{}, errors.Wrapf(err, "probe cadence %v", url)
+	}
+
+	var prev float64
+	var intervals []float64
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		pts, err := strconv.ParseFloat(strings.TrimSpace(line), 64)
+		if err != nil {
+			continue
+		}
+		if prev > 0 && pts > prev {
+			intervals = append(intervals, pts-prev)
+		}
+		prev = pts
+	}
+	return classifyCadence(intervals), nil
+}
+
+func (v *ProgramBus) setSourceCadence(verdict cadenceVerdict) {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	v.srcCFR = verdict.CFR
+	v.srcJitterMS = verdict.JitterMS
+	v.srcMaxGapMS = verdict.MaxGapMS
+}
+
 func (v *ProgramBus) probeSourceSize(ctx context.Context) {
 	url := fmt.Sprintf("http://localhost:%v/%v/%v.flv", forwardProgramHTTPPort, v.sourceApp, v.sourceStream)
 	// The source may have just been published, so its header/metadata is not always ready on the
@@ -1157,7 +1255,19 @@ func (v *ProgramBus) probeSourceSize(ctx context.Context) {
 				const maxVideoDim = 16384
 				if w > 0 && h > 0 && w <= maxVideoDim && h <= maxVideoDim {
 					v.setSourceSize(int32(w), int32(h), rate)
-					v.setSourceCFR(sourceIsCFR(parts[2], parts[3]))
+					// Prefer the measured spacing; the header rates can claim CFR for a source
+					// that visibly drops frames. The metadata verdict stays as a fallback so a
+					// failed sample never turns into "unknown".
+					if cadence, cerr := v.probeSourceCadence(ctx); cerr == nil && cadence.OK {
+						v.setSourceCadence(cadence)
+						logger.Tf(ctx, "forward program cadence measured cfr=%v frames=%v jitter=%.1fms maxGap=%.1fms",
+							cadence.CFR, cadence.Frames, cadence.JitterMS, cadence.MaxGapMS)
+					} else {
+						v.setSourceCFR(sourceIsCFR(parts[2], parts[3]))
+						if cerr != nil {
+							logger.Wf(ctx, "forward program cadence probe failed, using header rates: %v", cerr)
+						}
+					}
 					logger.Tf(ctx, "forward program probed source size %vx%v@%v (r=%v avg=%v)", w, h, rate, parts[2], parts[3])
 					return
 				}

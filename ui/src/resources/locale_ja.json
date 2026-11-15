@@ -588,7 +588,9 @@
         "noteAutoCfr": "auto：入力が CFR",
         "noteAutoRepair": "auto：タイムスタンプ破損のため再構築",
         "noteAutoVfr": "auto：VFR のリズムを維持",
-        "noteComposite": "スレートは固定レートで再エンコード（リズムは保持されない）"
+        "noteComposite": "スレートは固定レートで再エンコード（リズムは保持されない）",
+        "sourceJitter": "実測ジッター ±{{value}}ms",
+        "sourceMaxGap": "最大間隔 {{value}}ms"
       },
       "statusTitle": "転送ステータス",
       "statusShort": "転送",

@@ -144,7 +144,9 @@
         "noteAutoCfr": "auto: the source is CFR",
         "noteAutoRepair": "auto: timestamps are damaged, rebuilding the timeline",
         "noteAutoVfr": "auto: VFR cadence preserved",
-        "noteComposite": "slate failover encodes at a fixed rate, cadence not preserved"
+        "noteComposite": "slate failover encodes at a fixed rate, cadence not preserved",
+        "sourceJitter": "measured jitter ±{{value}}ms",
+        "sourceMaxGap": "largest gap {{value}}ms"
       },
       "statusTitle": "Forward status",
       "statusShort": "Forward",

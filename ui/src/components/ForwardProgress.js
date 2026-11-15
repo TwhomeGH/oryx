@@ -45,7 +45,7 @@ function Sparkline({data}) {
  *   log, the metrics object, and the diagnostics timeline / recent logs of the target.
  * @returns {React.ReactElement} Local progress summary and raw diagnostics.
  */
-export default function ForwardProgress({log, metrics, events, logs, encoder, ffmpegArgs, programSourceRate, programSourceCFR, programPlan, programPlanReason, programLastError, programLogs, programArgs}) {
+export default function ForwardProgress({log, metrics, events, logs, encoder, ffmpegArgs, programSourceRate, programSourceCFR, programSourceJitterMS, programSourceMaxGapMS, programPlan, programPlanReason, programLastError, programLogs, programArgs}) {
   const {t} = useTranslation();
 
   // The program timeline plan is a code (copy/repair/cfr/composite) with a reason code; translate
@@ -56,6 +56,13 @@ export default function ForwardProgress({log, metrics, events, logs, encoder, ff
     cfr: t('forward.progress.planCfr'),
     composite: t('forward.progress.planComposite'),
   }[p] || p || '—');
+  // The verdict is measured, so show the measurement: jitter for a CFR source, the largest hole
+  // for a VFR one. A label without its evidence is not verifiable.
+  const sourceEvidence = (cfr, jitter, maxGap) => {
+    if (cfr && typeof jitter === 'number') return `（${t('forward.progress.sourceJitter', {value: jitter.toFixed(1)})}）`;
+    if (!cfr && typeof maxGap === 'number') return `（${t('forward.progress.sourceMaxGap', {value: maxGap.toFixed(1)})}）`;
+    return '';
+  };
   const planNoteText = (n) => ({
     'normalize-off': t('forward.progress.noteNormalizeOff'),
     passthrough: t('forward.progress.notePassthrough'),
@@ -101,7 +108,7 @@ export default function ForwardProgress({log, metrics, events, logs, encoder, ff
       {(programPlan || programSourceRate) && <div>
         {t('forward.progress.plan')}: <b>{planText(programPlan)}</b>
         {programPlanReason ? `（${planNoteText(programPlanReason)}）` : ''}
-        {programSourceRate ? ` · ${t('forward.progress.sourceKind')}: ${programSourceCFR ? t('forward.progress.sourceCFR') : t('forward.progress.sourceVFR')} ${programSourceRate}fps` : ''}
+        {programSourceRate ? ` · ${t('forward.progress.sourceKind')}: ${programSourceCFR ? t('forward.progress.sourceCFR') : t('forward.progress.sourceVFR')} ${programSourceRate}fps${sourceEvidence(programSourceCFR, programSourceJitterMS, programSourceMaxGapMS)}` : ''}
       </div>}
     </>}
     <Sparkline data={history.current} />
