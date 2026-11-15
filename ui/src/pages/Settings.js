@@ -1309,6 +1309,27 @@ function SettingForwardSlate() {
       <Form.Text className="text-muted">{t('settings.keyframeSecondsHint')}</Form.Text>
     </Form.Group>
     <Form.Group className="mb-3">
+      <Form.Label>{t('settings.outputRate')}</Form.Label>
+      <div className="d-flex gap-3 align-items-center flex-wrap">
+        <Form.Check inline type="radio" name="outputRateMode" label={t('settings.outputRateAuto')}
+          checked={(conf.outputRateMode || 'auto') === 'auto'}
+          onChange={() => setConf({...conf, outputRateMode: 'auto'})} />
+        <Form.Check inline type="radio" name="outputRateMode" label={t('settings.outputRateFixed')}
+          checked={conf.outputRateMode === 'fixed'}
+          onChange={() => setConf({...conf, outputRateMode: 'fixed', outputRate: conf.outputRate || 30})} />
+        <Form.Select style={{width: 130}} disabled={(conf.outputRateMode || 'auto') !== 'fixed'}
+          value={conf.outputRate || 30}
+          onChange={e => setConf({...conf, outputRate: Number(e.target.value)})}>
+          {[23.976, 24, 25, 29.97, 30, 50, 59.94, 60, 120].map(v => <option key={v} value={v}>{v} fps</option>)}
+        </Form.Select>
+        <Form.Control style={{width: 110}} type="number" min="1" max="240" step="0.001"
+          disabled={(conf.outputRateMode || 'auto') !== 'fixed'}
+          value={conf.outputRate || 30}
+          onChange={e => setConf({...conf, outputRate: Number(e.target.value)})} />
+      </div>
+      <Form.Text className="text-muted">{t('settings.outputRateHint')}</Form.Text>
+    </Form.Group>
+    <Form.Group className="mb-3">
       <Form.Label>{t('settings.outputBitrate')}</Form.Label>
       <Form.Control as="input" type="number" min="1" max="50"
         value={conf.outputBitrateMbps || 6}

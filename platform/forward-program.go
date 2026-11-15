@@ -680,7 +680,7 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		} else if plan == "copy" {
 			args = append(args, "-c", "copy")
 		} else if plan == "cfr" {
-			_, _, rate := v.sourceSize()
+			rate := v.resolveOutputRate(conf)
 			gop := forwardGOPFrames(rate, conf.KeyframeSeconds)
 			// Pin the output rate explicitly. Without -r, ffmpeg derives CFR from its own guess
 			// of the input rate (avg_frame_rate), which varies run to run (59.5 / 36.7) and
@@ -711,11 +711,12 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		// ticking clock, the source overlaid end-on-EOF, and the audio mixed with silence (so
 		// it lasts when the source ends). The program never republishes, so a source outage is
 		// seamless for the downstream, see runComposite.
-		w, h, rate := v.sourceSize()
+		w, h, _ := v.sourceSize()
 		srcURL := fmt.Sprintf("http://localhost:%v/%v/%v.flv", forwardProgramHTTPPort, v.sourceApp, v.sourceStream)
 		slateConf := forwardSlateConfigLoad(ctx)
+		rate := v.resolveOutputRate(slateConf)
 		filter := fmt.Sprintf(
-			"[0:v]%v,%v[bg];[bg][2:v]overlay=eof_action=pass:x=0:y=0[v];[1:a][2:a]amix=inputs=2:duration=longest:dropout_transition=0[a]",
+			"[0:v]%v,%v[bg];[bg][2:v]overlay=eof_action=pass:x=0:y=0[v];[1:a][2:a]amix=inputs=2:duration=longest:dropout_transition=0,aresample=async=1:first_pts=0[a]",
 			forwardSlateTextDrawtext(forwardSlateActiveText(slateConf, forwardEndedAny(ctx))), forwardSlateDrawtext(),
 		)
 		args = append(args,
@@ -733,7 +734,8 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		args = append(args, "-r", rate)
 		args = append(args, forwardVideoEncodeArgs(slateConf.OutputBitrateMbps, slateConf.OutputCQ, slateConf.OutputPresets, slateConf.OutputTunes)...)
 		args = append(args, "-g", fmt.Sprintf("%d", gop), "-keyint_min", fmt.Sprintf("%d", gop),
-			"-sc_threshold", "0", "-c:a", "aac", "-b:a", fmt.Sprintf("%dk", v.audioKbps()), "-avoid_negative_ts", "make_zero", "-max_interleave_delta", "0", "-f", "flv", output)
+			"-sc_threshold", "0", "-c:a", "aac", "-b:a", fmt.Sprintf("%dk", v.audioKbps()),
+			"-avoid_negative_ts", "make_zero", "-max_interleave_delta", "0", "-f", "flv", output)
 	default:
 		return errors.Errorf("invalid program mode %v", mode)
 	}
@@ -975,6 +977,23 @@ func (v *ProgramBus) sourceAudio() int32 {
 	v.lock.Lock()
 	defer v.lock.Unlock()
 	return v.srcAudioKbps
+}
+
+// resolveOutputRate returns the frame rate used by the paths that re-encode (composite/slate and
+// forced CFR). "auto" follows the source's nominal rate; "fixed" uses the configured value, but is
+// clamped to the source rate when it would be higher: inventing frames only costs bitrate and
+// smoothness without adding information.
+func (v *ProgramBus) resolveOutputRate(conf forwardSlateConfig) string {
+	_, _, srcRate := v.sourceSize()
+	if conf.OutputRateMode == "fixed" && conf.OutputRate > 0 {
+		if num, den, ok := parseFPS(srcRate); ok && num > 0 && den > 0 {
+			if src := float64(num) / float64(den); src < conf.OutputRate {
+				return srcRate
+			}
+		}
+		return strconv.FormatFloat(conf.OutputRate, 'f', -1, 64)
+	}
+	return srcRate
 }
 
 func (v *ProgramBus) sourceSize() (w, h int32, rate string) {

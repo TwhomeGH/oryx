@@ -242,7 +242,11 @@
       "normalizeModeCfr": "強制固定幀率（CFR）",
       "normalizeModeOff": "關閉（單純複製）",
       "normalizeModeHint": "CFR 會插入重複幀，原始 VFR 時間軸無法在下游還原，只適用於不接受可變幀率的平台。自動與保留模式會維持來源節奏。",
-      "normalizeCfrWarning": "CFR 是不可逆的：可變幀率會被重畫到固定格線（judder＋重複幀），無法轉回。"
+      "normalizeCfrWarning": "CFR 是不可逆的：可變幀率會被重畫到固定格線（judder＋重複幀），無法轉回。",
+      "outputRate": "輸出幀率",
+      "outputRateAuto": "跟隨來源",
+      "outputRateFixed": "固定",
+      "outputRateHint": "只影響會重新編碼的路徑（備援畫面與強制 CFR）；copy/repair 不會加 -r，保留來源節奏。設定值高於來源時會被夾回來源值，不會無中生有補幀。"
     },
     "coms": {
       "srs4": "SRS(稳定版)",
@@ -885,7 +889,8 @@
         "done": "已結束",
         "live": "錄製中",
         "hint": "即使節目源轉成 CFR 仍保留的來源封包 PTS/DTS。匯出：docker cp oryx:/data/forward-timing/<platform>/<run>/packets.csv.gz ."
-      }
+      },
+      "failoverSlateCost": "備援畫面會以固定幀率重新編碼，VFR 來源會失去原本節奏（變成 CFR）。若在意節奏，請選 hold（凍結最後一格，零空窗）。"
     },
     "vle": {
       "tip": "将文件转直播流",

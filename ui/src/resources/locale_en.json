@@ -184,7 +184,8 @@
         "done": "finished",
         "live": "recording",
         "hint": "Original source PTS/DTS per packet, kept even when the program transcodes to CFR. Export with: docker cp oryx:/data/forward-timing/<platform>/<run>/packets.csv.gz ."
-      }
+      },
+      "failoverSlateCost": "Slate re-encodes the program at a fixed frame rate, so a VFR source loses its original cadence (it becomes CFR). If cadence matters, use hold (freezes the last frame with no gap)."
     },
     "camera": {
       "s3": "There is no stream. Please start the live event and wait for about 30 seconds, the list will update automatically.",
@@ -825,7 +826,11 @@
       "normalizeModeCfr": "Force constant frame rate (CFR)",
       "normalizeModeOff": "Off (plain copy)",
       "normalizeModeHint": "CFR inserts duplicate frames and the original VFR timing cannot be recovered downstream, so it is only for platforms that reject a variable frame rate. Auto and preserve keep the source cadence.",
-      "normalizeCfrWarning": "CFR is lossy: a variable-rate source is re-timed onto a fixed grid (judder + duplicated frames) and cannot be converted back."
+      "normalizeCfrWarning": "CFR is lossy: a variable-rate source is re-timed onto a fixed grid (judder + duplicated frames) and cannot be converted back.",
+      "outputRate": "Output frame rate",
+      "outputRateAuto": "follow the source",
+      "outputRateFixed": "fixed",
+      "outputRateHint": "Applies only to the paths that re-encode (slate failover and forced CFR); copy/repair never sets -r and keeps the source cadence. A value above the source rate is clamped to the source (no invented frames)."
     },
     "coms": {
       "srs4": "SRS(Stable)",

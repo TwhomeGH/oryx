@@ -40,6 +40,12 @@ type forwardSlateConfig struct {
 	// OutputPresets maps an encoder kind (nvenc, x264, amf, qsv) to its preset, so switching
 	// encoders never applies one encoder's vocabulary to another.
 	OutputPresets map[string]string `json:"outputPresets"`
+	// OutputRateMode controls the frame rate of the paths that re-encode (composite/slate and
+	// forced CFR). "auto" follows the source's nominal rate; "fixed" uses OutputRate. Copy and
+	// repair are unaffected: they never set -r and keep the source cadence.
+	OutputRateMode string `json:"outputRateMode"`
+	// OutputRate is the fixed output frame rate; 0 means unset. Decimals are allowed (29.97).
+	OutputRate float64 `json:"outputRate"`
 	// OutputTunes maps an encoder kind to its -tune value ("none"/"" means omit it); the value
 	// sets differ between NVENC (hq/ll/ull/lossless) and x264 (film/animation/grain/...).
 	OutputTunes map[string]string `json:"outputTunes"`
@@ -64,6 +70,7 @@ func defaultForwardSlateConfig() forwardSlateConfig {
 		OfflineStopEnabled: true,
 		OfflineStopMinutes: 5,
 		KeyframeSeconds:    2,
+		OutputRateMode:     "auto",
 		OutputBitrateMbps:  6,
 		Normalize:          true,
 		NormalizeMode:      "auto",
@@ -89,6 +96,19 @@ func forwardSlateConfigLoad(ctx context.Context) forwardSlateConfig {
 	}
 	if conf.OfflineStopMinutes <= 0 {
 		conf.OfflineStopMinutes = 5
+	}
+	if conf.OutputRateMode == "" {
+		conf.OutputRateMode = "auto"
+	}
+	if conf.OutputRateMode != "auto" && conf.OutputRateMode != "fixed" {
+		conf.OutputRateMode = "auto"
+	}
+	if conf.OutputRate < 1 || conf.OutputRate > 240 {
+		conf.OutputRate = 0
+	}
+	// A fixed mode without a usable value would silently fall back to auto; make it explicit.
+	if conf.OutputRateMode == "fixed" && conf.OutputRate == 0 {
+		conf.OutputRateMode = "auto"
 	}
 	if conf.KeyframeSeconds <= 0 || conf.KeyframeSeconds > 10 {
 		conf.KeyframeSeconds = 2

@@ -403,7 +403,11 @@
       "normalizeModeCfr": "固定フレームレート（CFR）に変換",
       "normalizeModeOff": "オフ（単純コピー）",
       "normalizeModeHint": "CFR は重複フレームを挿入し、元の VFR タイミングは下流で復元できません。可変フレームレートを受け付けない配信先向けです。",
-      "normalizeCfrWarning": "CFR は非可逆です。可変フレームレートは固定グリッドに再配置され（ジャダー・重複フレーム）、元に戻せません。"
+      "normalizeCfrWarning": "CFR は非可逆です。可変フレームレートは固定グリッドに再配置され（ジャダー・重複フレーム）、元に戻せません。",
+      "outputRate": "出力フレームレート",
+      "outputRateAuto": "入力に追従",
+      "outputRateFixed": "固定",
+      "outputRateHint": "再エンコードする経路（スレート備援・CFR 強制）にのみ適用されます。copy/repair は -r を付けず入力のリズムを維持します。入力レートを超える値は入力に丸められます（フレームを増やさない）。"
     },
     "cb": {
       "title": "シーン紹介",
@@ -624,7 +628,8 @@
         "done": "完了",
         "live": "記録中",
         "hint": "CFR 変換後も残る、入力のパケット単位 PTS/DTS。書き出し: docker cp oryx:/data/forward-timing/<platform>/<run>/packets.csv.gz ."
-      }
+      },
+      "failoverSlateCost": "スレートは固定フレームレートで再エンコードするため、VFR 入力は元のリズムを失います（CFR になります）。リズムを重視するなら hold（最後のフレームで停止、空白なし）を選んでください。"
     },
     "fp": {
       "label": "ファイルを選択",
