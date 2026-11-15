@@ -483,6 +483,20 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 						// dropped. When the target is idle (no source ever selected, or stopped) there is no fallback —
 						// otherwise a restarted server would show "來源中斷" for targets that never started.
 						elem["fallback"] = status.State == forwardStateRunning && !status.ProgramSourceActive
+						// The program bus hides the outage from the downstream platform: it keeps a
+						// frozen frame, so remote viewers/platforms cannot tell. The duration is the
+						// compensation — the operator can see how long the blind spot has lasted and
+						// when the offline auto-stop will cut the target.
+						if status.State == forwardStateRunning && !status.ProgramSourceActive {
+							if task != nil {
+								if bus := task.programBus(); bus != nil {
+									elem["fallbackSeconds"] = int64(bus.sourceInactiveFor().Seconds())
+								}
+							}
+							if conf := forwardSlateConfigLoad(ctx); conf.OfflineStopEnabled {
+								elem["offlineStopMinutes"] = conf.OfflineStopMinutes
+							}
+						}
 					}
 					elem["programSwitches"] = status.ProgramSwitches
 					if status.ProgramPlan != "" {
@@ -839,6 +853,11 @@ type ForwardTask struct {
 	config *ForwardConfigure
 	// The forward worker.
 	forwardWorker *ForwardWorker
+
+	// sourceOutageAt remembers when a sustained source outage began, so the timeline can record
+	// how long the downstream showed a frozen frame. Hold mode keeps publishing through the outage,
+	// which means the remote platform never sees it — this event is the only durable trace.
+	sourceOutageAt time.Time
 
 	// To protect the fields.
 	lock sync.Mutex
@@ -1346,7 +1365,13 @@ func (v *ForwardTask) markHealthy() {
 	v.lock.Lock()
 	defer v.lock.Unlock()
 	if v.ConsecutiveFailures > 0 {
-		v.addEventLocked("source-back", "resumed after failure")
+		// Include how long the downstream was frozen: the event is the only trace left of an outage
+		// that the downstream platform never saw.
+		if bus := v.programBus(); bus != nil {
+			v.addEventLocked("source-back", fmt.Sprintf("resumed after %v", bus.sourceInactiveFor().Round(time.Second)))
+		} else {
+			v.addEventLocked("source-back", "resumed after failure")
+		}
 	}
 	v.ConsecutiveFailures = 0
 	v.LastError = ""
@@ -1956,7 +1981,50 @@ func (v *ForwardTask) releaseProgram() {
 	}
 }
 
+// trackSourceOutage records how long the downstream held a frozen frame. It must run concurrently
+// with the forwarding loop, because doForward blocks for the entire run: anything placed on the
+// loop boundary would only observe the gap between runs. Hold mode keeps publishing through a
+// source outage, so the remote platform never sees it and this event is the durable trace.
+func (v *ForwardTask) trackSourceOutage(ctx context.Context, done <-chan struct{}) {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	// 5s filters blips that never reached a viewer.
+	const threshold = 5 * time.Second
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-done:
+			return
+		case <-ticker.C:
+			bus := v.programBus()
+			if bus == nil {
+				continue
+			}
+			inactive := bus.sourceInactiveFor()
+
+			v.lock.Lock()
+			if inactive >= threshold && v.sourceOutageAt.IsZero() {
+				v.sourceOutageAt = time.Now()
+				v.addEventLocked("source-outage", "downstream holding last frame")
+			} else if inactive == 0 && !v.sourceOutageAt.IsZero() {
+				lasted := time.Since(v.sourceOutageAt).Round(time.Second)
+				v.sourceOutageAt = time.Time{}
+				v.addEventLocked("source-back", fmt.Sprintf("outage lasted %v", lasted))
+			}
+			v.lock.Unlock()
+		}
+	}
+}
+
 func (v *ForwardTask) doForward(ctx context.Context) error {
+	// Watch the source while this run is in flight; the run itself blocks the task loop.
+	outageDone := make(chan struct{})
+	defer close(outageDone)
+	go v.trackSourceOutage(ctx, outageDone)
+
 	config := v.configSnapshot()
 	// Create context for current task.
 	parentCtx := ctx

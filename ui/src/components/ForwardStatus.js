@@ -34,7 +34,16 @@ export default function ForwardStatus() {
 
   const total = forwards.length;
   const running = forwards.filter(e => e.status === 'running').length;
-  const anyFallback = forwards.some(e => e.fallback);
+  const fallbackTargets = forwards.filter(e => e.fallback);
+  const anyFallback = fallbackTargets.length > 0;
+  // Worst case first: the target that has been frozen the longest.
+  const worstFallback = fallbackTargets.reduce((max, e) => Math.max(max, e.fallbackSeconds || 0), 0);
+  const fmtDuration = (sec) => {
+    if (!sec || sec < 60) return `${sec || 0}s`;
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return s ? `${m}m${s}s` : `${m}m`;
+  };
   const variant = !master ? 'danger' : (anyFallback ? 'warning' : (running > 0 ? 'success' : 'secondary'));
 
   // A target name: built-in platforms show their name, custom targets their label.
@@ -49,6 +58,11 @@ export default function ForwardStatus() {
             <Badge bg={master ? 'success' : 'secondary'}>{t('forward.master')}: {master ? t('forward.statusOn') : t('forward.statusOff')}</Badge>
             <span className="ms-2 small text-muted">{t('forward.statusCount')}: {running}/{total}</span>
           </div>
+          {anyFallback && (
+            <div className="small text-warning mb-2">
+              {t('forward.statusFallbackHint', {duration: fmtDuration(worstFallback)})}
+            </div>
+          )}
           {total === 0 ? <div className="small text-muted">{t('forward.statusNone')}</div> : (
             <div className="small">
               {forwards.map((e, i) => (
@@ -56,7 +70,11 @@ export default function ForwardStatus() {
                   <span className="text-truncate me-2">{name(e)}</span>
                   <span>
                     <Badge bg={e.status === 'running' ? 'success' : 'secondary'}>{e.status || '-'}</Badge>
-                    {e.fallback && <Badge bg="dark" className="ms-1">{t('forward.fallback')}</Badge>}
+                    {e.fallback && (
+                      <Badge bg="dark" className="ms-1">
+                        {t('forward.fallback')}{e.fallbackSeconds ? ` ${fmtDuration(e.fallbackSeconds)}` : ''}
+                      </Badge>
+                    )}
                   </span>
                 </div>
               ))}
@@ -69,7 +87,12 @@ export default function ForwardStatus() {
       </Popover>
     }>
       <a role="button" className="text-decoration-none align-self-center me-2" title={t('forward.statusTitle')}>
-        <Badge bg={variant}>{master ? `${t('forward.statusShort')} ${running}/${total}` : t('forward.statusPaused')}</Badge>
+        <Badge bg={variant}>
+          {!master ? t('forward.statusPaused')
+            : (anyFallback
+              ? `${t('forward.statusShort')} ${running}/${total} · ${t('forward.statusFallbackShort')} ${fmtDuration(worstFallback)}`
+              : `${t('forward.statusShort')} ${running}/${total}`)}
+        </Badge>
       </a>
     </OverlayTrigger>
   );

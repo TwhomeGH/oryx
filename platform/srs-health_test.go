@@ -9,7 +9,7 @@ import (
 // The cards' numbers come from this parser, so it must group embedded ids away and count the
 // targeted failure kinds the console calls out.
 func TestQuerySrsHealth(t *testing.T) {
-	saved := srsHealthLogPath
+	saved := srsLogPath
 	// querySrsHealth uses the constant path; write a fixture there is not allowed from a unit test,
 	// so exercise the parsing helper instead.
 	_ = saved
@@ -53,7 +53,7 @@ func TestQuerySrsHealth(t *testing.T) {
 }
 
 func TestParseSrsHealthFileMissing(t *testing.T) {
-	saved := srsHealthLogPath
+	saved := srsLogPath
 	defer func() { _ = saved }()
 	if _, err := os.Stat("/nonexistent/srs.log"); err == nil {
 		t.Skip("unexpected fixture")

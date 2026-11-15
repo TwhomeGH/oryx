@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/ossrs/go-oryx-lib/errors"
 	ohttp "github.com/ossrs/go-oryx-lib/http"
@@ -19,12 +20,25 @@ import (
 // queue overflow, corrupt packets) exist only in SRS's own log. Since the container now writes that
 // log to a file (and mirrors it to stdout), this card reads the tail and groups the messages.
 const (
-	srsHealthLogPath = "/data/logs/srs.log"
+	// srsLogPath is where the container writes SRS's own log; tests override srsLogPath.
+	srsLogPathDefault = "/data/logs/srs.log"
 	// Only the tail is scanned: a long-running container accumulates a large file and the card
 	// only needs the recent picture.
 	srsHealthWindowBytes = 256 * 1024
 	srsHealthMaxGroups   = 6
 	srsHealthMaxRecent   = 12
+)
+
+// srsLogPath is a variable so unit tests can point it at a fixture file.
+var srsLogPath = srsLogPathDefault
+
+// SRS appends to its log file and never rotates it: measured by pre-filling the file to 31MB and
+// restarting SRS, which kept the file and appended (fd flags are O_RDWR|O_APPEND, so truncating is
+// safe and cannot leave a sparse hole). Cap it here so a long-running container cannot fill the
+// data volume: at 16MB keep the newest 4MB. Variables, not constants, so tests can shrink them.
+var (
+	srsLogCapBytes  int64 = 16 * 1024 * 1024
+	srsLogKeepBytes int64 = 4 * 1024 * 1024
 )
 
 // srsLogLine is one parsed SRS log line.
@@ -54,10 +68,12 @@ type srsHealthResult struct {
 	Groups       []srsErrorGroup `json:"groups"`
 	RecentErrors []srsLogLine    `json:"recentErrors"`
 	// Targeted counters for the failures the card calls out explicitly.
-	PublishTimeout int `json:"publishTimeout"`
-	Kickoff        int `json:"kickoff"`
-	Overflow       int `json:"overflow"`
-	TimestampIssue int `json:"timestampIssue"`
+	// CapBytes is the rotation threshold, so the card can show it is bounded on purpose.
+	CapBytes       int64 `json:"capBytes"`
+	PublishTimeout int   `json:"publishTimeout"`
+	Kickoff        int   `json:"kickoff"`
+	Overflow       int   `json:"overflow"`
+	TimestampIssue int   `json:"timestampIssue"`
 }
 
 var srsLogLinePattern = regexp.MustCompile(`^\[([^\]]+)\]\[([A-Z]+)\]\[[^\]]*\]\[[^\]]*\]\s*(.*)$`)
@@ -70,20 +86,77 @@ var (
 	srsLogContextPattern = regexp.MustCompile(`^\[\d+\]\s*`)
 )
 
-// querySrsHealth reads the SRS log tail and summarizes it.
-func querySrsHealth(ctx context.Context) (*srsHealthResult, error) {
-	f, err := os.Open(srsHealthLogPath)
+// rotateSrsLogIfNeeded caps the SRS log. It runs before every read and from a slow ticker, so the
+// file stays bounded even when nobody opens the console card.
+func rotateSrsLogIfNeeded(ctx context.Context) (int64, error) {
+	stat, err := os.Stat(srsLogPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return &srsHealthResult{LogPath: srsHealthLogPath}, nil
+			return 0, nil
 		}
-		return nil, errors.Wrapf(err, "open %v", srsHealthLogPath)
+		return 0, errors.Wrapf(err, "stat %v", srsLogPath)
+	}
+	if stat.Size() <= srsLogCapBytes {
+		return 0, nil
+	}
+
+	f, err := os.Open(srsLogPath)
+	if err != nil {
+		return 0, errors.Wrapf(err, "open %v", srsLogPath)
+	}
+	tail := make([]byte, srsLogKeepBytes)
+	offset := stat.Size() - srsLogKeepBytes
+	if offset < 0 {
+		offset = 0
+	}
+	if _, err := f.Seek(offset, io.SeekStart); err != nil {
+		f.Close()
+		return 0, errors.Wrapf(err, "seek %v", srsLogPath)
+	}
+	n, err := io.ReadFull(f, tail)
+	f.Close()
+	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+		return 0, errors.Wrapf(err, "read %v", srsLogPath)
+	}
+	tail = tail[:n]
+
+	// Truncate-and-write: SRS appends with O_APPEND, so it writes to the new end of file and the
+	// bytes we keep stay at offset 0.
+	w, err := os.OpenFile(srsLogPath, os.O_WRONLY|os.O_TRUNC, 0640)
+	if err != nil {
+		return 0, errors.Wrapf(err, "truncate %v", srsLogPath)
+	}
+	if _, err := w.Write(tail); err != nil {
+		w.Close()
+		return 0, errors.Wrapf(err, "rewrite %v", srsLogPath)
+	}
+	if err := w.Close(); err != nil {
+		return 0, errors.Wrapf(err, "close %v", srsLogPath)
+	}
+
+	kept := int64(len(tail))
+	logger.Tf(ctx, "srs log rotated, was=%vB now=%vB", stat.Size(), kept)
+	return kept, nil
+}
+
+// querySrsHealth reads the SRS log tail and summarizes it.
+func querySrsHealth(ctx context.Context) (*srsHealthResult, error) {
+	if _, err := rotateSrsLogIfNeeded(ctx); err != nil {
+		logger.Wf(ctx, "rotate srs log err %v", err)
+	}
+
+	f, err := os.Open(srsLogPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &srsHealthResult{LogPath: srsLogPath}, nil
+		}
+		return nil, errors.Wrapf(err, "open %v", srsLogPath)
 	}
 	defer f.Close()
 
 	stat, err := f.Stat()
 	if err != nil {
-		return nil, errors.Wrapf(err, "stat %v", srsHealthLogPath)
+		return nil, errors.Wrapf(err, "stat %v", srsLogPath)
 	}
 
 	offset := stat.Size() - srsHealthWindowBytes
@@ -91,12 +164,12 @@ func querySrsHealth(ctx context.Context) (*srsHealthResult, error) {
 		offset = 0
 	}
 	if _, err := f.Seek(offset, io.SeekStart); err != nil {
-		return nil, errors.Wrapf(err, "seek %v", srsHealthLogPath)
+		return nil, errors.Wrapf(err, "seek %v", srsLogPath)
 	}
 
 	raw, err := io.ReadAll(f)
 	if err != nil {
-		return nil, errors.Wrapf(err, "read %v", srsHealthLogPath)
+		return nil, errors.Wrapf(err, "read %v", srsLogPath)
 	}
 
 	return parseSrsHealthLog(raw, stat.Size()), nil
@@ -105,7 +178,7 @@ func querySrsHealth(ctx context.Context) (*srsHealthResult, error) {
 // parseSrsHealthLog is the pure part of the query: it turns the log tail into counters and groups
 // so the behaviour can be tested without a real SRS log on disk.
 func parseSrsHealthLog(raw []byte, totalBytes int64) *srsHealthResult {
-	res := &srsHealthResult{LogPath: srsHealthLogPath, LogBytes: totalBytes, WindowBytes: len(raw)}
+	res := &srsHealthResult{LogPath: srsLogPath, LogBytes: totalBytes, WindowBytes: len(raw), CapBytes: srsLogCapBytes}
 	groups := map[string]*srsErrorGroup{}
 	for _, line := range strings.Split(string(raw), "\n") {
 		m := srsLogLinePattern.FindStringSubmatch(strings.TrimRight(line, "\r"))
@@ -173,6 +246,22 @@ func parseSrsHealthLog(raw []byte, totalBytes int64) *srsHealthResult {
 func handleMgmtSrsHealthQuery(ctx context.Context, handler *http.ServeMux) error {
 	ep := "/terraform/v1/mgmt/srs/health/query"
 	logger.Tf(ctx, "Handle %v", ep)
+
+	// Cap the log even when nobody opens the card: a 10-minute ticker is enough for a 16MB cap.
+	go func() {
+		ticker := time.NewTicker(10 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if _, err := rotateSrsLogIfNeeded(ctx); err != nil {
+					logger.Wf(ctx, "rotate srs log err %v", err)
+				}
+			}
+		}
+	}()
 
 	handler.Handle(ep, middlewareAuthTokenInBody(ctx, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := func() error {
