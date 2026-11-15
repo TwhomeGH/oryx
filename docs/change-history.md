@@ -2,6 +2,20 @@
 
 > 本檔由 changelogkit 管理（見 [變更歷史說明](changelog.md)）。新增請用 `changelogkit add`（或 `changelogkit serve` 的網頁 GUI）。
 
+## 2026.11.15 20:58 v5.22.9 修正轉播詳情頁 ReferenceError（ForwardTiming 未 import），並讓 lint 抓得到這類錯誤（共 5 筆）
+
+**類型**: 發佈
+
+### 修改 - v5.22.9
+
+- 修正轉播詳情頁 ReferenceError（ForwardTiming 未 import），並讓 lint 抓得到這類錯誤
+- SRS 本體可替換：核心改為映像輸入、來源可見、契約測試與本機切換
+- 診斷：新增 WebRTC 狀態卡（ICE 候選位址可達性 + 即時 rtc 連線）
+- TODO：同步 v5.22.8 完成項與新發現的待辦（WebRTC／回呼／探測持久化）
+- 發佈流程：-Release 一律寫入變更歷史，並補回 v5.22.8 條目
+
+---
+
 ## 2026.11.15 05:10 v5.22.8 轉播與診斷修復（共 10 筆）：修正錄影路徑導致 DVR 完全失效、幀率探測失敗原因被吞掉、影片流位元率單位錯誤；新增串流生命週期原因/影響、影片流無資料與無影格警示、每流詳情、錄影狀態卡
 
 **類型**: 發佈
