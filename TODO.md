@@ -39,7 +39,7 @@
 | `[~]` | 自動源選擇 | 已排除所有目標輸出；仍可能在多個來源間選錯，工具需明確指定 |
 | `[!]` | slate 與 hold 的取捨 | `hold` 零空窗但凍結畫面；`slate` 有 2–5 秒換手空窗。見 [docs/forward-program-bus.md](docs/forward-program-bus.md) |
 | `[ ]` | 評估單一目標時略過節目源 | 目前每個目標都經節目源轉一手（copy 模式實測約 0.4% CPU／43MB），換取來源中斷時下游不受影響 |
-| `[ ]` | 節目源遮蔽下游監測的補償 | hold 模式讓來源短暫中斷在下游「看不出來」，只能靠本地事件時間線與漂移指標判斷 |
+| `[x]` | 節目源遮蔽下游監測的補償 | 狀態新增 `fallbackSeconds`／`offlineStopMinutes`；navbar 徽章顯示「來源中斷 Ns」與說明；事件時間線記錄 `source-outage` 與 `source-back`（實測中斷 11s）。取樣必須放在隨 run 啟動的 supervisor goroutine，因為 `doForward` 會阻塞整個 run，寫在迴圈邊界在執行中不會跑到 |
 | `[x]` | 節目源時間軸計畫可見 | 顯示 copy／repair／cfr／composite 與原因代碼，並揭露來源 CFR/VFR 判定 |
 | `[x]` | 輸出幀率可選 | 只影響會重新編碼的路徑（備援畫面、強制 CFR）；跟隨來源或固定 23.976–120／自訂，高於來源會夾回 |
 | `[x]` | CFR/VFR 判定改實測 | 取樣 3 秒幀間隔判定，不再信任 `r_frame_rate`／`avg_frame_rate`；介面附抖動或最大間隔作為依據 |
@@ -53,7 +53,7 @@
 | `[ ]` | Redis 慢查詢面板 | 已有 SLOWLOG 摘要，尚未逐筆展開 |
 | `[ ]` | WebRTC 連線診斷 | 目前只有播放器頁；ICE／DTLS 失敗與連線數無從觀察 |
 | `[x]` | SRS 健康計數（publish timeout／kickoff／queue overflow） | SRS 改寫檔案日誌 `/data/logs/srs.log` 並鏡射到 stdout（docker logs 不變）；診斷卡掃描最近 256KB，統計錯誤樣式與四類關鍵失敗 |
-| `[ ]` | 確認 SRS 檔案日誌的輪替上限 | 二進位內可見 "too large" 字樣但未實測；卡面已顯示檔案大小，長期成長需驗證是否會自行截斷 |
+| `[x]` | SRS 檔案日誌輪替 | 實測 SRS **不會**自行輪替（預塞 31MB 後重啟仍繼續 append，fd 為 O_RDWR\|O_APPEND）；改由平台在查詢前與每 10 分鐘檢查，超過 16MB 保留最新 4MB 截斷，實測 31MB → 4MB |
 | `[~]` | 平台回呼（callback）驗證診斷 | 送出端在我們手上：記錄每次回呼的目標、action、HTTP 狀態、延遲、失敗原因與最近 N 筆，並提供一鍵測試 |
 | `[ ]` | `streams/fps` 探測結果持久化 | 目前只在前端保存，重整頁面即失去上一筆成功值與失敗時間 |
 | `[x]` | 串流生命週期「事件→原因→影響」 | 發布者 IP／client、session 時長、受影響的轉播目標、平台踢除原因；播放事件分開存放 |
