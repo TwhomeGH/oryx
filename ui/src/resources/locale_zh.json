@@ -1190,7 +1190,17 @@
       "diagCallbackOk": "已接受",
       "diagCallbackHttpError": "HTTP 錯誤",
       "diagCallbackCodeError": "對方拒絕",
-      "diagCallbackSendError": "送出失敗"
+      "diagCallbackSendError": "送出失敗",
+      "diagSrsHealth": "SRS 健康（日誌）",
+      "diagSrsHealthWindow": "掃描 {{kb}} KB / {{lines}} 行",
+      "diagSrsHealthErrors": "錯誤 {{count}}",
+      "diagSrsHealthWarns": "警告 {{count}}",
+      "diagSrsHealthClean": "掃描範圍內沒有錯誤或警告",
+      "diagSrsHealthError": "無法取得 SRS 健康狀態",
+      "diagSrsPublishTimeout": "發布逾時",
+      "diagSrsKickoff": "踢除",
+      "diagSrsOverflow": "佇列溢位",
+      "diagSrsTimestamp": "時間戳異常"
     }
   },
   "meta": {

@@ -978,7 +978,17 @@
       "diagCallbackOk": "受理",
       "diagCallbackHttpError": "HTTP エラー",
       "diagCallbackCodeError": "相手側が拒否",
-      "diagCallbackSendError": "送信失敗"
+      "diagCallbackSendError": "送信失敗",
+      "diagSrsHealth": "SRS ヘルス（ログ）",
+      "diagSrsHealthWindow": "走査 {{kb}} KB / {{lines}} 行",
+      "diagSrsHealthErrors": "エラー {{count}}",
+      "diagSrsHealthWarns": "警告 {{count}}",
+      "diagSrsHealthClean": "走査範囲にエラー・警告はありません",
+      "diagSrsHealthError": "SRS ヘルスを取得できません",
+      "diagSrsPublishTimeout": "配信タイムアウト",
+      "diagSrsKickoff": "キックオフ",
+      "diagSrsOverflow": "キュー溢れ",
+      "diagSrsTimestamp": "タイムスタンプ異常"
     },
     "openapi": {
       "title": "プラットフォーム API キー（OpenAPI）",

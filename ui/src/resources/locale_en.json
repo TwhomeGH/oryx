@@ -1190,7 +1190,17 @@
       "diagCallbackOk": "accepted",
       "diagCallbackHttpError": "HTTP error",
       "diagCallbackCodeError": "rejected by peer",
-      "diagCallbackSendError": "send failed"
+      "diagCallbackSendError": "send failed",
+      "diagSrsHealth": "SRS health (log)",
+      "diagSrsHealthWindow": "scanned {{kb}} KB / {{lines}} lines",
+      "diagSrsHealthErrors": "errors {{count}}",
+      "diagSrsHealthWarns": "warnings {{count}}",
+      "diagSrsHealthClean": "No error or warning in the scanned window",
+      "diagSrsHealthError": "SRS health unavailable",
+      "diagSrsPublishTimeout": "publish timeout",
+      "diagSrsKickoff": "kickoff",
+      "diagSrsOverflow": "queue overflow",
+      "diagSrsTimestamp": "timestamp damage"
     }
   },
   "meta": {

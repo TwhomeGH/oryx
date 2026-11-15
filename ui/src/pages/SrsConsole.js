@@ -1359,6 +1359,72 @@ function CallbackDiag({handleError}) {
   </>;
 }
 
+// ── SRS health (log-derived) ──
+// SRS's HTTP API reports live resource usage only: publish timeout, kickoff and queue overflow
+// exist only in its log. Since the container writes that log to a file, this card groups the
+// recent ERROR/WARN lines so the reason behind a dropped stream is visible without docker logs.
+function SrsHealthDiag({handleError}) {
+  const {t} = useTranslation();
+  const [data, setData] = React.useState();
+  const [err, setErr] = React.useState('');
+
+  React.useEffect(() => {
+    const refresh = () => {
+      axios.post('/terraform/v1/mgmt/srs/health/query', {}, {headers: Token.loadBearerHeader()})
+        .then(res => { setData(res.data.data); setErr(''); })
+        .catch((e) => setErr(e?.message || String(e)));
+    };
+    refresh();
+    const timer = setInterval(refresh, 10000);
+    return () => clearInterval(timer);
+  }, []);
+
+  if (err) return <Alert variant="warning">{t('console.diagSrsHealthError')}: {err}</Alert>;
+  if (!data) return <div className="text-muted small">{t('console.loading')}</div>;
+
+  const chip = (label, count, danger) => (
+    <Badge bg={count > 0 ? (danger ? 'danger' : 'warning') : 'secondary'}
+      text={count > 0 && !danger ? 'dark' : undefined}>
+      {label} {count}
+    </Badge>
+  );
+
+  return <>
+    <div className="d-flex flex-wrap gap-3 mb-2 small align-items-center">
+      <span className="text-muted"><code>{data.logPath}</code></span>
+      <span className="text-muted">{t('console.diagSrsHealthWindow', {kb: Math.round((data.windowBytes || 0) / 1024), lines: data.lines || 0})}</span>
+      <Badge bg={data.errorCount > 0 ? 'danger' : 'success'}>{t('console.diagSrsHealthErrors', {count: data.errorCount || 0})}</Badge>
+      <Badge bg={data.warnCount > 0 ? 'warning' : 'secondary'} text={data.warnCount > 0 ? 'dark' : undefined}>
+        {t('console.diagSrsHealthWarns', {count: data.warnCount || 0})}
+      </Badge>
+    </div>
+    <div className="d-flex flex-wrap gap-2 mb-2">
+      {chip(t('console.diagSrsPublishTimeout'), data.publishTimeout || 0, true)}
+      {chip(t('console.diagSrsKickoff'), data.kickoff || 0, true)}
+      {chip(t('console.diagSrsOverflow'), data.overflow || 0, true)}
+      {chip(t('console.diagSrsTimestamp'), data.timestampIssue || 0, true)}
+    </div>
+    {(data.groups || []).length === 0
+      ? <div className="text-center text-muted small py-2">{t('console.diagSrsHealthClean')}</div>
+      : (
+        <Table size="sm" borderless className="mb-0">
+          <tbody>
+            {(data.groups || []).map((g, i) => (
+              <tr key={i}>
+                <td className="small text-nowrap">
+                  <Badge bg={g.level === 'ERROR' ? 'danger' : 'warning'} text={g.level === 'ERROR' ? undefined : 'dark'}>{g.level}</Badge>
+                </td>
+                <td className="small text-nowrap text-muted">{g.lastAt}</td>
+                <td className="small text-nowrap">{g.count}×</td>
+                <td className="small text-muted text-truncate" style={{maxWidth: 420}}>{g.sample}</td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      )}
+  </>;
+}
+
 function SrsDiagnostics({handleError}) {
   const {t} = useTranslation();
   const [gpu, setGpu] = React.useState();
@@ -1707,6 +1773,10 @@ function SrsDiagnostics({handleError}) {
             )}
           </>}
         </Accordion.Body>
+      </Accordion.Item>
+      <Accordion.Item eventKey="srshealth">
+        <Accordion.Header>{t('console.diagSrsHealth')}</Accordion.Header>
+        <Accordion.Body><SrsHealthDiag {...{handleError}} /></Accordion.Body>
       </Accordion.Item>
       <Accordion.Item eventKey="callback">
         <Accordion.Header>{t('console.diagCallback')}</Accordion.Header>

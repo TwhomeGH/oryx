@@ -20,3 +20,6 @@ if [[ -f $SRS_PID_FILE ]]; then
   echo "Stopped SRS OK, pid=$SRS_PID"
 fi
 
+# Stop mirroring the SRS log file to stdout.
+pkill -f "tail -F /data/logs/srs.log" 1>/dev/null 2>/dev/null
+

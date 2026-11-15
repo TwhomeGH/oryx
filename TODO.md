@@ -51,7 +51,8 @@
 | `[ ]` | 磁碟 I/O 壓力 | cgroup `io.stat` 可取得，屬第二線指標 |
 | `[ ]` | Redis 慢查詢面板 | 已有 SLOWLOG 摘要，尚未逐筆展開 |
 | `[ ]` | WebRTC 連線診斷 | 目前只有播放器頁；ICE／DTLS 失敗與連線數無從觀察 |
-| `[~]` | SRS 健康計數（publish timeout／kickoff／queue overflow） | `/api/v1/summaries` 只有即時資源、沒有錯誤計數；要有真實原因得把 SRS 主控輸出留存成檔案（待決策） |
+| `[x]` | SRS 健康計數（publish timeout／kickoff／queue overflow） | SRS 改寫檔案日誌 `/data/logs/srs.log` 並鏡射到 stdout（docker logs 不變）；診斷卡掃描最近 256KB，統計錯誤樣式與四類關鍵失敗 |
+| `[ ]` | 確認 SRS 檔案日誌的輪替上限 | 二進位內可見 "too large" 字樣但未實測；卡面已顯示檔案大小，長期成長需驗證是否會自行截斷 |
 | `[~]` | 平台回呼（callback）驗證診斷 | 送出端在我們手上：記錄每次回呼的目標、action、HTTP 狀態、延遲、失敗原因與最近 N 筆，並提供一鍵測試 |
 | `[ ]` | `streams/fps` 探測結果持久化 | 目前只在前端保存，重整頁面即失去上一筆成功值與失敗時間 |
 | `[x]` | 串流生命週期「事件→原因→影響」 | 發布者 IP／client、session 時長、受影響的轉播目標、平台踢除原因；播放事件分開存放 |
