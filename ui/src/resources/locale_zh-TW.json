@@ -1176,7 +1176,21 @@
       "diagRtcWarn_candidate-not-local": "ICE 候選位址 {{candidate}} 不是本機位址，對端無法連上。",
       "diagRtcWarn_candidate-hostname": "ICE 候選位址是主機名稱（{{candidate}}），無法在本機驗證。",
       "diagRtcWarn_candidate-mismatch": "ICE 候選位址 {{candidate}} 與你連線的位址 {{host}} 不同，外部可能連不上。",
-      "diagRtcWarn_clients-unavailable": "目前無法從 SRS 取得 WebRTC 連線清單。"
+      "diagRtcWarn_clients-unavailable": "目前無法從 SRS 取得 WebRTC 連線清單。",
+      "diagCallback": "平臺回呼",
+      "diagCallbackState": "回呼",
+      "diagCallbackEnabled": "已啟用",
+      "diagCallbackDisabled": "未設定",
+      "diagCallbackTotals": "送出 {{total}}，失敗 {{failed}}",
+      "diagCallbackTest": "送出測試事件",
+      "diagCallbackTesting": "送出中…",
+      "diagCallbackEmpty": "尚無回呼紀錄",
+      "diagCallbackHint": "在「整合 → 回呼」設定目標後才會啟用。",
+      "diagCallbackError": "無法取得回呼狀態",
+      "diagCallbackOk": "已接受",
+      "diagCallbackHttpError": "HTTP 錯誤",
+      "diagCallbackCodeError": "對方拒絕",
+      "diagCallbackSendError": "送出失敗"
     }
   },
   "meta": {

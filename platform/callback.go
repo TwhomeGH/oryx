@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -168,7 +169,146 @@ func (v *CallbackWorker) Handle(ctx context.Context, handler *http.ServeMux) err
 		}
 	})
 
+	ep = "/terraform/v1/mgmt/callback/query"
+	logger.Tf(ctx, "Handle %v", ep)
+	handler.Handle(ep, middlewareAuthTokenInBody(ctx, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := func() error {
+			var config CallbackConfig
+			if err := config.Load(ctx); err != nil {
+				return errors.Wrapf(err, "load")
+			}
+
+			stats := map[string]string{}
+			if res, err := rdb.HGetAll(ctx, SRS_CALLBACK_STATS).Result(); err == nil {
+				stats = res
+			}
+
+			var events []callbackRecord
+			if res, err := rdb.LRange(ctx, SRS_CALLBACK_EVENTS, 0, 19).Result(); err == nil {
+				for _, s := range res {
+					var rec callbackRecord
+					if json.Unmarshal([]byte(s), &rec) == nil {
+						events = append(events, rec)
+					}
+				}
+			}
+
+			type CallbackQueryResult struct {
+				Enabled bool              `json:"enabled"`
+				Target  string            `json:"target"`
+				All     bool              `json:"all"`
+				Stats   map[string]string `json:"stats"`
+				Events  []callbackRecord  `json:"events"`
+			}
+			ohttp.WriteData(ctx, w, r, &CallbackQueryResult{
+				Enabled: config.All && config.Target != "",
+				Target:  maskCallbackTarget(config.Target),
+				All:     config.All,
+				Stats:   stats,
+				Events:  events,
+			})
+			return nil
+		}(); err != nil {
+			ohttp.WriteError(ctx, w, r, err)
+		}
+	})))
+
+	// Sends one synthetic event through the real path, so "is the target reachable and does it
+	// accept our payload" is answerable without publishing a stream.
+	ep = "/terraform/v1/mgmt/callback/test"
+	logger.Tf(ctx, "Handle %v", ep)
+	handler.Handle(ep, middlewareAuthTokenInBody(ctx, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := func() error {
+			var config CallbackConfig
+			if err := config.Load(ctx); err != nil {
+				return errors.Wrapf(err, "load")
+			}
+			if config.Target == "" {
+				return errors.Errorf("callback target is empty, apply a target first")
+			}
+
+			rec := sendCallbackTest(ctx, config)
+
+			// The test is a probe, so its failure must be reported as data, not as an API error:
+			// the caller needs the status and the reason to decide what to fix.
+			ohttp.WriteData(ctx, w, r, rec)
+			return nil
+		}(); err != nil {
+			ohttp.WriteError(ctx, w, r, err)
+		}
+	})))
+
 	return nil
+}
+
+// sendCallbackTest posts a synthetic callback event and returns the recorded outcome.
+func sendCallbackTest(ctx context.Context, config CallbackConfig) callbackRecord {
+	payload, _ := json.Marshal(&struct {
+		RequestID string `json:"request_id"`
+		Action    string `json:"action"`
+		Opaque    string `json:"opaque"`
+	}{
+		RequestID: uuid.NewString(),
+		Action:    "test",
+		Opaque:    config.Opaque,
+	})
+
+	rec := callbackRecord{Action: "test", Target: maskCallbackTarget(config.Target), Time: time.Now().UnixMilli()}
+	started := time.Now()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, config.Target, bytes.NewReader(payload))
+	if err != nil {
+		rec.Result, rec.Error = "send-error", err.Error()
+		rec.LatencyMS = time.Since(started).Milliseconds()
+		recordCallback(ctx, rec)
+		return rec
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	var res *http.Response
+	if strings.HasPrefix(config.Target, "https://") {
+		client := &http.Client{
+			Timeout: 10 * time.Second,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: envTLSSkipVerify()},
+			},
+		}
+		res, err = client.Do(req)
+	} else {
+		res, err = (&http.Client{Timeout: 10 * time.Second}).Do(req)
+	}
+	rec.LatencyMS = time.Since(started).Milliseconds()
+	if err != nil {
+		rec.Result, rec.Error = "send-error", err.Error()
+		recordCallback(ctx, rec)
+		return rec
+	}
+	defer res.Body.Close()
+	rec.Status = res.StatusCode
+
+	body, _ := ioutil.ReadAll(res.Body)
+	if res.StatusCode != http.StatusOK {
+		rec.Result = "http-error"
+		rec.Error = fmt.Sprintf("response status %v: %v", res.StatusCode, strings.TrimSpace(string(body)))
+		recordCallback(ctx, rec)
+		return rec
+	}
+
+	// Same acceptance rule as the real callback: a JSON body must carry code 0, otherwise the
+	// partner received the event but rejected it.
+	var code int
+	if err := json.Unmarshal(body, &struct {
+		Code *int `json:"code"`
+	}{Code: &code}); err == nil && code != 0 {
+		rec.Result = "code-error"
+		rec.Error = fmt.Sprintf("response code %v: %v", code, strings.TrimSpace(string(body)))
+		recordCallback(ctx, rec)
+		return rec
+	}
+
+	rec.Result = "ok"
+	recordCallback(ctx, rec)
+	return rec
 }
 
 func (v *CallbackWorker) Close() error {
@@ -219,6 +359,69 @@ func (v *CallbackWorker) Start(ctx context.Context) error {
 	}()
 
 	return nil
+}
+
+// Callback delivery is fire-and-forget today: failures only reach the container log, so a
+// partner integration that silently rejects every event is invisible from the console. These
+// records keep the last N attempts (and the aggregate counters) so the 平台回呼 card can answer
+// event -> cause -> effect without reading docker logs.
+const (
+	SRS_CALLBACK_EVENTS = "SRS_CALLBACK_EVENTS"
+	SRS_CALLBACK_STATS  = "SRS_CALLBACK_STATS"
+	callbackEventLimit  = 50
+)
+
+// callbackRecord is one outbound callback attempt.
+type callbackRecord struct {
+	Time      int64  `json:"time"`
+	Action    string `json:"action"`
+	Stream    string `json:"stream,omitempty"`
+	Target    string `json:"target"`
+	Status    int    `json:"status"`
+	LatencyMS int64  `json:"latencyMS"`
+	// Result is a stable code the UI translates: ok, http-error, code-error, send-error.
+	Result string `json:"result"`
+	Error  string `json:"error,omitempty"`
+}
+
+// maskCallbackTarget keeps the scheme and host (which is what you need to verify routing) and
+// hides the path and query, which is where callback tokens usually live.
+func maskCallbackTarget(target string) string {
+	u, err := url.Parse(target)
+	if err != nil || u.Host == "" {
+		return "***"
+	}
+	return fmt.Sprintf("%v://%v/***", u.Scheme, u.Host)
+}
+
+func recordCallback(ctx context.Context, rec callbackRecord) {
+	if rdb == nil {
+		return
+	}
+	if rec.Time == 0 {
+		rec.Time = time.Now().UnixMilli()
+	}
+	b, err := json.Marshal(rec)
+	if err != nil {
+		return
+	}
+	if err := rdb.LPush(ctx, SRS_CALLBACK_EVENTS, string(b)).Err(); err != nil && err != redis.Nil {
+		logger.Wf(ctx, "callback record push err %v", err)
+		return
+	}
+	rdb.LTrim(ctx, SRS_CALLBACK_EVENTS, 0, callbackEventLimit-1)
+
+	rdb.HIncrBy(ctx, SRS_CALLBACK_STATS, "total", 1)
+	if rec.Result != "ok" {
+		rdb.HIncrBy(ctx, SRS_CALLBACK_STATS, "failed", 1)
+	}
+	rdb.HSet(ctx, SRS_CALLBACK_STATS, "lastAt", rec.Time)
+	rdb.HSet(ctx, SRS_CALLBACK_STATS, "lastResult", rec.Result)
+	rdb.HSet(ctx, SRS_CALLBACK_STATS, "lastStatus", rec.Status)
+	rdb.HSet(ctx, SRS_CALLBACK_STATS, "lastLatencyMS", rec.LatencyMS)
+	if rec.Error != "" {
+		rdb.HSet(ctx, SRS_CALLBACK_STATS, "lastError", rec.Error)
+	}
 }
 
 func (v *CallbackWorker) OnStreamMessage(ctx context.Context, action SrsAction, streamObj *SrsStream) error {
@@ -285,9 +488,25 @@ func (v *CallbackWorker) OnStreamMessage(ctx context.Context, action SrsAction, 
 	}
 
 	pfn2 := func(b []byte) error {
+		started := time.Now()
+		rec := callbackRecord{
+			Action: string(action),
+			Stream: fmt.Sprintf("%v/%v", streamObj.App, streamObj.Stream),
+			Target: maskCallbackTarget(config.Target),
+		}
+		finish := func(result string, status int, cause error) error {
+			rec.Result, rec.Status = result, status
+			rec.LatencyMS = time.Since(started).Milliseconds()
+			if cause != nil {
+				rec.Error = cause.Error()
+			}
+			recordCallback(ctx, rec)
+			return cause
+		}
+
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, config.Target, bytes.NewReader(b))
 		if err != nil {
-			return errors.Wrapf(err, "new request")
+			return finish("send-error", 0, errors.Wrapf(err, "new request"))
 		}
 
 		req.Header.Set("Content-Type", "application/json")
@@ -306,12 +525,12 @@ func (v *CallbackWorker) OnStreamMessage(ctx context.Context, action SrsAction, 
 			res, err = http.DefaultClient.Do(req)
 		}
 		if err != nil {
-			return errors.Wrapf(err, "http post")
+			return finish("send-error", 0, errors.Wrapf(err, "http post"))
 		}
 		defer res.Body.Close()
 
 		if res.StatusCode != http.StatusOK {
-			return errors.Errorf("response status %v", res.StatusCode)
+			return finish("http-error", res.StatusCode, errors.Errorf("response status %v", res.StatusCode))
 		}
 
 		b2, err := ioutil.ReadAll(res.Body)
@@ -324,10 +543,10 @@ func (v *CallbackWorker) OnStreamMessage(ctx context.Context, action SrsAction, 
 		}
 
 		if err := pfn3(b, b2); err != nil {
-			return errors.Wrapf(err, "res body %v", string(b2))
+			return finish("code-error", res.StatusCode, errors.Wrapf(err, "res body %v", string(b2)))
 		}
 
-		return nil
+		return finish("ok", res.StatusCode, nil)
 	}
 
 	pfn := func() error {

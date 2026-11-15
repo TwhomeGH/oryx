@@ -1276,6 +1276,89 @@ function FlashCell({value, className}) {
   );
 }
 
+// ── Platform callback (outbound) ──
+// The callback is fire-and-forget: without this card a partner rejecting every event is only
+// visible in the container log. Shows the configured target, the aggregate counters and the last
+// attempts, plus a one-click test that goes through the real send path.
+function CallbackDiag({handleError}) {
+  const {t} = useTranslation();
+  const [data, setData] = React.useState();
+  const [err, setErr] = React.useState('');
+  const [testing, setTesting] = React.useState(false);
+  const [testResult, setTestResult] = React.useState();
+
+  React.useEffect(() => {
+    const refresh = () => {
+      axios.post('/terraform/v1/mgmt/callback/query', {}, {headers: Token.loadBearerHeader()})
+        .then(res => { setData(res.data.data); setErr(''); })
+        .catch((e) => setErr(e?.message || String(e)));
+    };
+    refresh();
+    const timer = setInterval(refresh, 10000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const runTest = () => {
+    setTesting(true);
+    setTestResult(undefined);
+    axios.post('/terraform/v1/mgmt/callback/test', {}, {headers: Token.loadBearerHeader()})
+      .then(res => setTestResult(res.data.data))
+      .catch((e) => handleError(e))
+      .finally(() => setTesting(false));
+  };
+
+  const resultBadge = (result) => {
+    const map = {
+      ok: {bg: 'success', label: t('console.diagCallbackOk')},
+      'http-error': {bg: 'danger', label: t('console.diagCallbackHttpError')},
+      'code-error': {bg: 'warning', label: t('console.diagCallbackCodeError')},
+      'send-error': {bg: 'danger', label: t('console.diagCallbackSendError')},
+    };
+    const m = map[result] || {bg: 'secondary', label: result || '-'};
+    return <Badge bg={m.bg} text={m.bg === 'warning' ? 'dark' : undefined}>{m.label}</Badge>;
+  };
+
+  if (err) return <Alert variant="warning">{t('console.diagCallbackError')}: {err}</Alert>;
+  if (!data) return <div className="text-muted small">{t('console.loading')}</div>;
+
+  return <>
+    <div className="d-flex flex-wrap gap-3 mb-2 small align-items-center">
+      <span>{t('console.diagCallbackState')}: <b>{data.enabled ? t('console.diagCallbackEnabled') : t('console.diagCallbackDisabled')}</b></span>
+      {data.target && <span className="text-muted"><code>{data.target}</code></span>}
+      <span className="text-muted">
+        {t('console.diagCallbackTotals', {total: data.stats?.total || 0, failed: data.stats?.failed || 0})}
+      </span>
+      <Button size="sm" variant="outline-primary" disabled={testing || !data.enabled} onClick={runTest}>
+        {testing ? t('console.diagCallbackTesting') : t('console.diagCallbackTest')}
+      </Button>
+    </div>
+    {!data.enabled && <div className="text-muted small mb-2">{t('console.diagCallbackHint')}</div>}
+    {testResult && (
+      <Alert variant={testResult.result === 'ok' ? 'success' : 'warning'} className="small py-2">
+        {resultBadge(testResult.result)} {testResult.status ? `HTTP ${testResult.status} · ` : ''}
+        {testResult.latencyMS}ms{testResult.error ? ` · ${testResult.error}` : ''}
+      </Alert>
+    )}
+    {(data.events || []).length === 0
+      ? <div className="text-center text-muted small py-2">{t('console.diagCallbackEmpty')}</div>
+      : (
+        <Table size="sm" borderless className="mb-0">
+          <tbody>
+            {(data.events || []).map((e, i) => (
+              <tr key={i}>
+                <td className="small text-nowrap text-muted">{new Date(e.time).toLocaleString()}</td>
+                <td className="small text-nowrap">{e.action}{e.stream ? ` ${e.stream}` : ''}</td>
+                <td className="small text-nowrap">{resultBadge(e.result)}{e.status ? ` ${e.status}` : ''}</td>
+                <td className="small text-nowrap text-muted">{e.latencyMS}ms</td>
+                <td className="small text-muted text-truncate" style={{maxWidth: 320}}>{e.error || ''}</td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      )}
+  </>;
+}
+
 function SrsDiagnostics({handleError}) {
   const {t} = useTranslation();
   const [gpu, setGpu] = React.useState();
@@ -1624,6 +1707,10 @@ function SrsDiagnostics({handleError}) {
             )}
           </>}
         </Accordion.Body>
+      </Accordion.Item>
+      <Accordion.Item eventKey="callback">
+        <Accordion.Header>{t('console.diagCallback')}</Accordion.Header>
+        <Accordion.Body><CallbackDiag {...{handleError}} /></Accordion.Body>
       </Accordion.Item>
       <Accordion.Item eventKey="forwards">
         <Accordion.Header>{t('console.diagForwards')}</Accordion.Header>

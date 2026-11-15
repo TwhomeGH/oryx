@@ -964,7 +964,21 @@
       "diagRtcWarn_candidate-not-local": "ICE 候補 {{candidate}} はこのホストのアドレスではないため、相手は到達できません。",
       "diagRtcWarn_candidate-hostname": "ICE 候補がホスト名（{{candidate}}）のため、ローカルでは検証できません。",
       "diagRtcWarn_candidate-mismatch": "ICE 候補 {{candidate}} が接続に使われたアドレス（{{host}}）と異なります。外部から到達できない可能性があります。",
-      "diagRtcWarn_clients-unavailable": "SRS から現在の WebRTC 接続を取得できません。"
+      "diagRtcWarn_clients-unavailable": "SRS から現在の WebRTC 接続を取得できません。",
+      "diagCallback": "プラットフォームコールバック",
+      "diagCallbackState": "コールバック",
+      "diagCallbackEnabled": "有効",
+      "diagCallbackDisabled": "未設定",
+      "diagCallbackTotals": "送信 {{total}}、失敗 {{failed}}",
+      "diagCallbackTest": "テストイベント送信",
+      "diagCallbackTesting": "送信中…",
+      "diagCallbackEmpty": "コールバックの記録はまだありません",
+      "diagCallbackHint": "連携 → コールバックで送信先を適用するまで無効です。",
+      "diagCallbackError": "コールバック状態を取得できません",
+      "diagCallbackOk": "受理",
+      "diagCallbackHttpError": "HTTP エラー",
+      "diagCallbackCodeError": "相手側が拒否",
+      "diagCallbackSendError": "送信失敗"
     },
     "openapi": {
       "title": "プラットフォーム API キー（OpenAPI）",

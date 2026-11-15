@@ -1176,7 +1176,21 @@
       "diagRtcWarn_candidate-not-local": "The ICE candidate {{candidate}} is not an address of this host; peers will not reach it.",
       "diagRtcWarn_candidate-hostname": "The ICE candidate is a hostname ({{candidate}}); it cannot be verified locally.",
       "diagRtcWarn_candidate-mismatch": "The ICE candidate {{candidate}} differs from the address you connected to ({{host}}); remote peers may not reach it.",
-      "diagRtcWarn_clients-unavailable": "Cannot read the live WebRTC peers from SRS right now."
+      "diagRtcWarn_clients-unavailable": "Cannot read the live WebRTC peers from SRS right now.",
+      "diagCallback": "Platform callback",
+      "diagCallbackState": "Callback",
+      "diagCallbackEnabled": "enabled",
+      "diagCallbackDisabled": "not configured",
+      "diagCallbackTotals": "sent {{total}}, failed {{failed}}",
+      "diagCallbackTest": "Send test event",
+      "diagCallbackTesting": "Sending…",
+      "diagCallbackEmpty": "No callback attempts recorded yet",
+      "diagCallbackHint": "Callbacks are disabled until a target is applied in Integrations → Callback.",
+      "diagCallbackError": "Callback status unavailable",
+      "diagCallbackOk": "accepted",
+      "diagCallbackHttpError": "HTTP error",
+      "diagCallbackCodeError": "rejected by peer",
+      "diagCallbackSendError": "send failed"
     }
   },
   "meta": {
