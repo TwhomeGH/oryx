@@ -134,13 +134,10 @@ if ($Release) {
 
     $entryTitle = $Notes
     if (-not $entryTitle) {
-        # Derive a title from the batch so the entry still reads like a summary, not a bare version.
-        $titles = @(git -C $repoRoot log $range --no-merges --format='%s' 2>$null | Where-Object { $_ -notmatch '^Release ' })
-        if ($titles.Count -gt 0) {
-            $entryTitle = "$($titles[0])" + $(if ($titles.Count -gt 1) { "（共 $($titles.Count) 筆）" } else { '' })
-        } else {
-            $entryTitle = "發佈 $newVersion"
-        }
+        # A neutral batch title: reusing the first commit subject duplicated the first bullet below
+        # and read like a single change rather than a release.
+        $count = @(git -C $repoRoot log $range --no-merges --format='%s' 2>$null | Where-Object { $_ -notmatch '^Release ' }).Count
+        $entryTitle = if ($count -gt 1) { "本批 $count 筆提交" } else { "發佈 $newVersion" }
     }
 
     $entry = @("## $(Get-Date -Format 'yyyy.MM.dd HH:mm') $newVersion $entryTitle", '', '**類型**: 發佈', '')

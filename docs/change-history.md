@@ -2,7 +2,7 @@
 
 > 本檔由 changelogkit 管理（見 [變更歷史說明](changelog.md)）。新增請用 `changelogkit add`（或 `changelogkit serve` 的網頁 GUI）。
 
-## 2026.11.15 20:58 v5.22.9 修正轉播詳情頁 ReferenceError（ForwardTiming 未 import），並讓 lint 抓得到這類錯誤（共 5 筆）
+## 2026.11.15 20:58 v5.22.9 修正轉播詳情頁 ReferenceError（補 lint 防護）、新增 WebRTC 診斷卡（ICE 候選位址可達性）、SRS 本體改為可替換的映像輸入並附契約測試
 
 **類型**: 發佈
 
