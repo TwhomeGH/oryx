@@ -79,7 +79,7 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
 
     let index = 1;
     const confs = [{
-      platform: 'wx', enabled: false, index: String(index++), allowCustom: true,
+      platform: 'wx', enabled: false, index: String(index++), allowCustom: false,
       ...defaultSecrets?.wx,
       locale: {
         label: null, link: t('plat.wx.link'), link2: t('plat.wx.link2'),
@@ -88,7 +88,7 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
         },
       },
     }, {
-      platform: 'bilibili', enabled: false, index: String(index++), allowCustom: true,
+      platform: 'bilibili', enabled: false, index: String(index++), allowCustom: false,
       ...defaultSecrets?.bilibili,
       locale: {
         label: null, link: t('plat.bl.link'), link2: t('plat.bl.link2'),
@@ -97,7 +97,7 @@ function ScenarioForwardImpl({ defaultActiveKey, defaultSecrets }) {
         },
       },
     }, {
-      platform: 'kuaishou', enabled: false, index: String(index++), allowCustom: true, custom: isZh(language),
+      platform: 'kuaishou', enabled: false, index: String(index++), allowCustom: false, custom: isZh(language),
       ...defaultSecrets?.kuaishou,
       locale: {
         label: null, link: t('plat.ks.link'), link2: t('plat.ks.link2'),

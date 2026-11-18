@@ -198,6 +198,13 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 				if action == "update" && userConf.Server == "" {
 					return errors.New("no server")
 				}
+
+				// A custom target must own its key: renaming a built-in slot made the internal key
+				// (bilibili) disagree with the label (RStream) in every diagnostic. The migration
+				// moves legacy entries; new ones are refused here.
+				if action == "update" && userConf.Customed && slicesContains(forwardBuiltinPlatforms, userConf.Platform) {
+					return errors.Errorf("custom target must use its own forwarding- key, not the built-in %v", userConf.Platform)
+				}
 			}
 
 			switch action {
@@ -406,6 +413,16 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 				}
 				v.RemoveTask(userConf.Platform)
 				clearForwardSessionCurrent(ctx, userConf.Platform)
+				// The per-target history keys outlived the target and showed up as orphans in Redis
+				// (and in the console, attached to nothing).
+				for _, k := range []string{
+					fmt.Sprintf("%v:%v", SRS_FORWARD_METRICS, userConf.Platform),
+					fmt.Sprintf("%v:%v", SRS_FORWARD_SESSIONS, userConf.Platform),
+				} {
+					if err := rdb.Del(ctx, k).Err(); err != nil && err != redis.Nil {
+						logger.Wf(ctx, "ignore forward delete del %v err %+v", k, err)
+					}
+				}
 				// Also disconnect the SRS publisher so no stale stream/client is left behind.
 				kickForwardStreams(ctx, "live", userConf.Secret)
 
@@ -2127,6 +2144,14 @@ func (v *ForwardTask) trackSourceOutage(ctx context.Context, done <-chan struct{
 }
 
 func (v *ForwardTask) doForward(ctx context.Context) error {
+	// Metrics history belongs to one ffmpeg instance. Clearing at the start of each run — not only
+	// when the task starts — keeps a reconnect from stitching two instances into one chart, which
+	// looked like a large negative drift.
+	if rdb != nil {
+		if err := rdb.Del(ctx, fmt.Sprintf("%v:%v", SRS_FORWARD_METRICS, v.Platform)).Err(); err != nil && err != redis.Nil {
+			logger.Wf(ctx, "ignore forward metrics reset err %+v", err)
+		}
+	}
 	// Watch the source while this run is in flight; the run itself blocks the task loop.
 	outageDone := make(chan struct{})
 	defer close(outageDone)

@@ -269,6 +269,12 @@ func doMain(ctx context.Context) error {
 		return errors.Wrapf(err, "start vod worker")
 	}
 
+	// Move custom targets off the built-in slot keys before any worker reads them, so the key the
+	// operator sees (label) and the key the platform uses cannot disagree.
+	if err := migrateForwardCustomKeys(ctx); err != nil {
+		return errors.Wrapf(err, "migrate forward custom keys")
+	}
+
 	// Create worker for forwarding.
 	forwardWorker = NewForwardWorker()
 	defer forwardWorker.Close()
