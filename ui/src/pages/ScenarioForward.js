@@ -450,6 +450,13 @@ hold : -c copy（不轉碼，斷源時凍結最後一格）`}
                         <td>{file.custom ? (file.label ? '' : t('plat.com.custom')) : file.name} {file.label}</td>
                         <td>
                           <Badge bg={status.bg}>{status.label}</Badge>
+                          {file.programScreen && <div className="small text-muted mt-1">
+                            {t('forward.screenNow')}: <span className="text-body">{
+                              file.programScreen === 'ending'
+                                ? `${t('forward.screenEnding')}${file.endSecondsLeft ? `（${t('forward.screenEndLeft', {sec: file.endSecondsLeft})}）` : ''}`
+                                : (file.programScreen === 'source-lost' ? t('forward.screenSourceLost') : t('forward.screenLive'))
+                            }</span>
+                          </div>}
                           {file.fallback && <div className="mt-1">
                             <Badge bg="dark">{t('forward.fallback')}</Badge>
                           </div>}

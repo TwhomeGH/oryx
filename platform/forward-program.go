@@ -427,6 +427,14 @@ func (v *ProgramBus) addEventLocked(name, detail string) {
 	}
 }
 
+// currentMode reports the publisher mode the bus is running (live, composite), taken under the
+// lock because the caller is outside the bus.
+func (v *ProgramBus) currentMode() string {
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	return v.mode
+}
+
 func (v *ProgramBus) queryStatus() ProgramStatus {
 	v.lock.Lock()
 	defer v.lock.Unlock()
@@ -726,8 +734,12 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		slateConf := forwardSlateConfigLoad(ctx)
 		rate := v.resolveOutputRate(slateConf)
 		filter := fmt.Sprintf(
-			"[0:v]%v,%v[bg];[bg][2:v]overlay=eof_action=pass:x=0:y=0[v];[1:a][2:a]amix=inputs=2:duration=longest:dropout_transition=0,aresample=async=1:first_pts=0[a]",
+			"[0:v]%v,%v[bg];[bg][2:v]overlay=eof_action=pass:x=0:y=0,%v[v];[1:a][2:a]amix=inputs=2:duration=longest:dropout_transition=0,aresample=async=1:first_pts=0[a]",
 			forwardSlateTextDrawtext(forwardSlateActiveText(slateConf, forwardEndedAny(ctx))), forwardSlateDrawtext(),
+			// The end text is drawn after the overlay so it is visible over a live picture too, and
+			// it starts empty: painting the "source lost" message over a healthy picture would be
+			// the opposite of what it means.
+			forwardEndDrawtext(forwardEndOverlayText(slateConf, forwardEndedAny(ctx))),
 		)
 		args = append(args,
 			"-re",
@@ -989,6 +1001,9 @@ func (v *ProgramBus) sourceAudio() int32 {
 	return v.srcAudioKbps
 }
 
+// SetScreenText is kept as an explicit no-op explanation: FFmpeg's zmq filter is unusable here
+// (verified: the filter binds no socket and no target name applies a command), so the end screen is
+// delivered by rebuilding the program with the end text baked in instead.
 // resolveOutputRate returns the frame rate used by the paths that re-encode (composite/slate and
 // forced CFR). "auto" follows the source's nominal rate; "fixed" uses the configured value, but is
 // clamped to the source rate when it would be higher: inventing frames only costs bitrate and

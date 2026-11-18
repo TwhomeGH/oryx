@@ -189,7 +189,12 @@
       },
       "failoverSlateCost": "Slate re-encodes the program at a fixed frame rate, so a VFR source loses its original cadence (it becomes CFR). If cadence matters, use hold (freezes the last frame with no gap).",
       "statusFallbackShort": "source lost",
-      "statusFallbackHint": "Downstream is showing a frozen frame: the source has been gone for {{duration}}, and the remote platform cannot tell. The offline auto-stop ends it after the configured minutes."
+      "statusFallbackHint": "Downstream is showing a frozen frame: the source has been gone for {{duration}}, and the remote platform cannot tell. The offline auto-stop ends it after the configured minutes.",
+      "screenNow": "On screen",
+      "screenEnding": "end screen",
+      "screenEndLeft": "{{sec}}s left",
+      "screenSourceLost": "source lost (frozen frame)",
+      "screenLive": "live"
     },
     "camera": {
       "s3": "There is no stream. Please start the live event and wait for about 30 seconds, the list will update automatically.",

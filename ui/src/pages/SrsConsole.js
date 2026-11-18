@@ -1204,7 +1204,13 @@ function SrsForwards({handleError}) {
               <td>{name(e)}{(e.label || '').startsWith('TEST ') && <Badge bg="warning" text="dark" className="ms-1">{t('console.fwTest')}</Badge>}</td>
               <td>
                 <Badge bg={e.status === 'running' ? 'success' : 'secondary'}>{e.status || '-'}</Badge>
-                {e.fallback && <Badge bg="dark" className="ms-1">{t('forward.fallback')}</Badge>}
+                {e.programScreen === 'ending'
+                  ? <Badge bg="warning" text="dark" className="ms-1">
+                      {t('console.fwScreenEnding')}{e.endSecondsLeft ? ` ${e.endSecondsLeft}s` : ''}
+                    </Badge>
+                  : (e.programScreen === 'source-lost'
+                    ? <Badge bg="dark" className="ms-1">{t('console.fwScreenSourceLost')}</Badge>
+                    : (e.fallback && <Badge bg="dark" className="ms-1">{t('forward.fallback')}</Badge>))}
                 {e.ended && <Badge bg="warning" text="dark" className="ms-1">{t('console.fwEnded')}</Badge>}
               </td>
               <td><Badge bg={e.enabled ? 'success' : 'secondary'} pill>{e.enabled ? t('console.fwOn') : t('console.fwOff')}</Badge></td>

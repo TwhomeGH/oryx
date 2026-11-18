@@ -633,7 +633,12 @@
       },
       "failoverSlateCost": "スレートは固定フレームレートで再エンコードするため、VFR 入力は元のリズムを失います（CFR になります）。リズムを重視するなら hold（最後のフレームで停止、空白なし）を選んでください。",
       "statusFallbackShort": "入力断",
-      "statusFallbackHint": "下流は最後のフレームで停止しています。入力が {{duration}} 途切れており、配信先プラットフォーム側では検知できません。設定した分数を超えると自動停止します。"
+      "statusFallbackHint": "下流は最後のフレームで停止しています。入力が {{duration}} 途切れており、配信先プラットフォーム側では検知できません。設定した分数を超えると自動停止します。",
+      "screenNow": "表示中の画面",
+      "screenEnding": "終了画面",
+      "screenEndLeft": "残り {{sec}} 秒",
+      "screenSourceLost": "入力断（最終フレームで停止）",
+      "screenLive": "ライブ"
     },
     "fp": {
       "label": "ファイルを選択",

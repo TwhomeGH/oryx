@@ -98,6 +98,58 @@ func (v *ForwardWorker) RemoveTask(platform string) {
 	v.tasks.Delete(platform)
 }
 
+// scheduleEndStop stops a target once the end screen has been up for grace seconds. It re-reads the
+// config when the timer fires, so a cancel-end (or a new end press) wins and no stale timer can cut a
+// target that resumed.
+func (v *ForwardWorker) scheduleEndStop(ctx context.Context, platform string, endedAt int64, graceSeconds int) {
+	if graceSeconds <= 0 {
+		graceSeconds = 30
+	}
+	go func() {
+		timer := time.NewTimer(time.Duration(graceSeconds) * time.Second)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return
+		case <-timer.C:
+		}
+
+		config, err := rdb.HGet(ctx, SRS_FORWARD_CONFIG, platform).Result()
+		if err != nil {
+			if err != redis.Nil {
+				logger.Wf(ctx, "end stop hget err platform=%v %+v", platform, err)
+			}
+			return
+		}
+		var conf ForwardConfigure
+		if err := json.Unmarshal([]byte(config), &conf); err != nil {
+			logger.Wf(ctx, "end stop unmarshal err platform=%v %+v", platform, err)
+			return
+		}
+		// Only stop the end press this timer belongs to.
+		if !conf.Ended || conf.EndedAt != endedAt {
+			logger.Tf(ctx, "end stop skipped, platform=%v ended=%v", platform, conf.Ended)
+			return
+		}
+
+		conf.Ended = false
+		conf.EndedAt = 0
+		conf.Enabled = false
+		if b, err := json.Marshal(&conf); err == nil {
+			if err := rdb.HSet(ctx, SRS_FORWARD_CONFIG, platform, string(b)).Err(); err != nil && err != redis.Nil {
+				logger.Wf(ctx, "end stop hset err platform=%v %+v", platform, err)
+			}
+		}
+		if task := v.GetTask(platform); task != nil {
+			task.addEvent("end-stop", fmt.Sprintf("end screen held %vs", graceSeconds))
+			if err := task.Restart(ctx); err != nil {
+				logger.Wf(ctx, "end stop restart err platform=%v %+v", platform, err)
+			}
+		}
+		logger.Tf(ctx, "forward end stop, platform=%v grace=%vs", platform, graceSeconds)
+	}()
+}
+
 // forwardMasterEnabled reports the global forward switch. When it is off, every forward is
 // paused regardless of each target's own enabled preference, so "stop all" does not discard the
 // user's chosen set of platforms.
@@ -235,13 +287,24 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 				} else if err = json.Unmarshal([]byte(config), &endConf); err != nil {
 					return errors.Wrapf(err, "unmarshal %v", config)
 				}
+				// Only the composite publisher can render the end screen. A hold target is a plain
+				// -c copy relay, so it has no picture to change: stop it immediately instead of
+				// pretending. This asymmetry is why the UI must say which state is on screen.
+				var endTask *ForwardTask
+				endTask = v.GetTask(userConf.Platform)
+				canRenderEnd := false
+				if endTask != nil {
+					if bus := endTask.programBus(); bus != nil && bus.currentMode() == programModeComposite {
+						canRenderEnd = true
+					}
+				}
+
 				if action == "end" {
 					endConf.Ended = true
 					endConf.EndedAt = time.Now().Unix()
-					// The end screen is only renderable by the composite publisher; a hold target
-					// has no way to show it, and leaving the fanout running would replay the same
-					// source forever. Stop the target immediately instead.
-					endConf.Enabled = false
+					// Keep publishing for a composite target so the end text can be seen; the grace
+					// timer below stops it. A hold target stops right away.
+					endConf.Enabled = canRenderEnd
 				} else {
 					endConf.Ended = false
 					endConf.EndedAt = 0
@@ -252,9 +315,32 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 				} else if err = rdb.HSet(ctx, SRS_FORWARD_CONFIG, userConf.Platform, string(newB)).Err(); err != nil && err != redis.Nil {
 					return errors.Wrapf(err, "hset %v %v %v", SRS_FORWARD_CONFIG, userConf.Platform, string(newB))
 				}
-				if task := v.GetTask(userConf.Platform); task != nil {
-					if err := task.Restart(ctx); err != nil {
-						return errors.Wrapf(err, "restart task %v", userConf.Platform)
+				if endTask != nil {
+					if canRenderEnd {
+						// The end text is part of the program's filtergraph, and the runtime switch
+						// path (FFmpeg's zmq filter) does not work in this image: the filter binds no
+						// socket and no target name applies a command. So the program is rebuilt with
+						// the end text baked in, which costs a short downstream gap (~5s) at the very
+						// end of a broadcast — acceptable, and the fanout reattaches on the program
+						// generation change.
+						slateConf := forwardSlateConfigLoad(ctx)
+						screenText := slateConf.Text
+						if endConf.Ended {
+							screenText = slateConf.EndText
+						}
+						endTask.addEvent("end-screen", fmt.Sprintf("text=%v grace=%vs", screenText, slateConf.EndGraceSeconds))
+						if err := endTask.Restart(ctx); err != nil {
+							return errors.Wrapf(err, "restart task %v", userConf.Platform)
+						}
+
+						if endConf.Ended {
+							v.scheduleEndStop(ctx, userConf.Platform, endConf.EndedAt, slateConf.EndGraceSeconds)
+						}
+					} else if endConf.Ended {
+						// Hold: nothing to render, so end means stop now.
+						if err := endTask.Restart(ctx); err != nil {
+							return errors.Wrapf(err, "restart task %v", userConf.Platform)
+						}
 					}
 				}
 				ohttp.WriteData(ctx, w, r, nil)
@@ -483,6 +569,27 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 						// dropped. When the target is idle (no source ever selected, or stopped) there is no fallback —
 						// otherwise a restarted server would show "來源中斷" for targets that never started.
 						elem["fallback"] = status.State == forwardStateRunning && !status.ProgramSourceActive
+						// One explicit screen state instead of leaving the operator to combine "fallback"
+						// with the end countdown: the end screen wins whenever a target is ended, because
+						// that is what the program is asked to render.
+						screen := "live"
+						secondsLeft := int64(0)
+						if status.Ended && status.EndedAt > 0 {
+							screen = "ending"
+							grace := status.EndGraceSecs
+							if grace <= 0 {
+								grace = forwardSlateConfigLoad(ctx).EndGraceSeconds
+							}
+							if remain := status.EndedAt + int64(grace) - time.Now().Unix(); remain > 0 {
+								secondsLeft = remain
+							}
+						} else if status.State == forwardStateRunning && !status.ProgramSourceActive {
+							screen = "source-lost"
+						}
+						elem["programScreen"] = screen
+						if secondsLeft > 0 {
+							elem["endSecondsLeft"] = secondsLeft
+						}
 						// The program bus hides the outage from the downstream platform: it keeps a
 						// frozen frame, so remote viewers/platforms cannot tell. The duration is the
 						// compensation — the operator can see how long the blind spot has lasted and

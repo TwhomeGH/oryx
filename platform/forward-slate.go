@@ -53,6 +53,9 @@ type forwardSlateConfig struct {
 	EndText string `json:"endText"`
 	// EndGraceSeconds is how long the end screen can still be cancelled before the target stops.
 	EndGraceSeconds int `json:"endGraceSeconds"`
+	// EndGraceMigrated marks that the old 60s default was replaced, so the migration runs once
+	// and never overrides a value the operator chose afterwards.
+	EndGraceMigrated bool `json:"endGraceMigrated"`
 }
 
 // forwardSlateDefaultText is the default message; the slate is shown on a (usually temporary)
@@ -77,7 +80,7 @@ func defaultForwardSlateConfig() forwardSlateConfig {
 		OutputCQ:           21,
 		OutputPresets:      map[string]string{"nvenc": "p4", "x264": "veryfast"},
 		EndText:            forwardSlateDefaultEndText,
-		EndGraceSeconds:    60,
+		EndGraceSeconds:    30,
 	}
 }
 
@@ -146,7 +149,7 @@ func forwardSlateConfigLoad(ctx context.Context) forwardSlateConfig {
 		conf.EndText = forwardSlateDefaultEndText
 	}
 	if conf.EndGraceSeconds <= 0 || conf.EndGraceSeconds > 600 {
-		conf.EndGraceSeconds = 60
+		conf.EndGraceSeconds = 30
 	}
 	return conf
 }
@@ -207,8 +210,14 @@ func forwardSlateConfigSave(ctx context.Context, conf forwardSlateConfig) error 
 		}
 	}
 	if conf.EndGraceSeconds <= 0 {
-		conf.EndGraceSeconds = 60
+		conf.EndGraceSeconds = 30
 	}
+	if !conf.EndGraceMigrated && conf.EndGraceSeconds == 60 {
+		// 60 was the previous default; move it to the new one exactly once. 30s covers the usual
+		// destination-platform buffering (5-20s) so viewers actually see the end screen.
+		conf.EndGraceSeconds = 30
+	}
+	conf.EndGraceMigrated = true
 	if conf.EndGraceSeconds > 600 {
 		return errors.Errorf("invalid endGraceSeconds=%v", conf.EndGraceSeconds)
 	}
@@ -255,6 +264,27 @@ func escapeDrawtextValue(s string) string {
 	return string(r)
 }
 
+// forwardEndOverlayText is what the top-layer text shows: the end message once the stream is
+// ending, nothing otherwise.
+func forwardEndOverlayText(conf forwardSlateConfig, ended bool) string {
+	if !ended {
+		return ""
+	}
+	return conf.EndText
+}
+
+// forwardEndDrawtext draws the end-screen message ABOVE the source picture. The slate text sits on
+// the base layer and is covered by the source overlay whenever the source is alive, so ending a live
+// stream would otherwise change nothing on screen until the target stopped.
+func forwardEndDrawtext(text string) string {
+	font := forwardSlateFont()
+	if font == "" {
+		return "null"
+	}
+	return fmt.Sprintf("drawtext@end=fontfile=%v:text='%v':fontcolor=white:fontsize=h/12:box=1:boxcolor=black@0.55:boxborderw=(h/24):x=(w-text_w)/2:y=(h-text_h)/2",
+		font, escapeDrawtextValue(text))
+}
+
 // forwardSlateTextDrawtext builds the drawtext that shows the operator's message, centered above
 // the clock. It returns "null" when the text is empty (no overlay).
 func forwardSlateTextDrawtext(text string) string {
@@ -266,6 +296,6 @@ func forwardSlateTextDrawtext(text string) string {
 		return "null"
 	}
 	// The message sits slightly above center; the clock (see forwardSlateDrawtext) below it.
-	return fmt.Sprintf("drawtext=fontfile=%v:text='%v':fontcolor=white:fontsize=42:x=(w-text_w)/2:y=(h-text_h)/2-50",
+	return fmt.Sprintf("drawtext@slate=fontfile=%v:text='%v':fontcolor=white:fontsize=42:x=(w-text_w)/2:y=(h-text_h)/2-50",
 		font, escapeDrawtextValue(text))
 }
