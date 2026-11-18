@@ -37,6 +37,8 @@
 | `[ ]` | 每個目標獨立的結束畫面 | 目前結束畫面掛在共享節目源，任何目標結束都會讓所有目標看到同一段文字 |
 | `[ ]` | 管線歷史延長保留 | Valkey 只保留 1 小時（720 筆 × 5s）；更長需寫 JSONL 或外部 TSDB |
 | `[~]` | 自動源選擇 | 已排除所有目標輸出；仍可能在多個來源間選錯，工具需明確指定 |
+| `[x]` | 結束直播顯示結束文字 | 結束文字改畫在 overlay 之後的頂層，來源還活著也看得到；composite 以重建節目源換字（zmq 在本鏡像不可用），hold 無法渲染故立即停止；寬限預設 60s→30s 並一次性遷移 |
+| `[!]` | 結束直播的重建空窗 | 換字必須重建節目源，結束瞬間下游約 5 秒空窗；這是本鏡像 ffmpeg 沒有可用的執行期改字通道所致 |
 | `[!]` | slate 與 hold 的取捨 | `hold` 零空窗但凍結畫面；`slate` 有 2–5 秒換手空窗。見 [docs/forward-program-bus.md](docs/forward-program-bus.md) |
 | `[ ]` | 評估單一目標時略過節目源 | 目前每個目標都經節目源轉一手（copy 模式實測約 0.4% CPU／43MB），換取來源中斷時下游不受影響 |
 | `[x]` | 節目源遮蔽下游監測的補償 | 狀態新增 `fallbackSeconds`／`offlineStopMinutes`；navbar 徽章顯示「來源中斷 Ns」與說明；事件時間線記錄 `source-outage` 與 `source-back`（實測中斷 11s）。取樣必須放在隨 run 啟動的 supervisor goroutine，因為 `doForward` 會阻塞整個 run，寫在迴圈邊界在執行中不會跑到 |

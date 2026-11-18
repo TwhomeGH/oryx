@@ -100,6 +100,17 @@ func forwardSlateConfigLoad(ctx context.Context) forwardSlateConfig {
 	if conf.OfflineStopMinutes <= 0 {
 		conf.OfflineStopMinutes = 5
 	}
+	// One-time migration of the old 60s default. Doing it on load (and persisting) is what makes it
+	// apply to an install that already stored the previous default.
+	if !conf.EndGraceMigrated && conf.EndGraceSeconds == 60 {
+		conf.EndGraceSeconds = 30
+		conf.EndGraceMigrated = true
+		if err := forwardSlateConfigSave(ctx, conf); err != nil {
+			logger.Wf(ctx, "ignore forward slate migration save err %+v", err)
+		} else {
+			logger.Tf(ctx, "forward slate migrated endGraceSeconds 60->30")
+		}
+	}
 	if conf.OutputRateMode == "" {
 		conf.OutputRateMode = "auto"
 	}
@@ -210,11 +221,6 @@ func forwardSlateConfigSave(ctx context.Context, conf forwardSlateConfig) error 
 		}
 	}
 	if conf.EndGraceSeconds <= 0 {
-		conf.EndGraceSeconds = 30
-	}
-	if !conf.EndGraceMigrated && conf.EndGraceSeconds == 60 {
-		// 60 was the previous default; move it to the new one exactly once. 30s covers the usual
-		// destination-platform buffering (5-20s) so viewers actually see the end screen.
 		conf.EndGraceSeconds = 30
 	}
 	conf.EndGraceMigrated = true
