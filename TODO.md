@@ -42,6 +42,8 @@
 | `[!]` | slate 與 hold 的取捨 | `hold` 零空窗但凍結畫面；`slate` 有 2–5 秒換手空窗。見 [docs/forward-program-bus.md](docs/forward-program-bus.md) |
 | `[ ]` | 評估單一目標時略過節目源 | 目前每個目標都經節目源轉一手（copy 模式實測約 0.4% CPU／43MB），換取來源中斷時下游不受影響 |
 | `[x]` | 節目源遮蔽下游監測的補償 | 狀態新增 `fallbackSeconds`／`offlineStopMinutes`；navbar 徽章顯示「來源中斷 Ns」與說明；事件時間線記錄 `source-outage` 與 `source-back`（實測中斷 11s）。取樣必須放在隨 run 啟動的 supervisor goroutine，因為 `doForward` 會阻塞整個 run，寫在迴圈邊界在執行中不會跑到 |
+| `[x]` | 漂移語意拆解 | 時間軸速率（media 秒／牆上秒，1.000 健康）與每小時偏移，另保留「領先實際時間」並註明不是延遲；需 30 秒取樣才給值 |
+| `[x]` | 節目源轉碼指標 | 解析 publisher 的 `-progress`：fps、實際輸出幀率、speed、碼率、首格耗時，補上先前完全看不到的合成管道成本 |
 | `[x]` | 節目源時間軸計畫可見 | 顯示 copy／repair／cfr／composite 與原因代碼，並揭露來源 CFR/VFR 判定 |
 | `[x]` | 輸出幀率可選 | 只影響會重新編碼的路徑（備援畫面、強制 CFR）；跟隨來源或固定 23.976–120／自訂，高於來源會夾回 |
 | `[x]` | CFR/VFR 判定改實測 | 取樣 3 秒幀間隔判定，不再信任 `r_frame_rate`／`avg_frame_rate`；介面附抖動或最大間隔作為依據 |
