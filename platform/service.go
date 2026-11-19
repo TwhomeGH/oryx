@@ -437,7 +437,12 @@ func handleHTTPService(ctx context.Context, handler *http.ServeMux) error {
 				// HTML pages must revalidate: they carry the page logic inline and change with
 				// every deploy, so a 30-day cache kept serving stale pages (e.g. a diagnostics
 				// page that ignored an updated preference). Static assets keep the long cache.
-				if strings.HasSuffix(r.URL.Path, ".html") || strings.HasSuffix(r.URL.Path, ".htm") {
+				//
+				// The diagnostics page is the exception: its own css/js are edited constantly, and a
+				// 30-day cache would leave users on an old copy (the page itself is no-cache, so the
+				// mismatch is invisible). Revalidation costs one 304.
+				diagnosticsOwnAsset := strings.Contains(r.URL.Path, "/pushdiag.")
+				if strings.HasSuffix(r.URL.Path, ".html") || strings.HasSuffix(r.URL.Path, ".htm") || diagnosticsOwnAsset {
 					w.Header().Set("Cache-Control", "no-cache, max-age=0")
 				} else {
 					w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%v", 30*24*3600))

@@ -6,6 +6,9 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 const playerRoot = resolve(process.cwd(), '../platform/containers/www/players');
 const helper = readFileSync(resolve(playerRoot, 'js/pushdiag-hls.js'), 'utf8');
 const html = readFileSync(resolve(playerRoot, 'pushdiag.html'), 'utf8');
+// The page logic lives in an external file now; loading it here keeps the test honest about what the
+// browser actually executes.
+const pageScript = readFileSync(resolve(playerRoot, 'js/pushdiag.js'), 'utf8');
 let dom, w;
 beforeEach(() => {
   dom = new JSDOM(html, {url: 'https://example.test/players/pushdiag.html', runScripts: 'outside-only'});
@@ -21,8 +24,7 @@ beforeEach(() => {
 });
 afterEach(() => dom.window.close());
 function loadPage() {
-  const script = [...w.document.scripts].find(s => !s.src);
-  w.eval(script.textContent);
+  w.eval(pageScript);
 }
 
 describe('PushDiag GOP diagnostics', () => {
