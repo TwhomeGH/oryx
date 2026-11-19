@@ -106,9 +106,12 @@ export default function ForwardProgress({log, metrics, events, logs, encoder, ff
         {t('forward.progress.driftRate')}: {
           metrics.timelineRate
             ? <>{metrics.timelineRate.toFixed(4)} <span className="text-muted">
-                ({metrics.timelineRate >= 0.998 && metrics.timelineRate <= 1.002
-                  ? t('forward.progress.driftRateOk')
-                  : t('forward.progress.driftRateBad', {perHour: fmt(metrics.driftPerHour)})})
+                ({metrics.driftPerHour !== undefined
+                  ? (Math.abs(metrics.driftPerHour) <= 10
+                    ? t('forward.progress.driftRateOk')
+                    : t('forward.progress.driftRateBad', {perHour: fmt(metrics.driftPerHour)}))
+                  : t('forward.progress.driftRateSampling')
+                })
               </span></>
             : <span className="text-muted">{t('forward.progress.driftRatePending')}</span>
         }
@@ -116,6 +119,13 @@ export default function ForwardProgress({log, metrics, events, logs, encoder, ff
       <div>{t('forward.progress.driftLead')}: {fmt(metrics.mediaClockDriftSec)}s
         <span className="text-muted"> · {t('forward.progress.driftLeadHint')}</span>
       </div>
+      {(metrics.fanoutLagSec !== undefined || metrics.srsQueueLimitSec) && <div className="mt-1">
+        {t('forward.progress.delivery')}:
+        {metrics.fanoutLagSec !== undefined && <> {t('forward.progress.hopProgramFanout')} {fmt(metrics.fanoutLagSec)}s</>}
+        {metrics.srsQueueLimitSec ? <> · {t('forward.progress.hopQueue', {sec: metrics.srsQueueLimitSec})}</> : null}
+        {metrics.srsPlayLatencyMs ? <> · {t('forward.progress.hopPlayLatency', {ms: metrics.srsPlayLatencyMs})}</> : null}
+        {metrics.destinationUnknown && <span className="text-muted"> · {t('forward.progress.hopDestinationUnknown')}</span>}
+      </div>}
       {programMetrics && programMetrics.updatedAt && <div>
         {t('forward.progress.programFps')}: {fmt(programMetrics.fps)}
         {programMetrics.encodedFps ? ` · ${t('forward.progress.programEncoded')}: ${programMetrics.encodedFps.toFixed(1)}fps` : ''}

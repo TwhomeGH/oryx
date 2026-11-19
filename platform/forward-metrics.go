@@ -38,6 +38,19 @@ type ForwardMetrics struct {
 	// number that actually answers "is it getting worse".
 	DriftPerHour float64 `json:"driftPerHour,omitempty"`
 
+	// Delivery latency, split by hop so the unmeasurable part is explicit rather than guessed.
+	// FanoutLagSec is measured: both the program and the fanout report media time, so the media
+	// seconds the fanout is behind the program at the same moment is a real number.
+	FanoutLagSec    float64 `json:"fanoutLagSec,omitempty"`
+	ProgramMediaSec float64 `json:"programMediaSec,omitempty"`
+	// SrsQueueLimitSec and SrsPlayLatencyMs are declared by our SRS config, not measured: the play
+	// queue is a ceiling and mw_latency is a batching window.
+	SrsQueueLimitSec float64 `json:"srsQueueLimitSec,omitempty"`
+	SrsPlayLatencyMs int     `json:"srsPlayLatencyMs,omitempty"`
+	// DestinationUnknown marks that the last hop (the remote platform plus its viewers' buffers)
+	// cannot be measured from here. It is reported so nobody reads the total as end-to-end.
+	DestinationUnknown bool `json:"destinationUnknown,omitempty"`
+
 	// Source reconnect evidence, from the program relay FFmpeg stderr.
 	RelayReconnects int    `json:"relayReconnects,omitempty"`
 	LastReconnectAt string `json:"lastReconnectAt,omitempty"`

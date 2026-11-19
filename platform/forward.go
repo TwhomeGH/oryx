@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -1345,8 +1346,12 @@ func (v *ForwardTask) queryMetrics(ps *ProgramStatus) *ForwardMetrics {
 		m.MediaClockDrift = media - wall
 		// Split the one number into the two questions: how fast is the timeline running, and is the
 		// lead growing? A short window cannot answer either, so require at least 30s of samples.
-		if wall >= 30 {
+		// FFmpeg reports media time in 1s steps, so the rate is only as precise as the span: 60s
+		// gives ~1.7%, 300s ~0.3%. Gates keep a noisy number from being read as a fault.
+		if wall >= 120 {
 			m.TimelineRate = media / wall
+		}
+		if wall >= 300 {
 			m.DriftPerHour = (m.TimelineRate - 1) * 3600
 		}
 	}
@@ -1354,8 +1359,54 @@ func (v *ForwardTask) queryMetrics(ps *ProgramStatus) *ForwardMetrics {
 		m.RelayReconnects = ps.Reconnects
 		m.LastReconnectAt = ps.LastReconnectAt
 		m.ReconnectReason = ps.ReconnectReason
+
+		// The program and the fanout both publish media time. Comparing them at the same instant
+		// measures the hop the fanout adds (SRS play queue + copy), which is the one part of the
+		// delivery path that is actually observable from inside Oryx.
+		if pm := ps.ProgramMetrics; pm != nil && pm.UpdatedAt != "" && v.metrics.at.After(v.metricsFirstAt) {
+			if programAt, err := time.Parse(time.RFC3339, pm.UpdatedAt); err == nil {
+				// Extrapolate the program's media time to the fanout sample instant: the two
+				// -progress streams are sampled independently, so comparing raw values would
+				// include up to one stats period of skew.
+				programNow := pm.MediaSeconds + v.metrics.at.Sub(programAt).Seconds()
+				m.ProgramMediaSec = pm.MediaSeconds
+				m.FanoutLagSec = programNow - v.metrics.mediaSec
+			}
+		}
+		m.SrsQueueLimitSec, m.SrsPlayLatencyMs = srsPlayBufferSettings()
+		m.DestinationUnknown = true
 	}
 	return m
+}
+
+// srsPlayBufferSettings reports the declared play-side buffering: the queue ceiling and the
+// merged-write window. They are read from the generated vhost config because that file is the single
+// source of truth for what SRS was started with.
+func srsPlayBufferSettings() (queueLimitSec float64, playLatencyMs int) {
+	playLatencyMs = 350
+	queueLimitSec = 10
+
+	b, err := os.ReadFile("/data/config/srs.vhost.conf")
+	if err != nil {
+		b, err = os.ReadFile(filepath.Join(conf.Pwd, "containers/conf/srs.vhost.conf"))
+	}
+	if err != nil {
+		return
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "queue_length ") {
+			if f, err := strconv.ParseFloat(strings.TrimSuffix(strings.TrimPrefix(line, "queue_length "), ";"), 64); err == nil && f > 0 {
+				queueLimitSec = f
+			}
+		}
+		if strings.HasPrefix(line, "mw_latency ") {
+			if n, err := strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(line, "mw_latency "), ";")); err == nil && n > 0 {
+				playLatencyMs = n
+			}
+		}
+	}
+	return
 }
 
 // forwardDiagnosticMarkers select the FFmpeg stderr lines worth retaining for diagnostics; the
