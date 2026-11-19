@@ -550,6 +550,8 @@ var state = {
   keyframes: 0,
   lastKeyTs: null,
   keyGaps: [],
+  // Timestamps parallel to keyGaps: the GOP chart needs time, every other reader needs numbers.
+  keyGapTimes: [],
   lastTs: null,
   videoLastTs: null,
   audioLastTs: null,
@@ -616,13 +618,14 @@ var chartCommon = {
 };
 
 function buildCharts() {
+  var timeX = timeAxisOptions();
   bitrateChart = new Chart(document.getElementById('bitrateChart'), {
     type: 'line',
-    data: { labels: [], datasets: [
+    data: { datasets: [
       { label: '影片', data: [], borderColor: 'rgb(192,132,252)', backgroundColor: 'rgb(192,132,252)', borderWidth: 1.5, tension: 0.3, pointRadius: 0 },
       { label: '音訊', data: [], borderColor: 'rgb(34,211,238)', backgroundColor: 'rgb(34,211,238)', borderWidth: 1.5, tension: 0.3, pointRadius: 0 },
     ]},
-    options: { ...chartCommon },
+    options: { ...chartCommon, parsing: false, scales: { x: timeX, y: chartCommon.scales.y } },
   });
   packetChart = new Chart(document.getElementById('packetChart'), {
     type: 'scatter',
@@ -630,21 +633,21 @@ function buildCharts() {
       { label: '封包', data: [], borderColor: 'rgb(251,146,60)', backgroundColor: 'rgb(251,146,60)', pointRadius: 1.5 },
       { label: '關鍵影格', data: [], borderColor: 'rgb(239,68,68)', backgroundColor: 'rgb(239,68,68)', pointRadius: 3 },
     ]},
-    options: { ...chartCommon },
+    options: { ...chartCommon, parsing: false, scales: { x: timeX, y: chartCommon.scales.y } },
   });
   syncChart = new Chart(document.getElementById('syncChart'), {
     type: 'line',
-    data: { labels: [], datasets: [
+    data: { datasets: [
       { label: '偏移', data: [], borderColor: 'rgb(52,211,153)', backgroundColor: 'rgb(52,211,153)', borderWidth: 1.5, tension: 0.3, pointRadius: 0 },
     ]},
-    options: { ...chartCommon },
+    options: { ...chartCommon, parsing: false, scales: { x: timeX, y: chartCommon.scales.y } },
   });
   gopChart = new Chart(document.getElementById('gopChart'), {
     type: 'line',
-    data: { labels: [], datasets: [
+    data: { datasets: [
       { label: 'GOP', data: [], borderColor: 'rgb(251,146,60)', backgroundColor: 'rgb(251,146,60)', borderWidth: 1.5, tension: 0.3, pointRadius: 1.5 },
     ]},
-    options: { ...chartCommon },
+    options: { ...chartCommon, parsing: false, scales: { x: timeX, y: chartCommon.scales.y } },
   });
 }
 
@@ -1036,7 +1039,11 @@ function handleTag(type, ts, data) {
         var gap = ts - state.lastKeyTs;
         if (gap > 0 && gap < 600000) {
           state.keyGaps.push(gap);
-          if (state.keyGaps.length > 200) state.keyGaps.shift();
+          state.keyGapTimes.push(elapsedSec());
+          if (state.keyGaps.length > 200) {
+            state.keyGaps.shift();
+            state.keyGapTimes.shift();
+          }
         }
       }
       state.lastKeyTs = ts;
@@ -1065,12 +1072,12 @@ function handleTag(type, ts, data) {
       var syncOff = state.audioLastTs - ts;
       var lastSync = state.syncSeries[state.syncSeries.length - 1];
       if (!lastSync || state.seq - lastSync.i > 10) {
-        state.syncSeries.push({ i: state.seq, offset: syncOff });
+        state.syncSeries.push({ i: state.seq, offset: syncOff, t: elapsedSec() });
         if (state.syncSeries.length > 120) state.syncSeries.shift();
       }
     }
     state.videoLastTs = ts;
-    state.packetSeries.push({ i: state.seq, size: data.length, key: frameType === 1 });
+    state.packetSeries.push({ i: state.seq, size: data.length, key: frameType === 1, t: elapsedSec() });
     if (state.packetSeries.length > 400) state.packetSeries.shift();
 
     state.videoBlocks = state.videoBlocks || [];
@@ -1788,6 +1795,38 @@ function bindLayerToggles() {
   }
 }
 
+// elapsedSec is the shared time base for every chart: one run, one clock.
+function elapsedSec() {
+  if (!state.startTime) return 0;
+  return Math.round(((performance.now() - state.startTime) / 1000) * 100) / 100;
+}
+
+// chartWindow is the x range every chart uses, so a spike in one panel lines up vertically with
+// the same instant in the others. Without this each chart had its own domain (seconds, packet
+// index, sample index) and alignment was impossible.
+function chartWindow() {
+  var cur = Math.max(elapsedSec(), 60);
+  return { min: Math.max(0, cur - 60), max: cur };
+}
+
+// timeAxisOptions makes the four diagnostics charts share one linear time axis.
+function timeAxisOptions(extra) {
+  var win = chartWindow();
+  var opts = {
+    type: 'linear',
+    min: win.min,
+    max: win.max,
+    ticks: {
+      color: '#94a3b8',
+      maxTicksLimit: 8,
+      callback: function (v) { return Math.round(v) + 's'; },
+    },
+    grid: { color: 'rgba(148,163,184,0.1)' },
+  };
+  if (extra) Object.assign(opts, extra);
+  return opts;
+}
+
 // ── UI 更新 ──
 function updateBitrateBuckets() {
   var now = performance.now();
@@ -1796,28 +1835,41 @@ function updateBitrateBuckets() {
   for (var s of state.perSec.keys()) {
     if (s < cur - 600) state.perSec.delete(s);
   }
-  bitrateChart.data.labels = [];
+  // Every series is plotted against elapsed seconds, so the four panels share a vertical grid:
+  // a bitrate dip, a packet gap and a sync spike at the same moment sit in the same column.
+  var win = chartWindow();
+  var inWindow = function (t) { return t >= win.min && t <= win.max; };
+
   bitrateChart.data.datasets[0].data = [];
   bitrateChart.data.datasets[1].data = [];
-  var windowStart = Math.max(0, cur - 60);
-  for (var s2 = windowStart; s2 <= cur; s2++) {
+  var windowStart = Math.max(0, Math.floor(win.min));
+  for (var s2 = windowStart; s2 <= Math.floor(win.max); s2++) {
     var b = state.perSec.get(s2);
-    bitrateChart.data.labels.push(String(s2));
-    bitrateChart.data.datasets[0].data.push(b ? +(b.video * 8 / 1024).toFixed(1) : 0);
-    bitrateChart.data.datasets[1].data.push(b ? +(b.audio * 8 / 1024).toFixed(1) : 0);
+    if (!b) continue;
+    bitrateChart.data.datasets[0].data.push({ x: s2, y: +(b.video * 8 / 1024).toFixed(1) });
+    bitrateChart.data.datasets[1].data.push({ x: s2, y: +(b.audio * 8 / 1024).toFixed(1) });
   }
+  bitrateChart.options.scales.x.min = win.min;
+  bitrateChart.options.scales.x.max = win.max;
   bitrateChart.update('none');
 
-  packetChart.data.datasets[0].data = state.packetSeries.filter(function (p) { return !p.key; }).map(function (p) { return { x: p.i, y: p.size }; });
-  packetChart.data.datasets[1].data = state.packetSeries.filter(function (p) { return p.key; }).map(function (p) { return { x: p.i, y: p.size }; });
+  packetChart.data.datasets[0].data = state.packetSeries.filter(function (p) { return !p.key && inWindow(p.t); }).map(function (p) { return { x: p.t, y: p.size }; });
+  packetChart.data.datasets[1].data = state.packetSeries.filter(function (p) { return p.key && inWindow(p.t); }).map(function (p) { return { x: p.t, y: p.size }; });
+  packetChart.options.scales.x.min = win.min;
+  packetChart.options.scales.x.max = win.max;
   packetChart.update('none');
 
-  syncChart.data.labels = state.syncSeries.map(function (s) { return s.i; });
-  syncChart.data.datasets[0].data = state.syncSeries.map(function (s) { return s.offset; });
+  syncChart.data.datasets[0].data = state.syncSeries.filter(function (s) { return inWindow(s.t); }).map(function (s) { return { x: s.t, y: s.offset }; });
+  syncChart.options.scales.x.min = win.min;
+  syncChart.options.scales.x.max = win.max;
   syncChart.update('none');
 
-  gopChart.data.labels = state.keyGaps.map(function (_, i) { return i; });
-  gopChart.data.datasets[0].data = state.keyGaps;
+  // GOP points keep the shared time axis while the stored values stay plain durations.
+  gopChart.data.datasets[0].data = state.keyGaps.map(function (g, i) {
+    return { x: state.keyGapTimes[i], y: g / 1000 };
+  }).filter(function (p) { return inWindow(p.x); });
+  gopChart.options.scales.x.min = win.min;
+  gopChart.options.scales.x.max = win.max;
   updateGopDistribution();
   gopChart.update('none');
 
@@ -2364,6 +2416,7 @@ function resetState() {
   state.keyframes = 0;
   state.lastKeyTs = null;
   state.keyGaps = [];
+  state.keyGapTimes = [];
   state.lastTs = null;
   state.videoLastTs = null;
   state.audioLastTs = null;
