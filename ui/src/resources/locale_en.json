@@ -194,7 +194,8 @@
       "screenEnding": "end screen",
       "screenEndLeft": "{{sec}}s left",
       "screenSourceLost": "source lost (frozen frame)",
-      "screenLive": "live"
+      "screenLive": "live",
+      "screenEndCountdown": "end screen · stops in {{sec}}s (cancel to stay live)"
     },
     "camera": {
       "s3": "There is no stream. Please start the live event and wait for about 30 seconds, the list will update automatically.",
@@ -1207,7 +1208,9 @@
       "diagSrsPublishTimeout": "publish timeout",
       "diagSrsKickoff": "kickoff",
       "diagSrsOverflow": "queue overflow",
-      "diagSrsTimestamp": "timestamp damage"
+      "diagSrsTimestamp": "timestamp damage",
+      "fwEndCountdown": "ending · stops in {{sec}}s",
+      "fwEndCountdownHint": "Cancel now to stay live; once the countdown ends the target stops and cannot be cancelled."
     }
   },
   "meta": {

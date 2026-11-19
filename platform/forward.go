@@ -323,6 +323,7 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 					return errors.Wrapf(err, "hset %v %v %v", SRS_FORWARD_CONFIG, userConf.Platform, string(newB))
 				}
 				if endTask != nil {
+					slateConf := forwardSlateConfigLoad(ctx)
 					if canRenderEnd {
 						// The end text is part of the program's filtergraph, and the runtime switch
 						// path (FFmpeg's zmq filter) does not work in this image: the filter binds no
@@ -330,24 +331,22 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 						// the end text baked in, which costs a short downstream gap (~5s) at the very
 						// end of a broadcast — acceptable, and the fanout reattaches on the program
 						// generation change.
-						slateConf := forwardSlateConfigLoad(ctx)
 						screenText := slateConf.Text
 						if endConf.Ended {
 							screenText = slateConf.EndText
 						}
 						endTask.addEvent("end-screen", fmt.Sprintf("text=%v grace=%vs", screenText, slateConf.EndGraceSeconds))
-						if err := endTask.Restart(ctx); err != nil {
-							return errors.Wrapf(err, "restart task %v", userConf.Platform)
-						}
+					}
 
-						if endConf.Ended {
-							v.scheduleEndStop(ctx, userConf.Platform, endConf.EndedAt, slateConf.EndGraceSeconds)
-						}
-					} else if endConf.Ended {
-						// Hold: nothing to render, so end means stop now.
-						if err := endTask.Restart(ctx); err != nil {
-							return errors.Wrapf(err, "restart task %v", userConf.Platform)
-						}
+					// Always restart. Cancelling must bring the target back even when the program bus
+					// is gone (the target already stopped) or the mode is hold: writing the config
+					// alone left it idle, which is why 取消結束 appeared to do nothing.
+					if err := endTask.Restart(ctx); err != nil {
+						return errors.Wrapf(err, "restart task %v", userConf.Platform)
+					}
+
+					if endConf.Ended && canRenderEnd {
+						v.scheduleEndStop(ctx, userConf.Platform, endConf.EndedAt, slateConf.EndGraceSeconds)
 					}
 				}
 				ohttp.WriteData(ctx, w, r, nil)

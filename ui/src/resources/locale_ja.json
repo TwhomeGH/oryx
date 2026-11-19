@@ -638,7 +638,8 @@
       "screenEnding": "終了画面",
       "screenEndLeft": "残り {{sec}} 秒",
       "screenSourceLost": "入力断（最終フレームで停止）",
-      "screenLive": "ライブ"
+      "screenLive": "ライブ",
+      "screenEndCountdown": "終了画面 · あと {{sec}} 秒で停止（取り消せば継続）"
     },
     "fp": {
       "label": "ファイルを選択",
@@ -995,7 +996,9 @@
       "diagSrsPublishTimeout": "配信タイムアウト",
       "diagSrsKickoff": "キックオフ",
       "diagSrsOverflow": "キュー溢れ",
-      "diagSrsTimestamp": "タイムスタンプ異常"
+      "diagSrsTimestamp": "タイムスタンプ異常",
+      "fwEndCountdown": "終了 · あと {{sec}} 秒で停止",
+      "fwEndCountdownHint": "今すぐ取り消せば配信を継続します。カウントダウンが 0 になると停止し、取り消せません。"
     },
     "openapi": {
       "title": "プラットフォーム API キー（OpenAPI）",

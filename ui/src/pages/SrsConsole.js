@@ -1205,8 +1205,11 @@ function SrsForwards({handleError}) {
               <td>
                 <Badge bg={e.status === 'running' ? 'success' : 'secondary'}>{e.status || '-'}</Badge>
                 {e.programScreen === 'ending'
-                  ? <Badge bg="warning" text="dark" className="ms-1">
-                      {t('console.fwScreenEnding')}{e.endSecondsLeft ? ` ${e.endSecondsLeft}s` : ''}
+                  ? <Badge bg="warning" text="dark" className="ms-1"
+                      title={t('console.fwEndCountdownHint')}>
+                      {e.endSecondsLeft
+                        ? t('console.fwEndCountdown', {sec: e.endSecondsLeft})
+                        : t('console.fwScreenEnding')}
                     </Badge>
                   : (e.programScreen === 'source-lost'
                     ? <Badge bg="dark" className="ms-1">{t('console.fwScreenSourceLost')}</Badge>

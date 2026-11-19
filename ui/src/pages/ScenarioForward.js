@@ -453,7 +453,9 @@ hold : -c copy（不轉碼，斷源時凍結最後一格）`}
                           {file.programScreen && <div className="small text-muted mt-1">
                             {t('forward.screenNow')}: <span className="text-body">{
                               file.programScreen === 'ending'
-                                ? `${t('forward.screenEnding')}${file.endSecondsLeft ? `（${t('forward.screenEndLeft', {sec: file.endSecondsLeft})}）` : ''}`
+                                ? (file.endSecondsLeft
+                                  ? t('forward.screenEndCountdown', {sec: file.endSecondsLeft})
+                                  : t('forward.screenEnding'))
                                 : (file.programScreen === 'source-lost' ? t('forward.screenSourceLost') : t('forward.screenLive'))
                             }</span>
                           </div>}

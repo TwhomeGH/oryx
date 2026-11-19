@@ -899,7 +899,8 @@
       "screenEnding": "結束畫面",
       "screenEndLeft": "剩餘 {{sec}} 秒",
       "screenSourceLost": "來源中斷（凍結畫面）",
-      "screenLive": "直播中"
+      "screenLive": "直播中",
+      "screenEndCountdown": "結束畫面 · {{sec}} 秒後停止（取消可續播）"
     },
     "vle": {
       "tip": "將檔案轉直播流",
@@ -1207,7 +1208,9 @@
       "diagSrsPublishTimeout": "發布逾時",
       "diagSrsKickoff": "踢除",
       "diagSrsOverflow": "佇列溢位",
-      "diagSrsTimestamp": "時間戳異常"
+      "diagSrsTimestamp": "時間戳異常",
+      "fwEndCountdown": "結束 · {{sec}} 秒後停止",
+      "fwEndCountdownHint": "現在按「取消結束」可繼續直播；倒數歸零後目標會停止，且無法再取消。"
     }
   },
   "meta": {
