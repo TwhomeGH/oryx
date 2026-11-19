@@ -1742,10 +1742,11 @@ func testForwardKeepalive(t *testing.T, failover string, expectSlate bool) {
 	forwardStreamID := fmt.Sprintf("forward-keepalive-%v-%v", os.Getpid(), rand.Int())
 	bilibili, ok := conf["bilibili"]
 	if !ok || bilibili == nil {
+		// The built-in slot is not a custom target: a custom target owns a forwarding- key, and the
+		// API refuses to attach a custom name to a built-in one.
 		bilibili = &ForwardConfig{
 			Enabled:  false,
-			Custom:   true,
-			Label:    "Test",
+			Custom:   false,
 			Platform: "bilibili",
 			Server:   "rtmp://localhost/live/",
 		}
