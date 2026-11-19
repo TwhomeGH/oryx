@@ -2687,6 +2687,9 @@ var rtcState = {
   prevStats: null,
   prevTime: 0,
   frameSamples: [],
+  // The RTC tab has its own clock: its stats come from a separate WebRTC session, not from the
+  // FLV analysis, so it cannot share the main toolbar's startTime.
+  startTime: 0,
   rttSeries: [],
   bitrateSeries: [],
   jitterSeries: [],
@@ -2696,28 +2699,56 @@ var rtcState = {
 
 var rtcRttChart, rtcBitrateChart, rtcJitterChart;
 
+// rtcElapsedSec / rtcChartWindow mirror the main charts so the RTC tab reads the same way: seconds
+// since the session started, one sliding 60s window shared by all three panels.
+function rtcElapsedSec() {
+  if (!rtcState.startTime) return 0;
+  return Math.round(((performance.now() - rtcState.startTime) / 1000) * 100) / 100;
+}
+
+function rtcChartWindow() {
+  var cur = Math.max(rtcElapsedSec(), 60);
+  return { min: Math.max(0, cur - 60), max: cur };
+}
+
+function rtcTimeAxisOptions() {
+  var win = rtcChartWindow();
+  return {
+    type: 'linear',
+    min: win.min,
+    max: win.max,
+    ticks: {
+      color: '#94a3b8',
+      maxTicksLimit: 8,
+      callback: function (v) { return Math.round(v) + 's'; },
+    },
+    grid: { color: 'rgba(148,163,184,0.1)' },
+  };
+}
+
 function buildRtcCharts() {
+  var timeX = rtcTimeAxisOptions();
   rtcRttChart = new Chart(document.getElementById('rtcRttChart'), {
     type: 'line',
-    data: { labels: [], datasets: [
+    data: { datasets: [
       { label: 'RTT', data: [], borderColor: 'rgb(192,132,252)', backgroundColor: 'rgb(192,132,252)', borderWidth: 1.5, tension: 0.3, pointRadius: 0 },
     ]},
-    options: { ...chartCommon },
+    options: { ...chartCommon, parsing: false, scales: { x: timeX, y: chartCommon.scales.y } },
   });
   rtcBitrateChart = new Chart(document.getElementById('rtcBitrateChart'), {
     type: 'line',
-    data: { labels: [], datasets: [
+    data: { datasets: [
       { label: '影片', data: [], borderColor: 'rgb(192,132,252)', backgroundColor: 'rgb(192,132,252)', borderWidth: 1.5, tension: 0.3, pointRadius: 0 },
       { label: '音訊', data: [], borderColor: 'rgb(34,211,238)', backgroundColor: 'rgb(34,211,238)', borderWidth: 1.5, tension: 0.3, pointRadius: 0 },
     ]},
-    options: { ...chartCommon },
+    options: { ...chartCommon, parsing: false, scales: { x: timeX, y: chartCommon.scales.y } },
   });
   rtcJitterChart = new Chart(document.getElementById('rtcJitterChart'), {
     type: 'line',
-    data: { labels: [], datasets: [
+    data: { datasets: [
       { label: 'jitter', data: [], borderColor: 'rgb(52,211,153)', backgroundColor: 'rgb(52,211,153)', borderWidth: 1.5, tension: 0.3, pointRadius: 0 },
     ]},
-    options: { ...chartCommon },
+    options: { ...chartCommon, parsing: false, scales: { x: timeX, y: chartCommon.scales.y } },
   });
 }
 
@@ -2785,20 +2816,20 @@ async function pollRtcStats() {
 
     var rtt = cp && cp.currentRoundTripTime ? cp.currentRoundTripTime * 1000 : null;
     if (rtt !== null) {
-      rtcState.rttSeries.push(rtt);
+      rtcState.rttSeries.push({ t: rtcElapsedSec(), v: rtt });
       if (rtcState.rttSeries.length > 120) rtcState.rttSeries.shift();
     }
 
     var vBitrate = v && prev && dt > 0 ? (v.bytesReceived - prev.vBytes) * 8 / 1024 / dt : 0;
     var aBitrate = a && prev && dt > 0 ? (a.bytesReceived - prev.aBytes) * 8 / 1024 / dt : 0;
     if (dt > 0) {
-      rtcState.bitrateSeries.push({ v: Math.max(0, vBitrate), a: Math.max(0, aBitrate) });
+      rtcState.bitrateSeries.push({ t: rtcElapsedSec(), v: Math.max(0, vBitrate), a: Math.max(0, aBitrate) });
       if (rtcState.bitrateSeries.length > 120) rtcState.bitrateSeries.shift();
     }
 
     var jitter = v && v.jitter ? v.jitter * 1000 : null;
     if (jitter !== null) {
-      rtcState.jitterSeries.push(jitter);
+      rtcState.jitterSeries.push({ t: rtcElapsedSec(), v: jitter });
       if (rtcState.jitterSeries.length > 120) rtcState.jitterSeries.shift();
     }
 
@@ -2823,17 +2854,19 @@ async function pollRtcStats() {
 }
 
 function renderRtcCharts() {
-  rtcRttChart.data.labels = rtcState.rttSeries.map(function (_, i) { return i; });
-  rtcRttChart.data.datasets[0].data = rtcState.rttSeries;
+  var win = rtcChartWindow();
+  for (const ch of [rtcRttChart, rtcBitrateChart, rtcJitterChart]) {
+    ch.options.scales.x.min = win.min;
+    ch.options.scales.x.max = win.max;
+  }
+  rtcRttChart.data.datasets[0].data = rtcState.rttSeries.map(function (p) { return { x: p.t, y: p.v }; });
   rtcRttChart.update('none');
 
-  rtcBitrateChart.data.labels = rtcState.bitrateSeries.map(function (_, i) { return i; });
-  rtcBitrateChart.data.datasets[0].data = rtcState.bitrateSeries.map(function (b) { return b.v; });
-  rtcBitrateChart.data.datasets[1].data = rtcState.bitrateSeries.map(function (b) { return b.a; });
+  rtcBitrateChart.data.datasets[0].data = rtcState.bitrateSeries.map(function (b) { return { x: b.t, y: b.v }; });
+  rtcBitrateChart.data.datasets[1].data = rtcState.bitrateSeries.map(function (b) { return { x: b.t, y: b.a }; });
   rtcBitrateChart.update('none');
 
-  rtcJitterChart.data.labels = rtcState.jitterSeries.map(function (_, i) { return i; });
-  rtcJitterChart.data.datasets[0].data = rtcState.jitterSeries;
+  rtcJitterChart.data.datasets[0].data = rtcState.jitterSeries.map(function (p) { return { x: p.t, y: p.v }; });
   rtcJitterChart.update('none');
 }
 
@@ -2969,6 +3002,8 @@ async function startRtcAnalysis() {
     if (typeof RTCPeerConnection === 'undefined') throw new Error('此環境不支援 WebRTC');
     rtcState.sdk = new SrsRtcWhipWhepAsync();
     rtcState.running = true;
+  // Fresh axis per session: an RTC session is not comparable to the previous one.
+  rtcState.startTime = performance.now();
     rtcState.prevTime = performance.now();
 
     var options = {};
@@ -3033,6 +3068,7 @@ function stopRtcAnalysis() {
 function resetRtcState() {
   rtcState.prevStats = null;
   rtcState.prevTime = 0;
+  rtcState.startTime = 0;
   rtcState.frameSamples = [];
   rtcState.rttSeries = [];
   rtcState.bitrateSeries = [];
