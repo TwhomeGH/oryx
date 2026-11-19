@@ -100,6 +100,12 @@ var state = {
   keyframes: 0,
   lastKeyTs: null,
   keyGaps: [],
+  // DTS/PTS rollbacks are events, not values: they are plotted as marks on the shared timeline so
+  // the exact moment is visible instead of only a running count.
+  dtsMarks: [],
+  // Audio clock drift history: the instantaneous ppm alone cannot show whether it is accumulating.
+  driftSeries: [],
+  lastDriftAt: 0,
   // Timestamps parallel to keyGaps: the GOP chart needs time, every other reader needs numbers.
   keyGapTimes: [],
   lastTs: null,
@@ -154,7 +160,7 @@ var state = {
   },
 };
 
-var bitrateChart, packetChart, syncChart, gopChart;
+var bitrateChart, packetChart, syncChart, gopChart, driftChart;
 
 var chartCommon = {
   responsive: true,
@@ -182,6 +188,10 @@ function buildCharts() {
     data: { datasets: [
       { label: '封包', data: [], borderColor: 'rgb(251,146,60)', backgroundColor: 'rgb(251,146,60)', pointRadius: 1.5 },
       { label: '關鍵影格', data: [], borderColor: 'rgb(239,68,68)', backgroundColor: 'rgb(239,68,68)', pointRadius: 3 },
+      // Rollbacks sit on the same timeline as the packets, so the cause and the following gap are
+      // visible together.
+      { label: '影片 DTS 倒退', data: [], borderColor: 'rgb(248,113,113)', backgroundColor: 'rgb(248,113,113)', pointStyle: 'triangle', pointRadius: 7, showLine: false },
+      { label: '音訊 PTS 回退', data: [], borderColor: 'rgb(250,204,21)', backgroundColor: 'rgb(250,204,21)', pointStyle: 'rectRot', pointRadius: 7, showLine: false },
     ]},
     options: { ...chartCommon, parsing: false, scales: { x: timeX, y: chartCommon.scales.y } },
   });
@@ -198,6 +208,13 @@ function buildCharts() {
       { label: 'GOP', data: [], borderColor: 'rgb(251,146,60)', backgroundColor: 'rgb(251,146,60)', borderWidth: 1.5, tension: 0.3, pointRadius: 1.5 },
     ]},
     options: { ...chartCommon, parsing: false, scales: { x: timeX, y: chartCommon.scales.y } },
+  });
+  driftChart = new Chart(document.getElementById('driftChart'), {
+    type: 'line',
+    data: { datasets: [
+      { label: 'ppm', data: [], borderColor: 'rgb(52,211,153)', backgroundColor: 'rgb(52,211,153)', borderWidth: 1.5, tension: 0.2, pointRadius: 0 },
+    ]},
+    options: { ...chartCommon, parsing: false, scales: { x: timeX, y: { ...chartCommon.scales.y, suggestedMin: -300, suggestedMax: 300 } } },
   });
 }
 
@@ -648,6 +665,8 @@ function handleTag(type, ts, data) {
       var prevFrame = state.videoTsHistory.length ? state.videoTsHistory[state.videoTsHistory.length - 1].ts : null;
       if (prevFrame !== null && prevFrame !== undefined && ts <= prevFrame) {
         state.videoRollbackCount = (state.videoRollbackCount || 0) + 1;
+        state.dtsMarks.push({ t: elapsedSec(), kind: 'video', ts: ts, prev: prevFrame });
+        if (state.dtsMarks.length > 200) state.dtsMarks.shift();
       }
       state.videoTsHistory.push({ ts: ts, wall: performance.now() });
       if (state.videoTsHistory.length > 600) state.videoTsHistory.shift();
@@ -709,6 +728,8 @@ function handleTag(type, ts, data) {
 
     if (state.audioLastTs !== null && state.audioLastTs !== undefined && ts <= state.audioLastTs) {
       state.audioRollbackCount = (state.audioRollbackCount || 0) + 1;
+      state.dtsMarks.push({ t: elapsedSec(), kind: 'audio', ts: ts, prev: state.audioLastTs });
+      if (state.dtsMarks.length > 200) state.dtsMarks.shift();
     }
     if (aacPacketType !== 0) {
       state.audioTsHistory.push({ ts: ts, wall: performance.now() });
@@ -1247,11 +1268,7 @@ function buildLayerDiag() {
   var ppm = null;
   if (state.syncSeries.length >= 20 && state.startTime) {
     var elapsedSec = (performance.now() - state.startTime) / 1000;
-    if (elapsedSec >= 30) {
-      var firstOff = state.syncSeries[0].offset;
-      var lastOff = state.syncSeries[state.syncSeries.length - 1].offset;
-      ppm = ((lastOff - firstOff) / 1000) / elapsedSec * 1e6;
-    }
+    if (elapsedSec >= 30) ppm = syncPpm(0);
   }
 
   // Frame lag: how far the displayed frame trails the newest decoded PTS. A persistent large gap
@@ -1377,6 +1394,22 @@ function timeAxisOptions(extra) {
   return opts;
 }
 
+// syncPpm computes the audio-video clock drift rate over the last windowSec of samples. A stable
+// ~0 ppm is a healthy lock; a sustained non-zero value accumulates into A/V desync even when the
+// current offset looks fine. Millisecond-quantised offsets need a long enough window, hence the
+// minimum sample count and span.
+function syncPpm(windowSec) {
+  var series = state.syncSeries || [];
+  if (!state.startTime || series.length < 5) return null;
+  var cur = elapsedSec();
+  var from = windowSec ? Math.max(0, cur - windowSec) : 0;
+  var win = series.filter(function (s) { return s.t >= from; });
+  if (win.length < 5) return null;
+  var span = win[win.length - 1].t - win[0].t;
+  if (span < 10) return null;
+  return ((win[win.length - 1].offset - win[0].offset) / 1000) / span * 1e6;
+}
+
 // ── UI 更新 ──
 function updateBitrateBuckets() {
   var now = performance.now();
@@ -1405,6 +1438,13 @@ function updateBitrateBuckets() {
 
   packetChart.data.datasets[0].data = state.packetSeries.filter(function (p) { return !p.key && inWindow(p.t); }).map(function (p) { return { x: p.t, y: p.size }; });
   packetChart.data.datasets[1].data = state.packetSeries.filter(function (p) { return p.key && inWindow(p.t); }).map(function (p) { return { x: p.t, y: p.size }; });
+
+  // Marks are drawn at the top of the panel so they are not hidden behind the packet cloud.
+  var maxSize = 0;
+  state.packetSeries.forEach(function (p) { if (p.size > maxSize) maxSize = p.size; });
+  var markY = maxSize || 1;
+  packetChart.data.datasets[2].data = state.dtsMarks.filter(function (m) { return m.kind === 'video' && inWindow(m.t); }).map(function (m) { return { x: m.t, y: markY }; });
+  packetChart.data.datasets[3].data = state.dtsMarks.filter(function (m) { return m.kind === 'audio' && inWindow(m.t); }).map(function (m) { return { x: m.t, y: markY }; });
   packetChart.options.scales.x.min = win.min;
   packetChart.options.scales.x.max = win.max;
   packetChart.update('none');
@@ -1421,6 +1461,19 @@ function updateBitrateBuckets() {
   gopChart.options.scales.x.min = win.min;
   gopChart.options.scales.x.max = win.max;
   updateGopDistribution();
+  var nowSec = elapsedSec;
+  if (nowSec - (state.lastDriftAt || 0) >= 5) {
+    var driftPpm = syncPpm(30);
+    if (driftPpm !== null) {
+      state.lastDriftAt = nowSec;
+      state.driftSeries.push({ t: nowSec, v: Math.round(driftPpm * 10) / 10 });
+      if (state.driftSeries.length > 200) state.driftSeries.shift();
+    }
+  }
+  driftChart.data.datasets[0].data = state.driftSeries.filter(function (d) { return inWindow(d.t); }).map(function (d) { return { x: d.t, y: d.v }; });
+  driftChart.options.scales.x.min = win.min;
+  driftChart.options.scales.x.max = win.max;
+  driftChart.update('none');
   gopChart.update('none');
 
   var kbps = state.bytes * 8 / 1024 / Math.max(elapsedSec, 0.001);
@@ -1967,6 +2020,9 @@ function resetState() {
   state.lastKeyTs = null;
   state.keyGaps = [];
   state.keyGapTimes = [];
+  state.dtsMarks = [];
+  state.driftSeries = [];
+  state.lastDriftAt = 0;
   state.lastTs = null;
   state.videoLastTs = null;
   state.audioLastTs = null;
@@ -2028,6 +2084,7 @@ function resetState() {
   packetChart && packetChart.data.datasets.forEach(function (d) { d.data = []; });
   syncChart && syncChart.data.datasets.forEach(function (d) { d.data = []; });
   gopChart && gopChart.data.datasets.forEach(function (d) { d.data = []; });
+  driftChart && driftChart.data.datasets.forEach(function (d) { d.data = []; });
   bitrateChart && bitrateChart.update('none');
   packetChart && packetChart.update('none');
   syncChart && syncChart.update('none');

@@ -214,6 +214,11 @@
                 <div class="chart-box"><canvas id="syncChart"></canvas></div>
             </div>
             <div class="card mb-0">
+                <h2 class="text-ok mb-12">音訊時鐘漂移 (ppm，近 30 秒)</h2>
+                <div class="chart-box"><canvas id="driftChart"></canvas></div>
+                <div id="driftHint" class="text-dim fs-12 mb-12">以近 30 秒偏移樣本計算；穩定在 0 附近代表兩邊時鐘同步，持續偏離代表會累積成 A/V 不同步。</div>
+            </div>
+            <div class="card mb-0">
                 <h2 class="text-warn mb-12">關鍵影格間隔 (GOP, ms)</h2>
                 <div class="chart-box"><canvas id="gopChart"></canvas></div>
                 <div id="gopDist" class="text-dim fs-12 mb-12">GOP 分布會在累積幾個關鍵影格後顯示。</div>

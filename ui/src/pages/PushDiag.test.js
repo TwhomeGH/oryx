@@ -27,6 +27,48 @@ function loadPage() {
   w.eval(pageScript);
 }
 
+describe('PushDiag timeline marks and drift history', () => {
+  it('records a video DTS rollback as a mark at its time', () => {
+    loadPage();
+    w.state.startTime = w.performance.now() - 10000;
+    w.handleTag(9, 5000, new w.Uint8Array([0x17, 1, 0, 0, 0, 0, 0, 0, 1, 0x65]));
+    w.handleTag(9, 5000, new w.Uint8Array([0x17, 1, 0, 0, 0, 0, 0, 0, 1, 0x65]));
+    expect(w.state.videoRollbackCount).toBe(1);
+    expect(w.state.dtsMarks.length).toBe(1);
+    expect(w.state.dtsMarks[0].kind).toBe('video');
+    expect(w.state.dtsMarks[0].t).toBeGreaterThan(0);
+  });
+
+  it('does not report drift until the window is long enough', () => {
+    loadPage();
+    w.state.startTime = w.performance.now() - 5000;
+    w.state.syncSeries = [
+      { i: 1, offset: 0, t: 1 },
+      { i: 2, offset: 5, t: 4 },
+    ];
+    // Two samples over three seconds is too short to mean anything.
+    expect(w.syncPpm(30)).toBe(null);
+  });
+
+  it('reports drift per million over a sufficient window', () => {
+    loadPage();
+    w.state.startTime = w.performance.now() - 40000;
+    // Six samples inside the 30s window (t >= 10), spanning 28s.
+    w.state.syncSeries = [
+      { i: 1, offset: 0, t: 12 },
+      { i: 2, offset: 8, t: 18 },
+      { i: 3, offset: 16, t: 24 },
+      { i: 4, offset: 24, t: 30 },
+      { i: 5, offset: 32, t: 36 },
+      { i: 6, offset: 40, t: 40 },
+    ];
+    // 40 ms over 28 s = 1.43e-3 -> ~1429 ppm.
+    const ppm = w.syncPpm(30);
+    expect(ppm).toBeGreaterThan(1300);
+    expect(ppm).toBeLessThan(1600);
+  });
+});
+
 describe('PushDiag GOP diagnostics', () => {
   it('excludes AVC configuration tags and keeps short real GOP intervals', () => {
     loadPage();
