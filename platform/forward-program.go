@@ -200,6 +200,11 @@ type ProgramBus struct {
 	pubCancel context.CancelFunc
 	pid       int32
 	switches  int
+	// The program's own progress, so the transcode cost is visible instead of inferred.
+	metrics      ProgramMetrics
+	metricsAt    time.Time
+	startedAt    time.Time
+	firstFrameAt time.Time
 	// generation increments every time a publisher process starts (including retries after the
 	// process dies), so downstream consumers can tell that the program was re-published and must
 	// reconnect with a fresh ffmpeg.
@@ -250,6 +255,50 @@ type ProgramBus struct {
 }
 
 // ProgramStatus is a snapshot of a program bus for the API.
+// applyProgramProgress folds one "key=value" line from FFmpeg's -progress stream into the metrics.
+// Kept separate so the parsing is testable without spawning FFmpeg.
+func applyProgramProgress(pm *ProgramMetrics, key, value string) {
+	switch key {
+	case "frame":
+		if n, err := strconv.ParseInt(value, 10, 64); err == nil {
+			pm.Frame = n
+		}
+	case "fps":
+		if f, err := strconv.ParseFloat(value, 64); err == nil {
+			pm.FPS = f
+		}
+	case "speed":
+		// FFmpeg prints "1.01x", and "N/A" before the first block.
+		if f, err := strconv.ParseFloat(strings.TrimSuffix(value, "x"), 64); err == nil {
+			pm.Speed = f
+		}
+	case "bitrate":
+		if f, err := strconv.ParseFloat(strings.TrimSuffix(value, "kbits/s"), 64); err == nil {
+			pm.BitrateKbps = f
+		}
+	case "out_time_us":
+		if n, err := strconv.ParseInt(value, 10, 64); err == nil {
+			pm.MediaSeconds = float64(n) / 1e6
+		}
+	}
+}
+
+// ProgramMetrics is the program publisher's own FFmpeg progress. The fanout metrics only describe
+// the copy that leaves the program; without this the transcode itself (fps, speed, bitrate) is
+// invisible, so "how long does the composite pipeline take" had no answer.
+type ProgramMetrics struct {
+	Frame        int64   `json:"frame,omitempty"`
+	FPS          float64 `json:"fps,omitempty"`
+	Speed        float64 `json:"speed,omitempty"`
+	BitrateKbps  float64 `json:"bitrateKbps,omitempty"`
+	MediaSeconds float64 `json:"mediaSeconds,omitempty"`
+	// EncodedFPS is frame/mediaSeconds, the rate actually delivered rather than the instantaneous one.
+	EncodedFPS float64 `json:"encodedFps,omitempty"`
+	UpdatedAt  string  `json:"updatedAt,omitempty"`
+	// StartupMS is how long the publisher took to produce its first frame in this run.
+	StartupMS int64 `json:"startupMs,omitempty"`
+}
+
 type ProgramStatus struct {
 	Source       string
 	Program      string
@@ -268,6 +317,8 @@ type ProgramStatus struct {
 	SourceJitterMS float64
 	SourceMaxGapMS float64
 	LastSwitchAt   string
+	// ProgramMetrics is the publisher's own progress, so the transcode cost is measurable.
+	ProgramMetrics *ProgramMetrics
 	LastError      string
 	// Plan is the resolved timeline plan (copy/repair/cfr) and PlanReason why it was chosen.
 	Plan       string
@@ -443,6 +494,7 @@ func (v *ProgramBus) queryStatus() ProgramStatus {
 		Source:          fmt.Sprintf("%v/%v", v.sourceApp, v.sourceStream),
 		Program:         fmt.Sprintf("%v/%v", v.programApp, v.programStream),
 		Mode:            v.mode,
+		ProgramMetrics:  &v.metrics,
 		Failover:        v.failover,
 		PID:             v.pid,
 		Switches:        v.switches,
@@ -799,6 +851,13 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 		}
 		v.lock.Unlock()
 	}()
+	startedAt := time.Now()
+	v.lock.Lock()
+	v.startedAt = startedAt
+	v.firstFrameAt = time.Time{}
+	v.metrics = ProgramMetrics{}
+	v.metricsAt = time.Time{}
+	v.lock.Unlock()
 	logger.Tf(ctx, "forward program publisher started, mode=%v, pid=%v", mode, cmd.Process.Pid)
 
 	// Watch the progress stream: if the publisher stops producing media for 10s, kill it so the
@@ -807,9 +866,54 @@ func (v *ProgramBus) runPublisherOnce(ctx context.Context, mode string) error {
 	lastProgressAt.Store(time.Now().UnixNano())
 	go func() {
 		scanner := bufio.NewScanner(progress)
+		var pending ProgramMetrics
 		for scanner.Scan() {
-			if strings.HasPrefix(scanner.Text(), "out_time_us=") || strings.HasPrefix(scanner.Text(), "frame=") {
+			line := scanner.Text()
+			key, value, ok := strings.Cut(line, "=")
+			if !ok {
+				continue
+			}
+			switch key {
+			case "frame":
+				if n, err := strconv.ParseInt(value, 10, 64); err == nil {
+					pending.Frame = n
+				}
+			case "fps":
+				if f, err := strconv.ParseFloat(value, 64); err == nil {
+					pending.FPS = f
+				}
+			case "speed":
+				// FFmpeg may print "1.01x" or "N/A".
+				if f, err := strconv.ParseFloat(strings.TrimSuffix(value, "x"), 64); err == nil {
+					pending.Speed = f
+				}
+			case "bitrate":
+				if f, err := strconv.ParseFloat(strings.TrimSuffix(value, "kbits/s"), 64); err == nil {
+					pending.BitrateKbps = f
+				}
+			case "out_time_us":
+				if n, err := strconv.ParseInt(value, 10, 64); err == nil {
+					pending.MediaSeconds = float64(n) / 1e6
+				}
+			case "progress":
+				// One block finished: publish it. This is where the publisher is proven alive.
 				lastProgressAt.Store(time.Now().UnixNano())
+				if pending.MediaSeconds > 0 && pending.Frame > 0 {
+					pending.EncodedFPS = float64(pending.Frame) / pending.MediaSeconds
+				}
+
+				v.lock.Lock()
+				first := v.firstFrameAt.IsZero()
+				pending.UpdatedAt = time.Now().Format(time.RFC3339)
+				if first && pending.Frame > 0 && !v.startedAt.IsZero() {
+					v.firstFrameAt = time.Now()
+					pending.StartupMS = time.Since(v.startedAt).Milliseconds()
+				} else if !v.firstFrameAt.IsZero() && pending.StartupMS == 0 {
+					pending.StartupMS = time.Since(v.startedAt).Milliseconds()
+				}
+				v.metrics = pending
+				v.metricsAt = time.Now()
+				v.lock.Unlock()
 			}
 		}
 	}()

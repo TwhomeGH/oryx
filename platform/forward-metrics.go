@@ -31,6 +31,12 @@ type ForwardMetrics struct {
 	// The output media clock ahead of the wall clock since the process started. A sustained
 	// positive drift indicates timestamp jumps in the input (e.g. after a relay reconnect).
 	MediaClockDrift float64 `json:"mediaClockDriftSec,omitempty"`
+	// TimelineRate is media seconds advanced per wall-clock second over this run. 1.000 is healthy;
+	// a value above 1 means the output timeline is gaining on real time (the lead above grows).
+	TimelineRate float64 `json:"timelineRate,omitempty"`
+	// DriftPerHour extrapolates the rate deviation into seconds gained per hour, which is the
+	// number that actually answers "is it getting worse".
+	DriftPerHour float64 `json:"driftPerHour,omitempty"`
 
 	// Source reconnect evidence, from the program relay FFmpeg stderr.
 	RelayReconnects int    `json:"relayReconnects,omitempty"`

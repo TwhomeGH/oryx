@@ -590,7 +590,16 @@
         "noteAutoVfr": "auto：VFR のリズムを維持",
         "noteComposite": "スレートは固定レートで再エンコード（リズムは保持されない）",
         "sourceJitter": "実測ジッター ±{{value}}ms",
-        "sourceMaxGap": "最大間隔 {{value}}ms"
+        "sourceMaxGap": "最大間隔 {{value}}ms",
+        "driftRate": "タイムライン速度",
+        "driftRateOk": "実時間どおり",
+        "driftRateBad": "1時間あたり {{perHour}} 秒ずれる",
+        "driftRatePending": "30 秒分のサンプルが必要",
+        "driftLead": "実時間との差",
+        "driftLeadHint": "遅延ではありません。再生バッファを読み切った分の先行です",
+        "programFps": "番組出力",
+        "programEncoded": "実効",
+        "programStartup": "初回フレーム"
       },
       "statusTitle": "転送ステータス",
       "statusShort": "転送",

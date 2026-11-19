@@ -621,6 +621,9 @@ func (v *ForwardWorker) Handle(ctx context.Context, handler *http.ServeMux) erro
 							}
 						}
 					}
+					if pm := status.ProgramMetrics; pm != nil && pm.UpdatedAt != "" {
+						elem["programMetrics"] = pm
+					}
 					elem["programSwitches"] = status.ProgramSwitches
 					if status.ProgramPlan != "" {
 						elem["programPlan"] = status.ProgramPlan
@@ -1009,6 +1012,8 @@ type ForwardTaskStatus struct {
 	ProgramSourceCFR    bool
 	ProgramSourceJitter float64
 	ProgramSourceGapMS  float64
+	// ProgramMetrics is the publisher's own progress, so the transcode cost is measurable.
+	ProgramMetrics      *ProgramMetrics
 	ProgramArgs         string
 	ProgramLogs         []string
 	ProgramSwitches     int
@@ -1236,6 +1241,7 @@ func (v *ForwardTask) queryStatus() ForwardTaskStatus {
 			status.ProgramSourceJitter = ps.SourceJitterMS
 			status.ProgramSourceGapMS = ps.SourceMaxGapMS
 			status.ProgramSourceRate = ps.SourceRate
+			status.ProgramMetrics = ps.ProgramMetrics
 			status.ProgramArgs = ps.Args
 			status.ProgramLogs = ps.Logs
 		}
@@ -1334,7 +1340,15 @@ func (v *ForwardTask) queryMetrics(ps *ProgramStatus) *ForwardMetrics {
 	// positive drift indicates timestamp jumps (e.g. after a relay reconnect); ~0 means the
 	// output advances at realtime.
 	if !v.metricsFirstAt.IsZero() {
-		m.MediaClockDrift = (v.metrics.mediaSec - v.metricsFirstSec) - v.metrics.at.Sub(v.metricsFirstAt).Seconds()
+		wall := v.metrics.at.Sub(v.metricsFirstAt).Seconds()
+		media := v.metrics.mediaSec - v.metricsFirstSec
+		m.MediaClockDrift = media - wall
+		// Split the one number into the two questions: how fast is the timeline running, and is the
+		// lead growing? A short window cannot answer either, so require at least 30s of samples.
+		if wall >= 30 {
+			m.TimelineRate = media / wall
+			m.DriftPerHour = (m.TimelineRate - 1) * 3600
+		}
 	}
 	if ps != nil {
 		m.RelayReconnects = ps.Reconnects

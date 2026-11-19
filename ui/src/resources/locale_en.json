@@ -146,7 +146,16 @@
         "noteAutoVfr": "auto: VFR cadence preserved",
         "noteComposite": "slate failover encodes at a fixed rate, cadence not preserved",
         "sourceJitter": "measured jitter ±{{value}}ms",
-        "sourceMaxGap": "largest gap {{value}}ms"
+        "sourceMaxGap": "largest gap {{value}}ms",
+        "driftRate": "Timeline rate",
+        "driftRateOk": "holding real time",
+        "driftRateBad": "drifting {{perHour}}s per hour",
+        "driftRatePending": "needs 30s of samples",
+        "driftLead": "Lead over wall clock",
+        "driftLeadHint": "not latency: the head start from draining the play buffer",
+        "programFps": "Program output",
+        "programEncoded": "delivered",
+        "programStartup": "first frame"
       },
       "statusTitle": "Forward status",
       "statusShort": "Forward",

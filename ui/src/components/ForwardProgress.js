@@ -45,7 +45,7 @@ function Sparkline({data}) {
  *   log, the metrics object, and the diagnostics timeline / recent logs of the target.
  * @returns {React.ReactElement} Local progress summary and raw diagnostics.
  */
-export default function ForwardProgress({log, metrics, events, logs, encoder, ffmpegArgs, programSourceRate, programSourceCFR, programSourceJitterMS, programSourceMaxGapMS, programPlan, programPlanReason, programLastError, programLogs, programArgs}) {
+export default function ForwardProgress({log, metrics, events, logs, encoder, ffmpegArgs, programSourceRate, programSourceCFR, programSourceJitterMS, programSourceMaxGapMS, programPlan, programPlanReason, programLastError, programLogs, programArgs, programMetrics}) {
   const {t} = useTranslation();
 
   // The program timeline plan is a code (copy/repair/cfr/composite) with a reason code; translate
@@ -88,7 +88,7 @@ export default function ForwardProgress({log, metrics, events, logs, encoder, ff
     }
   }
 
-  if (!log && !metrics && !events?.length && !logs?.length && !ffmpegArgs && !programLastError && !(programLogs?.length) && !programArgs && !programPlan) {
+  if (!log && !metrics && !events?.length && !logs?.length && !ffmpegArgs && !programLastError && !(programLogs?.length) && !programArgs && !programPlan && !(programMetrics?.updatedAt)) {
     return <div className="small text-muted">{t('forward.progress.empty')}</div>;
   }
 
@@ -102,7 +102,27 @@ export default function ForwardProgress({log, metrics, events, logs, encoder, ff
           <div>{t('forward.progress.avgFps')}: {fmt(metrics.avgFps)}</div>
           {programSourceRate && <div>{t('forward.progress.sourceRate')}: {programSourceRate} → {fmt(metrics.avgFps)}</div>}
       <div>{t('forward.progress.noOutput')}: {fmt(metrics.noOutputSeconds)}s</div>
-      <div>{t('forward.progress.drift')}: {fmt(metrics.mediaClockDriftSec)}s</div>
+      <div>
+        {t('forward.progress.driftRate')}: {
+          metrics.timelineRate
+            ? <>{metrics.timelineRate.toFixed(4)} <span className="text-muted">
+                ({metrics.timelineRate >= 0.998 && metrics.timelineRate <= 1.002
+                  ? t('forward.progress.driftRateOk')
+                  : t('forward.progress.driftRateBad', {perHour: fmt(metrics.driftPerHour)})})
+              </span></>
+            : <span className="text-muted">{t('forward.progress.driftRatePending')}</span>
+        }
+      </div>
+      <div>{t('forward.progress.driftLead')}: {fmt(metrics.mediaClockDriftSec)}s
+        <span className="text-muted"> · {t('forward.progress.driftLeadHint')}</span>
+      </div>
+      {programMetrics && programMetrics.updatedAt && <div>
+        {t('forward.progress.programFps')}: {fmt(programMetrics.fps)}
+        {programMetrics.encodedFps ? ` · ${t('forward.progress.programEncoded')}: ${programMetrics.encodedFps.toFixed(1)}fps` : ''}
+        {programMetrics.speed ? ` · speed ${programMetrics.speed.toFixed(2)}x` : ''}
+        {programMetrics.bitrateKbps ? ` · ${Math.round(programMetrics.bitrateKbps)} kbps` : ''}
+        {programMetrics.startupMs ? ` · ${t('forward.progress.programStartup')}: ${(programMetrics.startupMs / 1000).toFixed(1)}s` : ''}
+      </div>}
       {metrics.relayReconnects > 0 && <div>{t('forward.progress.reconnects')}: {metrics.relayReconnects}</div>}
       {encoder && <div>{t('forward.progress.encoder')}: {encoder}{encHardware ? ` ${t('forward.progress.gpu')}` : ''}</div>}
       {(programPlan || programSourceRate) && <div>
