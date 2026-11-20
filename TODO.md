@@ -26,7 +26,7 @@
 |---|---|---|
 | `[x]` | 圖表統一時間軸 | 四張圖改用「分析開始後的秒數」為共同 x 軸、共用 60 秒滑動視窗與秒制刻度；WebRTC 分頁的三張圖（RTT／位元率／jitter）也接上同一套時間基準（各自以 session 起點計時）；GOP 以平行時間陣列保存，統計與既有測試不受影響 |
 | `[x]` | 頁面拆檔 | 144KB → HTML 22.4KB＋`pushdiag.css`＋`js/pushdiag.js`(120KB)；pushdiag 自家資源一律 no-cache revalidate（第三方仍 30 天），避免長快取讓改動不生效 |
-| `[~]` | 靜態資源版本化 | pushdiag 自家資源已改為 revalidate；`player.css` 與其他第三方 js 仍吃 30 天長快取，若要改它們需另建版本化機制 |
+| `[x]` | 靜態資源版本化 | HTML no-cache ＋ 資源網址帶 `?v=<建置 revision>`（CI 傳 github.sha、本機傳 git HEAD、未帶參數則 `dev-<timestamp>`）；css/js 維持 30 天快取，換 build 即失效，附守門測試 |
 | `[x]` | 轉播整合測試偶發失敗 | 原因是來源只推 9 秒、而冷啟動綁定可能更久，來源先消失導致 target 永遠到不了 live；改為來源存活至測試主動 stop，並先確認綁到本測試的 stream |
 | `[x]` | 診斷頁深層連結 | 支援 `?app=&stream=[&autostart=1]`：預填並切到手動輸入（避免被「跟隨來源」覆蓋）；開始分析後把來源寫回網址，方便分享 |
 | `[x]` | DTS 倒退時間軸標記 | 影片 DTS 倒退與音訊 PTS 回退各以標記畫在封包圖的共用時間軸上（頂端三角／菱形），不再只有累計次數 |
