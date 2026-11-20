@@ -51,6 +51,21 @@ a:hover { color: var(--accent-hover); }
     margin: 0 auto;
     gap: 32px;
 }
+/* A page out of the nav (e.g. the diagnostics page going back to the console). It lives here now
+   that asset URLs are versioned: before that, a 30-day cache made adding it to player.css useless. */
+.nav-back {
+    margin-left: auto;
+    padding: 8px 14px;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.nav-back:hover { background: var(--accent-glow); text-decoration: none; }
+
 .navbar-brand {
     font-size: 20px;
     font-weight: 700;
