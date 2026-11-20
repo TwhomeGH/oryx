@@ -27,6 +27,25 @@ function loadPage() {
   w.eval(pageScript);
 }
 
+describe('PushDiag deep links', () => {
+  it('analyses the stream named in ?stream= instead of the default', () => {
+    loadPage();
+    const picked = w.applyStreamParam('?app=live&stream=obs-test');
+    expect(picked).toEqual({app: 'live', stream: 'obs-test'});
+    expect(w.document.getElementById('streamInput').value).toBe('obs-test');
+    // The source list must not silently override the link with "follow the newest".
+    expect(w.document.getElementById('analysisSelect').value).toBe('manual');
+  });
+
+  it('defaults the app to live and ignores a link without a stream', () => {
+    loadPage();
+    // A link with only ?app= must not overwrite what the operator typed.
+    expect(w.applyStreamParam('?app=live')).toBe(null);
+    expect(w.document.getElementById('streamInput').value).toBe('livestream');
+    expect(w.applyStreamParam('?stream=abc123').app).toBe('live');
+  });
+});
+
 describe('PushDiag timeline marks and drift history', () => {
   it('records a video DTS rollback as a mark at its time', () => {
     loadPage();

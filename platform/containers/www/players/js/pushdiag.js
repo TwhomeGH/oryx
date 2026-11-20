@@ -1909,6 +1909,39 @@ function updatePreviewHud() {
   document.getElementById('hudSync').textContent = sync;
 }
 
+// applyStreamParam lets a link point at a specific stream: ?app=live&stream=obs[&autostart=1].
+// Before this the page only read the input boxes, so a shared link silently analysed "livestream".
+// It selects 手動輸入 because the stream name is the whole point of the link; the source list would
+// otherwise override it with "follow the newest stream".
+function applyStreamParam(search) {
+  var qs;
+  try { qs = new URLSearchParams(search === undefined ? window.location.search : search); } catch (e) { return null; }
+  var stream = (qs.get('stream') || '').trim();
+  if (!stream) return null;
+  var app = (qs.get('app') || '').trim() || 'live';
+
+  var appEl = document.getElementById('appInput');
+  var streamEl = document.getElementById('streamInput');
+  var sel = document.getElementById('analysisSelect');
+  if (!streamEl || !sel) return null;
+
+  if (appEl) appEl.value = app;
+  streamEl.value = stream;
+  // The option only exists after the stream list renders; create it now so the selection sticks
+  // (renderSourceSelects restores the previous value when the option is present).
+  if (!Array.prototype.some.call(sel.options, function (o) { return o.value === 'manual'; })) {
+    sel.appendChild(new Option('手動輸入', 'manual'));
+  }
+  sel.value = 'manual';
+  state.deepLink = { app: app, stream: stream };
+
+  // Never leave a publish secret in the address bar if a caller pasted one.
+  if (qs.get('autostart') === '1' && typeof startAnalysis === 'function') {
+    try { startAnalysis(); } catch (e) { /* the button still works */ }
+  }
+  return state.deepLink;
+}
+
 // ── 分析流程 ──
 async function startAnalysis() {
   syncManualFields();
@@ -1916,6 +1949,13 @@ async function startAnalysis() {
   var a = resolveAnalysis();
   var url = buildFlvUrl(host, a.app, a.stream);
   document.getElementById('flvUrl').textContent = url;
+  // Make the address bar describe what is being analysed, so copying it reproduces this view.
+  try {
+    var q = new URLSearchParams(window.location.search);
+    q.set('app', a.app || 'live');
+    q.set('stream', a.stream || '');
+    window.history.replaceState(null, '', window.location.pathname + '?' + q.toString());
+  } catch (e) { /* history is unavailable in some embeds */ }
 
   stopAnalysis();
   resetState();
@@ -2793,3 +2833,5 @@ setInterval(function () {
 
 buildCharts();
 buildRtcCharts();
+// Deep links (?app=&stream=) must win over the input defaults; the stream list may re-render later.
+applyStreamParam();
