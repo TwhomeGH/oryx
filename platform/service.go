@@ -434,19 +434,21 @@ func handleHTTPService(ctx context.Context, handler *http.ServeMux) error {
 		}
 		if strings.HasPrefix(r.URL.Path, "/players/") || strings.HasPrefix(r.URL.Path, "/tools/") {
 			if r.URL.Path != "/tools/player.html" && r.URL.Path != "/tools/xgplayer.html" {
-				// HTML pages must revalidate: they carry the page logic inline and change with
-				// every deploy, so a 30-day cache kept serving stale pages (e.g. a diagnostics
-				// page that ignored an updated preference). Static assets keep the long cache.
-				//
-				// The diagnostics page is the exception: its own css/js are edited constantly, and a
-				// 30-day cache would leave users on an old copy (the page itself is no-cache, so the
-				// mismatch is invisible). Revalidation costs one 304.
-				diagnosticsOwnAsset := strings.Contains(r.URL.Path, "/pushdiag.")
-				if strings.HasSuffix(r.URL.Path, ".html") || strings.HasSuffix(r.URL.Path, ".htm") || diagnosticsOwnAsset {
+				// HTML revalidates and everything else keeps the long cache: pages carry the asset URLs,
+				// and those change with the build (?v=<revision>), so a stale css/js cannot survive a
+				// deploy even though it is cached for 30 days.
+				if strings.HasSuffix(r.URL.Path, ".html") || strings.HasSuffix(r.URL.Path, ".htm") {
 					w.Header().Set("Cache-Control", "no-cache, max-age=0")
 				} else {
 					w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%v", 30*24*3600))
 				}
+			}
+
+			// Pages reference css/js as "file.css?v=__ORYX_VER__"; stamping it here (the HTML itself is
+			// no-cache) is what makes the long asset cache safe on every build.
+			if strings.HasSuffix(r.URL.Path, ".html") || strings.HasSuffix(r.URL.Path, ".htm") {
+				servePlayerHTML(ctx, w, r, path.Join(conf.Pwd, "containers/www"))
+				return
 			}
 			platformFileServer.ServeHTTP(w, r)
 			return
@@ -2453,6 +2455,42 @@ func handleMgmtStreamsKickoff(ctx context.Context, handler *http.ServeMux) {
 			ohttp.WriteError(ctx, w, r, err)
 		}
 	})))
+}
+
+// servePlayerHTML writes a page with the asset version token replaced. Doing the substitution at
+// serve time keeps the pages plain HTML in the repo while giving every build unique asset URLs.
+func servePlayerHTML(ctx context.Context, w http.ResponseWriter, r *http.Request, root string) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		w.Header().Set("Allow", "GET, HEAD")
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	root = path.Clean(root)
+	fp := path.Join(root, path.Clean("/"+r.URL.Path))
+	// The join above cannot escape, but make it explicit rather than relying on that.
+	if fp != root && !strings.HasPrefix(fp, root+"/") {
+		http.NotFound(w, r)
+		return
+	}
+
+	b, err := os.ReadFile(fp)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	body := bytes.ReplaceAll(b, []byte("__ORYX_VER__"), []byte(buildRevision()))
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache, max-age=0")
+	w.Header().Set("Content-Length", fmt.Sprintf("%v", len(body)))
+	w.WriteHeader(http.StatusOK)
+	if r.Method == http.MethodHead {
+		return
+	}
+	if _, err := w.Write(body); err != nil {
+		logger.Wf(ctx, "serve %v err %+v", r.URL.Path, err)
+	}
 }
 
 func handleMgmtUI(ctx context.Context, handler *http.ServeMux) {

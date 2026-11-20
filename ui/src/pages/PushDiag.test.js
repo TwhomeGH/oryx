@@ -1,4 +1,4 @@
-import {readFileSync} from 'node:fs';
+import {readFileSync, readdirSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {JSDOM} from 'jsdom';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
@@ -26,6 +26,24 @@ afterEach(() => dom.window.close());
 function loadPage() {
   w.eval(pageScript);
 }
+
+describe('Player asset cache busting', () => {
+  // A page that references css/js without ?v=__ORYX_VER__ gets a 30-day cached copy that a deploy
+  // cannot replace. This caught the split itself: pushdiag.js would otherwise stay stale.
+  it('every local css/js reference in the player pages carries the build token', () => {
+    const pages = readdirSync(playerRoot).filter(n => n.endsWith('.html'));
+    expect(pages.length).toBeGreaterThan(0);
+    const problems = [];
+    for (const page of pages) {
+      const body = readFileSync(resolve(playerRoot, page), 'utf8');
+      const refs = body.match(/(href|src)="(css|js)\/[^"]+"/g) || [];
+      for (const ref of refs) {
+        if (!ref.includes('?v=__ORYX_VER__')) problems.push(page + ': ' + ref);
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+});
 
 describe('PushDiag deep links', () => {
   it('analyses the stream named in ?stream= instead of the default', () => {

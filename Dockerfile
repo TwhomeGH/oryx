@@ -124,8 +124,21 @@ EXPOSE 2022 2443 1935 8080 5060 9000 8000/udp 10080/udp
 # input for `docker inspect` and for the deploy tooling.
 ARG SRS_IMAGE
 ARG SRS_SOURCE
+# The git revision is stamped into every page's asset URLs (?v=<revision>), so a build always gets
+# fresh css/js while unchanged assets keep their long cache. Without it the token would not move on
+# a local rebuild and browsers would serve a stale player.css.
+ARG ORYX_REVISION=dev
 LABEL org.opencontainers.image.srs.image="${SRS_IMAGE}"
 LABEL org.opencontainers.image.srs.source="${SRS_SOURCE}"
+LABEL org.opencontainers.image.revision="${ORYX_REVISION}"
+ENV ORYX_REVISION="${ORYX_REVISION}"
+# A plain `docker build .` has no git revision, and every such build would otherwise share the token
+# "dev" and keep serving cached assets. Record a build-unique value the platform falls back to.
+RUN if [ -n "${ORYX_REVISION}" ] && [ "${ORYX_REVISION}" != "dev" ]; then \
+      echo "${ORYX_REVISION}" > /etc/oryx-revision; \
+    else \
+      echo "dev-$(date +%s)" > /etc/oryx-revision; \
+    fi
 # Runtime visibility: the platform reports these next to its own version, so a screenshot or a log
 # says which core produced it.
 ENV ORYX_SRS_IMAGE="${SRS_IMAGE}"

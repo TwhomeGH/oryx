@@ -100,6 +100,19 @@ docker load -i oryx-local.tar
 
 兩者不衝突：本地先驗證沒問題，再 push 讓 CI 出正式版。
 
+## 靜態資源快取與版本化
+
+`/players/*` 的 HTML 一律 `no-cache`，其餘 css/js 吃 **30 天**長快取。為了讓改動在部署後立刻生效，頁面把資源寫成 `player.css?v=__ORYX_VER__`，平台在服務 HTML 時把 `__ORYX_VER__` 換成**建置 revision**：
+
+| 項目 | 值 |
+|---|---|
+| 來源 | 建置參數 `ORYX_REVISION`（CI 傳 `github.sha`，`local-deploy.ps1` 傳 `git rev-parse HEAD`） |
+| 未帶參數 | 建置時把 `dev-<timestamp>` 寫進 `/etc/oryx-revision`，平台讀它 → 每次 build 仍會換網址 |
+| 顯示 | `/terraform/v1/mgmt/versions` 只回產品版本；revision 用 `docker inspect` 的 `org.opencontainers.image.revision` 或頁面網址裡的 `?v=` 確認 |
+| 效果 | 檔案沒變 → 照樣吃 30 天快取；換 build → 網址變 → 瀏覽器一定重抓 |
+
+新增頁面時，本地 css/js 引用**必須**帶 `?v=__ORYX_VER__`（`PushDiag.test.js` 有守門測試，漏了會失敗）。CDN 資源不用加。
+
 ## Windows 已知坑：符號連結
 
 repo 內有 Git 符號連結（如 platform/objs -> containers/objs）。

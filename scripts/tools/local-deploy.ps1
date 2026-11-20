@@ -103,7 +103,8 @@ if (-not $Check) {
     }
     $buildArgs = @('build', '-t', $Image,
         '--label', "oryx.revision=$revision",
-        '--label', "oryx.version=$version")
+        '--label', "oryx.version=$version",
+        '--build-arg', "ORYX_REVISION=$revision")
     if ($SrsImage) {
         $buildArgs += @('--build-arg', "SRS_IMAGE=$SrsImage", '--build-arg', "SRS_SOURCE=$SrsSource")
     }

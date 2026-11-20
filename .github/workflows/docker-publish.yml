@@ -84,6 +84,10 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
+          # The revision becomes the ?v= token on every player asset URL, so a rebuild always ships
+          # fresh css/js while unchanged files keep their long cache.
+          build-args: |
+            ORYX_REVISION=${{ github.sha }}
           platforms: linux/amd64
           push: false
           load: true
