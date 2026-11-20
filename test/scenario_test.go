@@ -1769,8 +1769,12 @@ func testForwardKeepalive(t *testing.T, failover string, expectSlate bool) {
 	streamID := fmt.Sprintf("stream-keepalive-%v-%v", os.Getpid(), rand.Int())
 	streamURL := fmt.Sprintf("%v/live/%v?secret=%v", *endpointRTMP, streamID, pubSecret)
 
-	// Publish the source for a while, then it exits to simulate an outage.
-	runSource := func(duration time.Duration) {
+	// runSource publishes until the returned stop function is called (or the duration cap fires).
+	// The outage is triggered explicitly: with a fixed 9s timer, a slow cold start could kill the
+	// source before the pipeline had bound it, and the test then waited 30s for a "live" state that
+	// could never happen (the intermittent 33s failure).
+	runSource := func(duration time.Duration) (stop func()) {
+		srcCtx, srcCancel := context.WithCancel(ctx)
 		ffmpeg := NewFFmpeg(func(v *ffmpegClient) {
 			v.args = []string{
 				"-re", "-stream_loop", "-1", "-i", *srsInputFile, "-c", "copy",
@@ -1783,8 +1787,9 @@ func testForwardKeepalive(t *testing.T, failover string, expectSlate bool) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_ = ffmpeg.Run(ctx, cancel)
+			_ = ffmpeg.Run(srcCtx, srcCancel)
 		}()
+		return srcCancel
 	}
 
 	forwardStatus := func() map[string]interface{} {
@@ -1815,8 +1820,10 @@ func testForwardKeepalive(t *testing.T, failover string, expectSlate bool) {
 		return false
 	}
 
-	// Start the source and wait it to be active.
-	runSource(9 * time.Second)
+	// Start the source and keep it alive through the "live" assertions; the outage comes later and
+	// on purpose. 120s is only a safety cap.
+	stopSource := runSource(120 * time.Second)
+	defer stopSource()
 	select {
 	case <-ctx.Done():
 		return
@@ -1846,6 +1853,16 @@ func testForwardKeepalive(t *testing.T, failover string, expectSlate bool) {
 					s["platform"], s["status"], s["enabled"], s["restartCount"], s["lastError"])
 			}
 		}
+	}
+
+	// The target must bind the stream this test publishes. Without this check a stream left behind by
+	// an earlier test could be selected, and stopping our source would never flip the target.
+	if !waitStatus("bound our source", func(m map[string]interface{}) bool {
+		input, _ := m["stream"].(string)
+		return strings.Contains(input, streamID)
+	}) {
+		r1 = errors.Errorf("target bound another stream, want %v status=%v", streamID, forwardStatus())
+		return
 	}
 
 	// The program should be live, and the fanout running.
@@ -1890,7 +1907,17 @@ func testForwardKeepalive(t *testing.T, failover string, expectSlate bool) {
 	// Record the restart count once the fanout is running, to assert the outage causes no restart.
 	baseRestart := forwardStatus()["restartCount"].(float64)
 
-	// The source exits now. The program must keep the downstream alive: hold the last frame
+	// Trigger the outage: the program must keep the downstream alive while the source is gone.
+	logger.Tf(ctx, "stop source to simulate the outage, stream=%v", streamID)
+	stopSource()
+	if !waitStatus("source gone", func(m map[string]interface{}) bool {
+		return m["fallback"] == true
+	}) {
+		r2 = errors.Errorf("fallback never engaged, status=%v", forwardStatus())
+		return
+	}
+
+	// The program must keep the downstream alive: hold the last frame
 	// (hold mode) or switch to the fallback slate (slate mode). The fanout must not restart.
 	// The composite failover (slate) renders the base+source overlay itself, so it keeps the
 	// "composite" mode and only flips fallback=true; the hold relay stays "live".
@@ -1915,7 +1942,8 @@ func testForwardKeepalive(t *testing.T, failover string, expectSlate bool) {
 	}
 
 	// Bring the source back, the program bus must switch back to live.
-	runSource(20 * time.Second)
+	stopRecover := runSource(60 * time.Second)
+	defer stopRecover()
 	if !waitStatus("live again", func(m map[string]interface{}) bool {
 		return m["status"] == "running" && forwardLiveMode(m["programMode"]) && m["fallback"] == false
 	}) {
