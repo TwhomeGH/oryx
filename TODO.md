@@ -80,6 +80,7 @@
 - [ ] 品質比對自動對齊 — 目前仍需手動掃描偏移；循環來源會讓自動搜尋失準
 - [x] PowerShell 說明文件檢查 — `scripts/tools/check-ps1-docs.ps1`，PR 時執行
 - [x] CI 失敗分類標註 — Go／整合測試失敗會輸出 `::error` 註解與 Job Summary
+- [x] API 參考產生器 — `scripts/tools/gen-api-reference.py` 掃描 handler 註冊點，產生 `docs/api-reference.md`（148 端點：動作、認證、既有文件連結、實作位置）；PR CI 以 `--check` 驗證是否過期
 
 ---
 

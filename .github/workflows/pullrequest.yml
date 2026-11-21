@@ -529,3 +529,13 @@ jobs:
       - test-en-installer
     steps:
       - run: echo OK
+
+  # docs/api-reference.md is generated from the handler registrations; failing here keeps the index
+  # from silently drifting away from the code (that is how the API ended up undocumented).
+  check-api-reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify docs/api-reference.md is up to date
+        shell: bash
+        run: python3 scripts/tools/gen-api-reference.py --check

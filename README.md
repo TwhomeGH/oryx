@@ -43,6 +43,7 @@ docker run --restart always -d --name oryx \
 | [部署指南](docs/deploy-guide.md) | 快速开始、端口对照、`/data` 目录、环境变量，及部署相关文档入口 |
 | [Docker 使用说明](docs/docker-usage.md) | 本 fork 自有 GHCR 镜像、compose 部署、版本更新与发布 |
 | [功能列表](docs/features.md) | 已实现与规划中的功能 |
+| [API 参考](docs/api-reference.md) | 全部 `/terraform/v1` 端点索引（自动产生，CI 验证） |
 | [TODO](TODO.md) | 待办与已完成事项的单一入口 |
 | [FAQ 与教学](docs/faq-tutorials.md) | 常见问题与各类使用场景教学 |
 | [开发者指南](DEVELOPER.md) | API、架构、环境变量（开发用） |
