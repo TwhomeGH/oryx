@@ -47,6 +47,7 @@ def summarize(comment, func):
     if m:
         text = m.group(1)
     text = text.strip(" .。")
+    text = re.sub(r"(?<![`(])(https?://[^\s)）]+)", r"`\1`", text)
     if len(text) > 160:
         text = text[:157] + "…"
     return text.replace("|", "\\|")
@@ -154,6 +155,7 @@ def ep_comment(lines, func_start, body, path):
         i -= 1
     out.reverse()
     text = " ".join(out).strip()
+    text = re.sub(r"(?<![`(])(https?://[^\s)）]+)", r"`\1`", text)
     if len(text) > 160:
         text = text[:157] + "…"
     return text.replace("|", "\\|")
@@ -250,7 +252,7 @@ def render(items):
     out.append("共 **%d** 個 `/terraform/v1` 端點。認證欄位：" % len(items))
     out.append("")
     out.append("| 值 | 意義 |")
-    out.append("|---|---|")
+    out.append("| --- | --- |")
     out.append("| `body token` | 請求 body 需帶 `token`（`middlewareAuthTokenInBody`） |")
     out.append("| `query token` | 以查詢參數帶 token（`middlewareAuthTokenInURL`） |")
     out.append("| `—` | 沒有掛中介層；可能是 SRS hook（由 SRS 直接呼叫）或刻意公開 |")
@@ -268,10 +270,10 @@ def render(items):
         out.append("## %s（%d）" % (group, len(rows)))
         out.append("")
         out.append("| 端點 | 動作 | 認證 | 說明 | 文件 | 實作 |")
-        out.append("|---|---|---|---|---|---|")
+        out.append("| --- | --- | --- | --- | --- | --- |")
         for e in rows:
             links = ", ".join("`%s`" % d for d in e["docs"]) if e.get("docs") else ""
-            out.append("| `%s` | %s | %s | %s | %s | `%s`（%s） |" % (
+            out.append(("| `%s` | %s | %s | %s | %s | `%s`（%s） |" % (
                 e["path"],
                 ", ".join(e["actions"]) if e["actions"] else "單一",
                 AUTH_LABEL.get(e["auth"], e["auth"]),
@@ -279,7 +281,7 @@ def render(items):
                 links,
                 e["func"],
                 e["file"],
-            ))
+            )).replace("|  |", "| |"))
         out.append("")
 
     out.append("---")
@@ -293,8 +295,17 @@ def render(items):
     return "\n".join(out)
 
 
+LINT_SEP = "|---|"
+
+
 def validate(body):
     """A table that silently loses a column is worse than a stale one; fail loudly."""
+    for line in body.split("\n"):
+        if LINT_SEP in line:
+            raise SystemExit("markdownlint MD060: separator must be '| --- | ... |', got: %s" % line)
+        if line.startswith("|") and "|  |" in line:
+            raise SystemExit("markdownlint MD060: empty cell must be '| |', got: %s" % line)
+
     rows = [l for l in body.split("\n") if l.startswith("| `/terraform")]
     for row in rows:
         if row.count("|") != 7:
