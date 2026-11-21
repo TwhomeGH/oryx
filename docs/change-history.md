@@ -2,6 +2,46 @@
 
 > 本檔由 changelogkit 管理（見 [變更歷史說明](changelog.md)）。新增請用 `changelogkit add`（或 `changelogkit serve` 的網頁 GUI）。
 
+## 2026.11.21 11:56 v5.22.13 API 文件基礎建設與靜態資源版本化
+
+## API 參考
+- 新增 docs/api-reference.md：由程式掃描 handler 註冊點產生，148 個 /terraform/v1 端點的路徑、
+  action 分支、認證方式、既有文件連結與實作位置；說明欄優先取註解，沒有註解則由路徑推導中文標籤
+- 新增 OpenAPI 3.0.3 規格：8 個維運端點的請求／回應 schema 由真實回應推導，action 以 x-actions
+  表示；執行中的實例在 /openapi.json
+- 新增 /players/api.html 瀏覽頁（自架、無 CDN）：分組、搜尋、欄位表、回應範例與 curl；token 只存在
+  頁面記憶體
+- CI 驗證兩份文件都與程式一致
+
+## 靜態資源版本化
+- 頁面資源網址改帶 ?v=<建置 revision>：css/js 維持 30 天快取，換 build 即失效；未帶參數時建置
+  階段寫入 dev-<timestamp>
+- 移除 pushdiag 的特例，共用樣式（.nav-back）搬回 player.css，六個頁面已無 inline style 區塊
+- 本機建置在工作樹有未提交變更時使用 -dirty-<timestamp>，避免瀏覽器沿用舊資源
+
+## 測試
+- 轉播 Keepalive 整合測試改為明確觸發中斷：來源存活到測試主動停止，並先確認綁到本測試的 stream，
+  消除冷啟動時 33 秒的偶發失敗（連跑 3 輪 9 次全過）
+
+**類型**: 發佈
+
+### 修改 - v5.22.13
+
+- 文件：OpenAPI 規格與自架 API 瀏覽頁（Step 2）
+- 文件：API 索引改成 markdownlint MD060 可接受的表格樣式
+- 文件：API 索引不再有佔位破折號，說明欄一律有內容
+- Fix Markdownlint MD60...
+- 文件：新增自動產生的 API 參考（148 端點索引）＋ CI 守門
+- 變更歷史：修正 v5.22.11／v5.22.12 子標題層級
+- TODO：改用 GitHub 任務清單（- [ ]／- [x]）追蹤
+- 樣式收尾：共用元件搬回 player.css，頁面樣式保持乾淨
+- TODO：靜態資源版本化完成
+- 靜態資源版本化：以建置 revision 當 ?v= token
+- TODO：轉播整合測試偶發失敗已修正
+- 測試：轉播 Keepalive 改為明確觸發中斷，消除偶發失敗
+
+---
+
 ## 2026.11.20 08:55 v5.22.12 推流診斷頁整批整理
 
 ### 圖表

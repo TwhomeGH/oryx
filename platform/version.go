@@ -9,7 +9,7 @@ import (
 )
 
 // The version for platform.
-const version = "v5.22.12"
+const version = "v5.22.13"
 
 // buildRevision is the git revision stamped into the image (Dockerfile ARG ORYX_REVISION). It is used
 // as the ?v= token on player asset URLs: css/js keep a 30-day cache, and a new build changes the URL
