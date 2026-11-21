@@ -93,6 +93,12 @@ if (Test-Path (Join-Path $repoRoot 'platform\version.go')) {
 }
 $revision = (git -C $repoRoot rev-parse HEAD 2>$null); if (-not $revision) { $revision = 'unknown' }
 $revision = $revision.Trim()
+# The asset URLs use this as ?v=<revision>. An uncommitted tree keeps the same commit, so a cached
+# player.css/api-docs.js would hide local edits; a per-build suffix makes every dirty build unique.
+$dirty = (git -C $repoRoot status --porcelain 2>$null)
+if ($dirty) {
+    $revision = "$revision-dirty-$(Get-Date -Format 'yyMMddHHmmss')"
+}
 Write-Host "source: version=$version revision=$($revision.Substring(0, [Math]::Min(12, $revision.Length)))"
 
 # --- Build the local image with build labels ---

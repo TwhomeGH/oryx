@@ -1,0 +1,1423 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Oryx 維運 API",
+    "version": "v5.22.12",
+    "description": "平台維運端點的規格。完整端點清單見 docs/api-reference.md；本規格只涵蓋實際會用到的部分，schema 由真實回應推導。"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:882",
+      "description": "本機預設埠"
+    }
+  ],
+  "tags": [
+    {
+      "name": "forward",
+      "description": "多平台轉播：目標設定、狀態、指標與執行紀錄。"
+    },
+    {
+      "name": "streams",
+      "description": "SRS 串流狀態與生命週期事件。"
+    },
+    {
+      "name": "record",
+      "description": "錄影（DVR）狀態。"
+    },
+    {
+      "name": "system",
+      "description": "平台自身的磁碟、GPU、SRS 日誌健康與版本資訊。"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Authorization: Bearer <API token>；也接受 body 內的 token 欄位。"
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "token 缺少或不正確。"
+      }
+    },
+    "schemas": {
+      "ApiResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "description": "0 表示成功。"
+          },
+          "server": {
+            "type": "string",
+            "description": "Oryx/<version>"
+          }
+        },
+        "required": [
+          "code"
+        ]
+      }
+    }
+  },
+  "paths": {
+    "/terraform/v1/ffmpeg/forward/streams": {
+      "post": {
+        "operationId": "ffmpeg_forward_streams",
+        "tags": [
+          "forward"
+        ],
+        "summary": "列出轉播目標與即時狀態",
+        "description": "回傳每個目標的狀態、指標、事件時間線與近期日誌。`stream` 是目標自己的輸出串流（本機目標會顯示，外部平台不含 secret）。",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "API token（也可改用 Authorization: Bearer）。"
+                  },
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "query"
+                    ],
+                    "description": "預設 query。"
+                  }
+                }
+              },
+              "example": {
+                "token": "<API token>"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功；`code` 非 0 表示錯誤，`data` 的形狀見 schema。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "consecutiveFailures": {
+                                "type": "number"
+                              },
+                              "custom": {
+                                "type": "boolean"
+                              },
+                              "enabled": {
+                                "type": "boolean"
+                              },
+                              "encoder": {
+                                "type": "string"
+                              },
+                              "events": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "at": {
+                                      "type": "string"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "detail": {
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              },
+                              "ffmpegArgs": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "loopExitReason": {
+                                "type": "string"
+                              },
+                              "loopPhase": {
+                                "type": "string"
+                              },
+                              "loopRunning": {
+                                "type": "boolean"
+                              },
+                              "loopUpdated": {
+                                "type": "string"
+                              },
+                              "normalize": {
+                                "type": "boolean"
+                              },
+                              "platform": {
+                                "type": "string"
+                              },
+                              "programSwitches": {
+                                "type": "number"
+                              },
+                              "restartCount": {
+                                "type": "number"
+                              },
+                              "status": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "example": {
+                  "code": 0,
+                  "data": [
+                    {
+                      "consecutiveFailures": 0,
+                      "custom": true,
+                      "enabled": false,
+                      "encoder": "copy",
+                      "events": [
+                        {
+                          "at": "2026-11-20T22:53:01Z",
+                          "name": "loop-start",
+                          "detail": "initializing"
+                        }
+                      ],
+                      "ffmpegArgs": "-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_on_http_error 4xx,5xx -reconnect_delay_max 5 -i http://localhost:2022/live/__forward_<source>.flv -c copy -max_interleave_delta 0 -f flv rtmp://<platform>/%3Capp%3E/%2A%2A%2A   (預覽：尚未啟動)",
+                      "label": "TEST clean",
+                      "loopExitReason": "",
+                      "loopPhase": "poll-wait",
+                      "loopRunning": true,
+                      "loopUpdated": "2026-11-21T03:13:34Z",
+                      "normalize": false,
+                      "platform": "forwarding-clean-keep",
+                      "programSwitches": 0,
+                      "restartCount": 0,
+                      "status": "idle"
+                    },
+                    {
+                      "consecutiveFailures": 0,
+                      "custom": true,
+                      "enabled": false,
+                      "encoder": "copy",
+                      "events": [
+                        {
+                          "at": "2026-11-20T22:53:01Z",
+                          "name": "loop-start",
+                          "detail": "initializing"
+                        }
+                      ],
+                      "ffmpegArgs": "-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_on_http_error 4xx,5xx -reconnect_delay_max 5 -i http://localhost:2022/live/__forward_<source>.flv -c copy -max_interleave_delta 0 -f flv rtmp://<platform>/%3Capp%3E/%2A%2A%2A   (預覽：尚未啟動)",
+                      "label": "TEST obs",
+                      "loopExitReason": "",
+                      "loopPhase": "poll-wait",
+                      "loopRunning": true,
+                      "loopUpdated": "2026-11-21T03:13:34Z",
+                      "normalize": false,
+                      "platform": "forwarding-obs-test",
+                      "programSwitches": 0,
+                      "restartCount": 0,
+                      "status": "idle"
+                    }
+                  ],
+                  "server": "Oryx/v5.22.12"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/terraform/v1/ffmpeg/forward/secret": {
+      "post": {
+        "operationId": "ffmpeg_forward_secret",
+        "tags": [
+          "forward"
+        ],
+        "summary": "查詢／修改轉播目標",
+        "description": "省略 action 等同查詢全部目標。`metrics`／`sessions`／`timing` 只讀，需要 `platform`；其餘動作需要完整目標設定。",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  },
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "update",
+                      "delete",
+                      "toggle",
+                      "end",
+                      "cancel-end",
+                      "metrics",
+                      "sessions",
+                      "timing"
+                    ]
+                  },
+                  "platform": {
+                    "type": "string",
+                    "description": "目標 key；自訂目標為 forwarding-<slug>。"
+                  },
+                  "stream": {
+                    "type": "string",
+                    "description": "來源串流（留空表示自動選擇）。"
+                  },
+                  "server": {
+                    "type": "string",
+                    "description": "rtmp(s)://host/app/ 形式的伺服器位址。"
+                  },
+                  "secret": {
+                    "type": "string",
+                    "description": "目標的串流金鑰；本機目標可帶 ?secret=。"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "custom": {
+                    "type": "boolean",
+                    "description": "內建平台不可設為 true。"
+                  },
+                  "label": {
+                    "type": "string",
+                    "description": "對外顯示名稱；必須與 platform 一致（forwarding-<slug>）。"
+                  },
+                  "failover": {
+                    "type": "string",
+                    "enum": [
+                      "hold",
+                      "slate"
+                    ],
+                    "description": "hold 凍結最後一格（零空窗）；slate 顯示備援畫面（會重新編碼）。"
+                  },
+                  "normalize": {
+                    "type": "boolean",
+                    "description": "已由全域設定取代，保留相容。"
+                  },
+                  "ended": {
+                    "type": "boolean"
+                  },
+                  "endedAt": {
+                    "type": "integer",
+                    "format": "int64"
+                  }
+                }
+              },
+              "example": {
+                "token": "<API token>",
+                "action": "（省略）"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功；`code` 非 0 表示錯誤，`data` 的形狀見 schema。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "forwarding-clean-keep": {
+                              "type": "object",
+                              "properties": {
+                                "platform": {
+                                  "type": "string"
+                                },
+                                "stream": {
+                                  "type": "string"
+                                },
+                                "server": {
+                                  "type": "string"
+                                },
+                                "secret": {
+                                  "type": "string"
+                                },
+                                "enabled": {
+                                  "type": "boolean"
+                                },
+                                "custom": {
+                                  "type": "boolean"
+                                },
+                                "label": {
+                                  "type": "string"
+                                },
+                                "failover": {
+                                  "type": "string"
+                                },
+                                "ended": {
+                                  "type": "boolean"
+                                },
+                                "endedAt": {
+                                  "type": "number"
+                                },
+                                "normalize": {
+                                  "type": "boolean"
+                                }
+                              }
+                            },
+                            "forwarding-obs-test": {
+                              "type": "object",
+                              "properties": {
+                                "platform": {
+                                  "type": "string"
+                                },
+                                "stream": {
+                                  "type": "string"
+                                },
+                                "server": {
+                                  "type": "string"
+                                },
+                                "secret": {
+                                  "type": "string"
+                                },
+                                "enabled": {
+                                  "type": "boolean"
+                                },
+                                "custom": {
+                                  "type": "boolean"
+                                },
+                                "label": {
+                                  "type": "string"
+                                },
+                                "failover": {
+                                  "type": "string"
+                                },
+                                "ended": {
+                                  "type": "boolean"
+                                },
+                                "endedAt": {
+                                  "type": "number"
+                                },
+                                "normalize": {
+                                  "type": "boolean"
+                                }
+                              }
+                            },
+                            "forwarding-rstream": {
+                              "type": "object",
+                              "properties": {
+                                "platform": {
+                                  "type": "string"
+                                },
+                                "stream": {
+                                  "type": "string"
+                                },
+                                "server": {
+                                  "type": "string"
+                                },
+                                "secret": {
+                                  "type": "string"
+                                },
+                                "enabled": {
+                                  "type": "boolean"
+                                },
+                                "custom": {
+                                  "type": "boolean"
+                                },
+                                "label": {
+                                  "type": "string"
+                                },
+                                "failover": {
+                                  "type": "string"
+                                },
+                                "ended": {
+                                  "type": "boolean"
+                                },
+                                "endedAt": {
+                                  "type": "number"
+                                },
+                                "normalize": {
+                                  "type": "boolean"
+                                }
+                              }
+                            },
+                            "forwarding-twitch": {
+                              "type": "object",
+                              "properties": {
+                                "platform": {
+                                  "type": "string"
+                                },
+                                "stream": {
+                                  "type": "string"
+                                },
+                                "server": {
+                                  "type": "string"
+                                },
+                                "secret": {
+                                  "type": "string"
+                                },
+                                "enabled": {
+                                  "type": "boolean"
+                                },
+                                "custom": {
+                                  "type": "boolean"
+                                },
+                                "label": {
+                                  "type": "string"
+                                },
+                                "failover": {
+                                  "type": "string"
+                                },
+                                "ended": {
+                                  "type": "boolean"
+                                },
+                                "endedAt": {
+                                  "type": "number"
+                                },
+                                "normalize": {
+                                  "type": "boolean"
+                                }
+                              }
+                            },
+                            "forwarding-youtube": {
+                              "type": "object",
+                              "properties": {
+                                "platform": {
+                                  "type": "string"
+                                },
+                                "stream": {
+                                  "type": "string"
+                                },
+                                "server": {
+                                  "type": "string"
+                                },
+                                "secret": {
+                                  "type": "string"
+                                },
+                                "enabled": {
+                                  "type": "boolean"
+                                },
+                                "custom": {
+                                  "type": "boolean"
+                                },
+                                "label": {
+                                  "type": "string"
+                                },
+                                "failover": {
+                                  "type": "string"
+                                },
+                                "ended": {
+                                  "type": "boolean"
+                                },
+                                "endedAt": {
+                                  "type": "number"
+                                },
+                                "normalize": {
+                                  "type": "boolean"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "example": {
+                  "code": 0,
+                  "data": {
+                    "forwarding-clean-keep": {
+                      "platform": "forwarding-clean-keep",
+                      "stream": "clean-src",
+                      "server": "rtmp://localhost/live/",
+                      "secret": "clean-tgt",
+                      "enabled": false,
+                      "custom": true,
+                      "label": "TEST clean",
+                      "failover": "",
+                      "ended": false,
+                      "endedAt": 0,
+                      "normalize": false
+                    },
+                    "forwarding-obs-test": {
+                      "platform": "forwarding-obs-test",
+                      "stream": "livestream",
+                      "server": "rtmp://localhost/live/",
+                      "secret": "obs-tgt",
+                      "enabled": false,
+                      "custom": true,
+                      "label": "TEST obs",
+                      "failover": "",
+                      "ended": false,
+                      "endedAt": 0,
+                      "normalize": false
+                    },
+                    "forwarding-rstream": {
+                      "platform": "forwarding-rstream",
+                      "stream": "",
+                      "server": "rtmp://live.restream.io/live",
+                      "secret": "re_1923566_event937d50822b294b13b98e12120068e53b",
+                      "enabled": false,
+                      "custom": true,
+                      "label": "RStream",
+                      "failover": "slate",
+                      "ended": false,
+                      "endedAt": 0,
+                      "normalize": true
+                    },
+                    "forwarding-twitch": {
+                      "platform": "forwarding-twitch",
+                      "stream": "",
+                      "server": "rtmp://live.twitch.tv/app",
+                      "secret": "live_789837602_NeLlfA44cvElkW0QCqfjqLQSvSsLhj",
+                      "enabled": false,
+                      "custom": true,
+                      "label": "Twitch",
+                      "failover": "",
+                      "ended": false,
+                      "endedAt": 0,
+                      "normalize": false
+                    },
+                    "forwarding-youtube": {
+                      "platform": "forwarding-youtube",
+                      "stream": "",
+                      "server": "rtmp://a.rtmp.youtube.com/live2",
+                      "secret": "61h6-40mb-69wx-xrrf-83fv",
+                      "enabled": false,
+                      "custom": true,
+                      "label": "YouTube",
+                      "failover": "slate",
+                      "ended": false,
+                      "endedAt": 0,
+                      "normalize": true
+                    }
+                  },
+                  "server": "Oryx/v5.22.12"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "x-actions": [
+          {
+            "action": "（省略）",
+            "description": "查詢全部目標設定，回傳 platform → 設定的物件。"
+          },
+          {
+            "action": "update",
+            "description": "新增或更新目標；platform 為自訂目標時 key 由 label 推導（forwarding-<slug>）。"
+          },
+          {
+            "action": "delete",
+            "description": "刪除目標，同時清掉它的指標與執行紀錄，並踢除 SRS 發佈者。"
+          },
+          {
+            "action": "toggle",
+            "description": "切換 enabled；不影響其他目標。"
+          },
+          {
+            "action": "end",
+            "description": "手動結束直播：composite 顯示結束畫面並在寬限後停止，hold 立即停止。"
+          },
+          {
+            "action": "cancel-end",
+            "description": "取消結束直播，恢復目標。"
+          },
+          {
+            "action": "metrics",
+            "description": "本次執行的取樣歷史（5 秒一筆，最多 720 筆）。"
+          },
+          {
+            "action": "sessions",
+            "description": "最近 10 場執行紀錄（含進行中的那一場）。"
+          },
+          {
+            "action": "timing",
+            "description": "來源時間軸側錄清單（每個 platform 保留最近 5 次）。"
+          }
+        ]
+      }
+    },
+    "/terraform/v1/mgmt/streams/query": {
+      "post": {
+        "operationId": "mgmt_streams_query",
+        "tags": [
+          "streams"
+        ],
+        "summary": "查詢 SRS 串流與生命週期事件",
+        "description": "帶 vhost/app/stream 可精確查單路；不帶則回傳全部。events 是發布／取消／踢除紀錄（播放事件另存）。",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  },
+                  "vhost": {
+                    "type": "string"
+                  },
+                  "app": {
+                    "type": "string"
+                  },
+                  "stream": {
+                    "type": "string"
+                  }
+                }
+              },
+              "example": {
+                "token": "<API token>"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功；`code` 非 0 表示錯誤，`data` 的形狀見 schema。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "streams": {},
+                            "events": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "client": {
+                                    "type": "string"
+                                  },
+                                  "durationSec": {
+                                    "type": "string"
+                                  },
+                                  "event": {
+                                    "type": "string"
+                                  },
+                                  "ip": {
+                                    "type": "string"
+                                  },
+                                  "stream": {
+                                    "type": "string"
+                                  },
+                                  "time": {
+                                    "type": "string"
+                                  },
+                                  "note": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            },
+                            "viewerEvents": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "client": {
+                                    "type": "string"
+                                  },
+                                  "event": {
+                                    "type": "string"
+                                  },
+                                  "ip": {
+                                    "type": "string"
+                                  },
+                                  "stream": {
+                                    "type": "string"
+                                  },
+                                  "time": {
+                                    "type": "string"
+                                  },
+                                  "note": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "example": {
+                  "code": 0,
+                  "data": {
+                    "streams": null,
+                    "events": [
+                      {
+                        "client": "35377r19",
+                        "durationSec": "53",
+                        "event": "on_unpublish",
+                        "ip": "127.0.0.1",
+                        "stream": "live/pdt3",
+                        "time": "2026-11-20T00:49:12Z"
+                      },
+                      {
+                        "client": "35377r19",
+                        "event": "on_publish",
+                        "ip": "127.0.0.1",
+                        "note": "publisher connected",
+                        "stream": "live/pdt3",
+                        "time": "2026-11-20T00:48:19Z"
+                      }
+                    ],
+                    "viewerEvents": [
+                      {
+                        "client": "036jp77y",
+                        "event": "on_stop",
+                        "ip": "172.18.0.1",
+                        "stream": "live/pdt3",
+                        "time": "2026-11-20T00:49:04Z"
+                      },
+                      {
+                        "client": "3g84pm68",
+                        "event": "on_stop",
+                        "ip": "172.18.0.1",
+                        "stream": "live/pdt3",
+                        "time": "2026-11-20T00:49:04Z"
+                      }
+                    ]
+                  },
+                  "server": "Oryx/v5.22.12"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/terraform/v1/mgmt/record/query": {
+      "post": {
+        "operationId": "mgmt_record_query",
+        "tags": [
+          "record"
+        ],
+        "summary": "查詢錄影狀態",
+        "description": "回傳進行中與已完成的錄影，以及判定為異常的原因。錄影由 SRS 的 on_hls 事件驅動，HLS 關閉時不會產生檔案。",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                }
+              },
+              "example": {
+                "token": "<API token>"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功；`code` 非 0 表示錯誤，`data` 的形狀見 schema。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "config": {
+                              "type": "object",
+                              "properties": {
+                                "all": {
+                                  "type": "boolean"
+                                },
+                                "globs": {},
+                                "processCpDir": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "working": {},
+                            "finished": {},
+                            "home": {
+                              "type": "string"
+                            },
+                            "hlsEnabled": {
+                              "type": "boolean"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "example": {
+                  "code": 0,
+                  "data": {
+                    "config": {
+                      "all": false,
+                      "globs": null,
+                      "processCpDir": ""
+                    },
+                    "working": null,
+                    "finished": null,
+                    "home": "/data/record",
+                    "hlsEnabled": false
+                  },
+                  "server": "Oryx/v5.22.12"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/terraform/v1/mgmt/disk/query": {
+      "post": {
+        "operationId": "mgmt_disk_query",
+        "tags": [
+          "system"
+        ],
+        "summary": "查詢磁碟容量",
+        "description": "回報平台會寫入的檔案系統；overlay 這類虛擬磁碟的可用空間會被夾到宿主實際可用值，並以 virtual 標記。",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                }
+              },
+              "example": {
+                "token": "<API token>"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功；`code` 非 0 表示錯誤，`data` 的形狀見 schema。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "filesystems": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "path": {
+                                    "type": "string"
+                                  },
+                                  "totalBytes": {
+                                    "type": "number"
+                                  },
+                                  "freeBytes": {
+                                    "type": "number"
+                                  },
+                                  "usedBytes": {
+                                    "type": "number"
+                                  },
+                                  "percent": {
+                                    "type": "number"
+                                  },
+                                  "virtual": {
+                                    "type": "boolean"
+                                  },
+                                  "effectiveFreeBytes": {
+                                    "type": "number"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "example": {
+                  "code": 0,
+                  "data": {
+                    "filesystems": [
+                      {
+                        "name": "data",
+                        "path": "/data",
+                        "totalBytes": 313717960704,
+                        "freeBytes": 22853373952,
+                        "usedBytes": 290864586752,
+                        "percent": 92.71531221842835,
+                        "virtual": false,
+                        "effectiveFreeBytes": 22853373952
+                      },
+                      {
+                        "name": "system",
+                        "path": "/",
+                        "totalBytes": 1081101176832,
+                        "freeBytes": 982991671296,
+                        "usedBytes": 98109505536,
+                        "percent": 9.074960571543798,
+                        "virtual": true,
+                        "effectiveFreeBytes": 22853373952
+                      }
+                    ]
+                  },
+                  "server": "Oryx/v5.22.12"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/terraform/v1/mgmt/gpu/query": {
+      "post": {
+        "operationId": "mgmt_gpu_query",
+        "tags": [
+          "system"
+        ],
+        "summary": "查詢 GPU 與編碼器狀態",
+        "description": "沒有掛載 GPU 時 available=false。WSL 不回報編碼器／解碼器利用率，該值為 0 代表未知。",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                }
+              },
+              "example": {
+                "token": "<API token>"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功；`code` 非 0 表示錯誤，`data` 的形狀見 schema。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "available": {
+                              "type": "boolean"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "utilPct": {
+                              "type": "number"
+                            },
+                            "memUtilPct": {
+                              "type": "number"
+                            },
+                            "encUtilPct": {
+                              "type": "number"
+                            },
+                            "decUtilPct": {
+                              "type": "number"
+                            },
+                            "memUsedMB": {
+                              "type": "number"
+                            },
+                            "memTotalMB": {
+                              "type": "number"
+                            },
+                            "tempC": {
+                              "type": "number"
+                            },
+                            "powerW": {
+                              "type": "number"
+                            },
+                            "powerLimitW": {
+                              "type": "number"
+                            },
+                            "clockMhz": {
+                              "type": "number"
+                            },
+                            "encSessions": {
+                              "type": "number"
+                            },
+                            "decSessions": {
+                              "type": "number"
+                            },
+                            "wsl": {
+                              "type": "boolean"
+                            },
+                            "processes": {}
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "example": {
+                  "code": 0,
+                  "data": {
+                    "available": true,
+                    "name": "NVIDIA GeForce GTX 1650",
+                    "utilPct": 36,
+                    "memUtilPct": 10,
+                    "encUtilPct": 48,
+                    "decUtilPct": 0,
+                    "memUsedMB": 3191,
+                    "memTotalMB": 4096,
+                    "tempC": 0,
+                    "powerW": 32.52,
+                    "powerLimitW": 75,
+                    "clockMhz": 1410,
+                    "encSessions": 0,
+                    "decSessions": 0,
+                    "wsl": true,
+                    "processes": null
+                  },
+                  "server": "Oryx/v5.22.12"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/terraform/v1/mgmt/srs/health/query": {
+      "post": {
+        "operationId": "mgmt_srs_health_query",
+        "tags": [
+          "system"
+        ],
+        "summary": "查詢 SRS 日誌健康",
+        "description": "掃描 /data/logs/srs.log 最近 256KB，統計錯誤、警告與四類關鍵失敗（publish timeout、kickoff、queue overflow、時間戳異常），並把相似訊息歸群。",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                }
+              },
+              "example": {
+                "token": "<API token>"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功；`code` 非 0 表示錯誤，`data` 的形狀見 schema。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "logPath": {
+                              "type": "string"
+                            },
+                            "logBytes": {
+                              "type": "number"
+                            },
+                            "windowBytes": {
+                              "type": "number"
+                            },
+                            "lines": {
+                              "type": "number"
+                            },
+                            "errorCount": {
+                              "type": "number"
+                            },
+                            "warnCount": {
+                              "type": "number"
+                            },
+                            "groups": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "pattern": {
+                                    "type": "string"
+                                  },
+                                  "level": {
+                                    "type": "string"
+                                  },
+                                  "count": {
+                                    "type": "number"
+                                  },
+                                  "lastAt": {
+                                    "type": "string"
+                                  },
+                                  "sample": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            },
+                            "recentErrors": {},
+                            "capBytes": {
+                              "type": "number"
+                            },
+                            "publishTimeout": {
+                              "type": "number"
+                            },
+                            "kickoff": {
+                              "type": "number"
+                            },
+                            "overflow": {
+                              "type": "number"
+                            },
+                            "timestampIssue": {
+                              "type": "number"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "example": {
+                  "code": 0,
+                  "data": {
+                    "logPath": "/data/logs/srs.log",
+                    "logBytes": 8215912,
+                    "windowBytes": 262144,
+                    "lines": 2242,
+                    "errorCount": 0,
+                    "warnCount": 145,
+                    "groups": [
+                      {
+                        "pattern": "client disconnect peer. ret=N",
+                        "level": "WARN",
+                        "count": 145,
+                        "lastAt": "2026-11-21 01:19:15.900",
+                        "sample": "client disconnect peer. ret=1007"
+                      }
+                    ],
+                    "recentErrors": null,
+                    "capBytes": 16777216,
+                    "publishTimeout": 0,
+                    "kickoff": 0,
+                    "overflow": 0,
+                    "timestampIssue": 0
+                  },
+                  "server": "Oryx/v5.22.12"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/terraform/v1/mgmt/versions": {
+      "post": {
+        "operationId": "mgmt_versions",
+        "tags": [
+          "system"
+        ],
+        "summary": "查詢版本",
+        "description": "回傳平台版本與 SRS 核心版本／來源（upstream 或 local）。",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                }
+              },
+              "example": {
+                "token": "<API token>"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功；`code` 非 0 表示錯誤，`data` 的形狀見 schema。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "version": {
+                              "type": "string"
+                            },
+                            "srsVersion": {
+                              "type": "string"
+                            },
+                            "srsSource": {
+                              "type": "string"
+                            },
+                            "srsImage": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "example": {
+                  "code": 0,
+                  "data": {
+                    "version": "5.22.12",
+                    "srsVersion": "7.0.215",
+                    "srsSource": "upstream",
+                    "srsImage": "ossrs/srs:7"
+                  },
+                  "server": "Oryx/v5.22.12"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    }
+  }
+}

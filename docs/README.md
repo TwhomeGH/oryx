@@ -29,6 +29,7 @@
 - [虛擬直播（vLive）前後端接口指南](vlive-frontend-api-guide.md) — vLive 後端接口一覽、`/secret` 的 update/delete 語義、前端新增/刪除平台的擴展方式。
 - [播放器頁面排版與 CSS 修改指南](player-layout-guide.md) — player.css 架構、本地預覽模式、常見排版修改範例。
 - [本地整合測試教學](local-test.md) — 在本機跑 CI 同款整合測試的完整流程、偵錯旗標與常見問題排解。
+- [API 規格（OpenAPI）](../platform/containers/www/api/openapi.json) — 8 個維運端點的請求／回應 schema 與範例；執行中的實例在 `/openapi.json`，瀏覽介面 `/players/api.html`。
 - [API 參考（自動產生）](api-reference.md) — 全部 `/terraform/v1` 端點索引：路徑、動作分支、認證方式、既有文件連結與實作位置；由程式掃描產生，CI 驗證是否過期。
 - [API 認證架構與 Status Code 說明](api-auth-architecture.md) — middleware 認證流程、HTTP status code 對應邏輯、init/login 端點的無 auth 設計。
 - [CodeQL 安全漏洞修復說明](security-fix-codeql.md) — 路徑穿越、反射型 XSS，以及移除 JSONP、固定回傳 JSON 的修正；含呼叫端遷移、部署、回歸測試與 CodeQL 待重掃狀態。

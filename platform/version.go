@@ -25,8 +25,11 @@ func buildRevision() string {
 	if rev == "" {
 		return "dev"
 	}
-	if len(rev) > 12 {
-		rev = rev[:12]
+	// Keep the whole token: a local build appends "-dirty-<timestamp>" so each rebuild changes the
+	// asset URLs. Capping at 64 still truncates nothing in practice (40-char sha + suffix), while a
+	// shorter cap would silently cut the suffix off and make every dirty build look identical.
+	if len(rev) > 64 {
+		rev = rev[:64]
 	}
 	return rev
 }

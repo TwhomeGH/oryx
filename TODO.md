@@ -81,6 +81,7 @@
 - [x] PowerShell 說明文件檢查 — `scripts/tools/check-ps1-docs.ps1`，PR 時執行
 - [x] CI 失敗分類標註 — Go／整合測試失敗會輸出 `::error` 註解與 Job Summary
 - [x] API 參考產生器 — `scripts/tools/gen-api-reference.py` 掃描 handler 註冊點，產生 `docs/api-reference.md`（148 端點：動作、認證、既有文件連結、實作位置）；PR CI 以 `--check` 驗證是否過期
+- [x] OpenAPI 規格與瀏覽頁 — `scripts/tools/gen-openapi.py` 以真實回應推導 8 個維運端點的 schema（forward／streams／record／disk／GPU／SRS 健康／版本），輸出 `platform/containers/www/api/openapi.json`，執行中實例在 `/openapi.json`；`/players/api.html` 提供搜尋、欄位表、範例與 curl；CI 驗證規格與程式一致
 
 ---
 

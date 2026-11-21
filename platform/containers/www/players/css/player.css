@@ -89,6 +89,15 @@ a:hover { color: var(--accent-hover); }
 .navbar-nav a:hover { color: var(--text-primary); background: var(--bg-hover); }
 .navbar-nav a.active { color: var(--accent); background: var(--accent-glow); }
 
+/* Adding a nav entry must not wrap the labels into two lines on a laptop-width window. */
+.navbar-nav a { white-space: nowrap; }
+.navbar-nav { flex-shrink: 0; }
+@media (max-width: 900px) {
+    .navbar-inner { gap: 12px; }
+    .navbar-nav a { padding: 8px 10px; font-size: 13px; }
+    .nav-back { padding: 6px 10px; font-size: 12px; }
+}
+
 
 /* Container */
 .container {

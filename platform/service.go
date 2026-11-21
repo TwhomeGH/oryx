@@ -407,6 +407,7 @@ func handleHTTPService(ctx context.Context, handler *http.ServeMux) error {
 	}
 
 	platformFileServer := http.FileServer(http.Dir(path.Join(conf.Pwd, "containers/www")))
+	apiFileServer := http.FileServer(http.Dir(path.Join(conf.Pwd, "containers/www/api")))
 	wellKnownFileServer := http.FileServer(http.Dir(path.Join(conf.Pwd, "containers/data")))
 	hlsFileServer := http.FileServer(http.Dir(path.Join(conf.Pwd, "containers/objs/nginx/html")))
 
@@ -432,6 +433,17 @@ func handleHTTPService(ctx context.Context, handler *http.ServeMux) error {
 			http.Redirect(w, r, "/mgmt", http.StatusFound)
 			return
 		}
+		// The API spec is generated (scripts/tools/gen-openapi.py) and served as-is for the reference
+		// page; no long cache, because a stale spec would document endpoints that changed.
+		//
+		// Exact path, deliberately not "/api/": that prefix belongs to the SRS HTTP API proxy the
+		// console depends on.
+		if r.URL.Path == "/openapi.json" {
+			w.Header().Set("Cache-Control", "no-cache, max-age=0")
+			apiFileServer.ServeHTTP(w, r)
+			return
+		}
+
 		if strings.HasPrefix(r.URL.Path, "/players/") || strings.HasPrefix(r.URL.Path, "/tools/") {
 			if r.URL.Path != "/tools/player.html" && r.URL.Path != "/tools/xgplayer.html" {
 				// HTML revalidates and everything else keeps the long cache: pages carry the asset URLs,

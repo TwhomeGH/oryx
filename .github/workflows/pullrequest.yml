@@ -539,3 +539,6 @@ jobs:
       - name: Verify docs/api-reference.md is up to date
         shell: bash
         run: python3 scripts/tools/gen-api-reference.py --check
+      - name: Verify the OpenAPI spec matches the code
+        shell: bash
+        run: python3 scripts/tools/gen-openapi.py --check
