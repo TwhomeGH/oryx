@@ -12,7 +12,7 @@
 需要更細的分類時，在標題前加括號註記：
 
 | 註記 | 意義 |
-|---|---|
+| --- | --- |
 | （進行中） | 部分完成，仍有明確缺口 |
 | （凍結） | 存在但不投入，只修「影響建置或共用模組」的問題 |
 | （已知限制） | 目前不改動，原因寫在該項說明 |
@@ -109,7 +109,7 @@
 ### 最近（v5.22.x）
 
 | 版本 | 內容 |
-|---|---|
+| --- | --- |
 | unreleased | `/players`、`/tools` 的 HTML 改為 `no-cache`；導覽列推流診斷連結加快取破壞參數（`ed0ec7b`） |
 | unreleased | 推流診斷：GOP 分布統計 p50/p90/p99 + 分桶（`10e7393`） |
 | unreleased | 推流診斷：連線摘要列、畫面落後、時鐘漂移 ppm（`c4da62f`） |
@@ -123,7 +123,7 @@
 ### 更早
 
 | 主題 | 內容 |
-|---|---|
+| --- | --- |
 | 轉播架構 | 節目源（program bus）+ slate/hold 備援；下游只讀節目源，來源中斷不影響已建立連線 |
 | 轉碼 | GPU 編碼器選擇（NVENC → AMF → QSV → libx264）、CFR 正規化、GOP 依 keyframeSeconds × fps、音訊沿用來源碼率／取樣率 |
 | 測試工具 | `forward-quick-test.ps1`、`forward-latency.ps1`、`forward-quality-compare.ps1`、`forward-drift.ps1`、`gpu-who.ps1` |
@@ -135,7 +135,7 @@
 ## 已知限制（暫不改動）
 
 | 限制 | 原因 |
-|---|---|
+| --- | --- |
 | SRS 原生 forward 無法改寫 app／stream key | 因此必須保留 Go + FFmpeg 轉推 |
 | 同一個 stream 只能有一個發布者 | 換手必然短暫中斷，無法零空窗切換到 slate |
 | 孤兒流清理器停用 | SRS `/api/v1/streams` 回報不完整，掃描會誤刪活躍流；改為啟動時清空 + 刪除目標時踢除 |

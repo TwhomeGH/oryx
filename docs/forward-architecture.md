@@ -179,7 +179,7 @@ ffmpeg
 ## 6. 全專案 ffmpeg 呼叫點速查
 
 | 檔案 | 位置 | 用途 | 轉碼 |
-| --- | --- | --- |---|
+| --- | --- | --- | --- |
 | `forward.go` | :634 | 轉推 | ✗ copy |
 | `trancode.go` | :485 | 轉碼 | ✓ libx264/aac |
 | `virtual-live-stream.go` | :1204 | 虛擬直播 | ✓ |

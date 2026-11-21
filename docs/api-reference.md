@@ -7,7 +7,7 @@
 共 **148** 個 `/terraform/v1` 端點。認證欄位：
 
 | 值 | 意義 |
-|---|---|
+| --- | --- |
 | `body token` | 請求 body 需帶 `token`（`middlewareAuthTokenInBody`） |
 | `query token` | 以查詢參數帶 token（`middlewareAuthTokenInURL`） |
 | `—` | 沒有掛中介層；可能是 SRS hook（由 SRS 直接呼叫）或刻意公開 |
@@ -19,7 +19,7 @@
 ## ai（21）
 
 | 端點 | 動作 | 認證 | 說明 | 文件 | 實作 |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | `/terraform/v1/ai/ocr/apply` | — | body token | — | — | `OCRWorker.Handle`（ocr.go） |
 | `/terraform/v1/ai/ocr/callback-queue` | — | body token | — | — | `OCRWorker.Handle`（ocr.go） |
 | `/terraform/v1/ai/ocr/check` | — | body token | — | — | `OCRWorker.Handle`（ocr.go） |
@@ -45,7 +45,7 @@
 ## ai-talk（14）
 
 | 端點 | 動作 | 認證 | 說明 | 文件 | 實作 |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | `/terraform/v1/ai-talk/badword/query` | — | body token | — | `redis-architecture.md` | `handleAITalkService`（ai-talk.go） |
 | `/terraform/v1/ai-talk/badword/update` | — | body token | — | — | `handleAITalkService`（ai-talk.go） |
 | `/terraform/v1/ai-talk/stage/conversation` | — | — | — | — | `handleAITalkService`（ai-talk.go） |
@@ -64,13 +64,13 @@
 ## debug（1）
 
 | 端點 | 動作 | 認證 | 說明 | 文件 | 實作 |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | `/terraform/v1/debug/goroutines` | — | — | — | `security-fix-codeql.md` | `handleDebuggingGoroutines`（service.go） |
 
 ## dubbing（13）
 
 | 端點 | 動作 | 認證 | 說明 | 文件 | 實作 |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | `/terraform/v1/dubbing/create` | — | body token | — | — | `handleDubbingService`（dubbing.go） |
 | `/terraform/v1/dubbing/export` | — | body token | — | — | `handleDubbingService`（dubbing.go） |
 | `/terraform/v1/dubbing/list` | — | body token | — | — | `handleDubbingService`（dubbing.go） |
@@ -88,7 +88,7 @@
 ## ffmpeg（20）
 
 | 端點 | 動作 | 認證 | 說明 | 文件 | 實作 |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | `/terraform/v1/ffmpeg/camera/secret` | update | body token | — | — | `CameraWorker.Handle`（camera-live-stream.go） |
 | `/terraform/v1/ffmpeg/camera/source` | update | body token | — | — | `CameraWorker.Handle`（camera-live-stream.go） |
 | `/terraform/v1/ffmpeg/camera/stream-url` | update | body token | — | — | `CameraWorker.Handle`（camera-live-stream.go） |
@@ -113,7 +113,7 @@
 ## hooks（23）
 
 | 端點 | 動作 | 認證 | 說明 | 文件 | 實作 |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | `/terraform/v1/hooks/dvr/apply` | — | — | — | — | `DvrWorker.Handle`（dvr-tencent-cos.go） |
 | `/terraform/v1/hooks/dvr/files` | — | — | — | — | `DvrWorker.Handle`（dvr-tencent-cos.go） |
 | `/terraform/v1/hooks/dvr/hls/` | — | — | — | — | `DvrWorker.Handle`（dvr-tencent-cos.go） |
@@ -126,12 +126,12 @@
 | `/terraform/v1/hooks/record/post-processing` | — | — | — | — | `RecordWorker.Handle`（dvr-local-disk.go） |
 | `/terraform/v1/hooks/record/query` | — | — | — | — | `RecordWorker.Handle`（dvr-local-disk.go） |
 | `/terraform/v1/hooks/record/remove` | — | — | — | — | `RecordWorker.Handle`（dvr-local-disk.go） |
-| `/terraform/v1/hooks/srs/hls` | — | — | TODO: FIXME: Fixed token. See https://github.com/ossrs/srs/wiki/v4_EN_HTTPCallback | — | `handleOnHls`（srs-hooks.go） |
+| `/terraform/v1/hooks/srs/hls` | — | — | TODO: FIXME: Fixed token. See `https://github.com/ossrs/srs/wiki/v4_EN_HTTPCallback` | — | `handleOnHls`（srs-hooks.go） |
 | `/terraform/v1/hooks/srs/secret` | on_play | body token | — | — | `handleHooksService`（srs-hooks.go） |
 | `/terraform/v1/hooks/srs/secret/disable` | on_play | body token | — | — | `handleHooksService`（srs-hooks.go） |
 | `/terraform/v1/hooks/srs/secret/query` | on_play | body token | — | — | `handleHooksService`（srs-hooks.go） |
 | `/terraform/v1/hooks/srs/secret/update` | on_play | body token | — | — | `handleHooksService`（srs-hooks.go） |
-| `/terraform/v1/hooks/srs/verify` | on_play | — | See https://ossrs.io/lts/en-us/docs/v5/doc/http-callback | — | `handleHooksService`（srs-hooks.go） |
+| `/terraform/v1/hooks/srs/verify` | on_play | — | See `https://ossrs.io/lts/en-us/docs/v5/doc/http-callback` | — | `handleHooksService`（srs-hooks.go） |
 | `/terraform/v1/hooks/versions` | on_play | — | — | — | `handleHooksService`（srs-hooks.go） |
 | `/terraform/v1/hooks/vod/apply` | — | — | — | — | `VodWorker.Handle`（dvr-tencent-vod.go） |
 | `/terraform/v1/hooks/vod/files` | — | — | — | — | `VodWorker.Handle`（dvr-tencent-vod.go） |
@@ -141,13 +141,13 @@
 ## host（1）
 
 | 端點 | 動作 | 認證 | 說明 | 文件 | 實作 |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | `/terraform/v1/host/versions` | — | — | — | — | `handleHostVersions`（service.go） |
 
 ## live（5）
 
 | 端點 | 動作 | 認證 | 說明 | 文件 | 實作 |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | `/terraform/v1/live/room/create` | — | body token | — | — | `handleLiveRoomService`（live-room.go） |
 | `/terraform/v1/live/room/list` | — | body token | — | — | `handleLiveRoomService`（live-room.go） |
 | `/terraform/v1/live/room/query` | — | body token | — | — | `handleLiveRoomService`（live-room.go） |
@@ -157,7 +157,7 @@
 ## mgmt（47）
 
 | 端點 | 動作 | 認證 | 說明 | 文件 | 實作 |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | `/terraform/v1/mgmt/auto-self-signed-certificate` | — | body token | — | — | `handleMgmtAutoSelfSignedCertificate`（service.go） |
 | `/terraform/v1/mgmt/beian/query` | — | — | Note that this API is not verified by token | — | `handleMgmtBeianQuery`（service.go） |
 | `/terraform/v1/mgmt/beian/update` | — | body token | — | — | `handleMgmtBeianUpdate`（service.go） |
@@ -209,14 +209,14 @@
 ## releases（1）
 
 | 端點 | 動作 | 認證 | 說明 | 文件 | 實作 |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | `/terraform/v1/releases` | — | ? | For version management. | — | `handleHTTPService`（service.go） |
 
 ## tencent（2）
 
 | 端點 | 動作 | 認證 | 說明 | 文件 | 實作 |
-|---|---|---|---|---|---|
-| `/terraform/v1/tencent/cam/secret` | on_play | body token | See https://console.cloud.tencent.com/cam | — | `handleHooksService`（srs-hooks.go） |
+| --- | --- | --- | --- | --- | --- |
+| `/terraform/v1/tencent/cam/secret` | on_play | body token | See `https://console.cloud.tencent.com/cam` | — | `handleHooksService`（srs-hooks.go） |
 | `/terraform/v1/tencent/versions` | on_play | — | — | — | `handleHooksService`（srs-hooks.go） |
 
 ---

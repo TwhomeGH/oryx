@@ -78,15 +78,18 @@ reconnect 參數：`-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1
 ## 4. 落地狀態
 
 ### P1 ✅
+
 常駐 relay（HTTP-FLV + reconnect）、`ForwardTask` 改讀 program、`__forward_` hook 隱藏、
 fanout 心跳放寬、UI fallback 標記。
 
 ### P2 ✅
+
 fanout 改讀 HTTP-FLV+reconnect（使 program 可切換 publisher 而下游不斷）、`waitStreamReady`、
 自我輸出 guard、`RestartCount` 重置、狀態 API 暴露
 `programMode/programFailover/fallback/programSwitches`。
 
 ### P3 ✅
+
 `failover=slate` 可選備用畫面（publisher 切換式，零轉碼）。
 
 ## 5. 驗收（如何證明真的不斷線）
@@ -123,6 +126,7 @@ SRS:8080 也一樣。因此「靠 relay 的 HTTP-FLV 重連撐住 program」無�
 不會自動讀到換 publisher 後的新內容（曾造成恢復後永久凍結）。
 
 修正：
+
 - `runHold`：來源恢復（sourceActive false→true）時**重啟 relay**，讓 program 乾淨地重新發布。
 - `doForward`：偵測到 **program 換 publisher**（`programSwitches` 或 **`programGeneration`**
   變動）時**重啟 fanout**，以全新連線讀到恢復後的 program。
@@ -143,7 +147,7 @@ SRS:8080 也一樣。因此「靠 relay 的 HTTP-FLV 重連撐住 program」無�
 ### 保證
 
 | 保證 | 機制 |
-|---|---|
+| --- | --- |
 | 下游只讀一條穩定的「節目源」 | 各目標 fanout 全部讀 `__forward_<app>_<stream>`，不再各自綁來源 |
 | 來源短暫消失時下游**不掉線** | relay 用 HTTP-FLV `-reconnect` 撐住，維持 program 的發布者身分 |
 | 只有一條連線受來源影響（不是 N 條） | 來源中斷只影響 relay 這一段 |
@@ -151,7 +155,7 @@ SRS:8080 也一樣。因此「靠 relay 的 HTTP-FLV 重連撐住 program」無�
 ### 不保證
 
 | 情境 | 實際行為 |
-|---|---|
+| --- | --- |
 | 來源中斷（`failover=hold`，預設） | 下游**凍結最後一格**：連線還在，但沒有新畫面 |
 | 來源中斷（`failover=slate`） | 時鐘畫面持續輸出，但整條管線持續編碼（NVENC） |
 | **來源缺席超過發布逾時** | 節目源讀不到輸入 → 沒有資料可送 → 仍會被判定死亡；`hold` 只保證**短於逾時**的中斷。SRS `publish.normal_timeout` 已放寬到 15 秒，且節目源停滯 10 秒會主動重建（事件 `program-stall`） |
@@ -161,7 +165,7 @@ SRS:8080 也一樣。因此「靠 relay 的 HTTP-FLV 重連撐住 program」無�
 ### 成本（實測，copy 模式）
 
 | 項目 | 數值 |
-|---|---|
+| --- | --- |
 | program 程序 CPU | 約 0.4% |
 | program 程序記憶體 | 約 43 MB |
 | 轉碼模式（normalize／slate） | 使用 NVENC，約 20–40% GPU |
@@ -185,7 +189,7 @@ SRS:8080 也一樣。因此「靠 relay 的 HTTP-FLV 重連撐住 program」無�
 `normalizeMode`（設定 → 轉播備援 → 共享節目源時間軸）：
 
 | 模式 | 行為 | 適用 |
-|---|---|---|
+| --- | --- | --- |
 | `auto`（預設） | CFR 來源 copy；VFR 來源**保留原節奏**（只修時間戳） | 一般情況 |
 | `passthrough` | 明確保留來源節奏 | 需要原始 20/40/60 節奏 |
 | `cfr` | 強制固定幀率（插入重複幀） | 平台不接受可變幀率 |
@@ -203,7 +207,7 @@ CFR 是**不可逆**的：重複幀插入後，原始 VFR 時間軸無法在下�
 
 每次轉播都會把**來源封包的原始 PTS/DTS** 寫成壓縮檔，即使節目源走 CFR 轉碼也保留：
 
-```
+```text
 /data/forward-timing/<platform>/<YYYYMMDD-HHMMSS>/
   ├── packets.csv.gz   # stream_index,pts_time,dts_time,duration_time,flags
   └── meta.json        # 起訖時間、行數、大小、來源 app/stream
@@ -218,4 +222,3 @@ CFR 是**不可逆**的：重複幀插入後，原始 VFR 時間軸無法在下�
 
 > 這份紀錄是「來源」的時間軸，不是送出去的時間軸；`auto`/`passthrough` 下兩者相同，
 > `cfr` 下可据此比對「原始節奏 vs 固定格線」的差異。
-
